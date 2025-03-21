@@ -41,17 +41,28 @@ export const AIStatusBadge = () => {
         );
 
         const data = await response.json();
+        console.log("Respuesta de verificación de Gemini:", data);
 
         if (data.error) {
           setStatus("error");
           setMessage(`Error: ${data.error.message || "Error de conexión"}`);
-        } else {
+        } else if (
+          data.candidates && 
+          data.candidates[0] && 
+          data.candidates[0].content && 
+          data.candidates[0].content.parts && 
+          data.candidates[0].content.parts[0].text.toLowerCase().includes("conectado")
+        ) {
           setStatus("connected");
           setMessage("Gemini conectado correctamente");
+        } else {
+          setStatus("error");
+          setMessage("Respuesta inesperada de Gemini");
         }
-      } catch (error) {
+      } catch (error: any) {
+        console.error("Error al verificar conexión con Gemini:", error);
         setStatus("error");
-        setMessage("Error al conectar con Gemini API");
+        setMessage(`Error al conectar con Gemini API: ${error.message}`);
       }
     };
 

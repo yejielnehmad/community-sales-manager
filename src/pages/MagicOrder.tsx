@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { AIStatusBadge } from "@/components/AIStatusBadge";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -17,7 +18,7 @@ const MagicOrder = () => {
   const [analysisResult, setAnalysisResult] = useState<MessageAnalysis | null>(null);
   const { toast } = useToast();
 
-  // Función real para analizar el mensaje utilizando la API de Google Gemini
+  // Función para analizar el mensaje utilizando la API de Google Gemini
   const analyzeMessage = async () => {
     if (!message.trim()) {
       toast({
@@ -63,7 +64,7 @@ const MagicOrder = () => {
       }
       `;
 
-      // Llamada a la API de Google Gemini
+      // Llamada a la API de Google Gemini con el modelo correcto
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
         {
@@ -199,9 +200,14 @@ const MagicOrder = () => {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Procesador de Mensajes</h1>
-          <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Procesador de Mensajes</h1>
+            <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
+          </div>
+          <div>
+            <AIStatusBadge />
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -209,7 +215,7 @@ const MagicOrder = () => {
             <CardHeader>
               <CardTitle>Nuevo Mensaje</CardTitle>
               <CardDescription>
-                Ingresa el mensaje del cliente para analizarlo
+                Ingresa el mensaje del cliente para analizarlo con IA
               </CardDescription>
             </CardHeader>
             <CardContent>
