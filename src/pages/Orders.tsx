@@ -17,6 +17,18 @@ import { Order } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
+interface OrderFromDB {
+  id: string;
+  client_id: string;
+  date: string | null;
+  status: string;
+  total: number;
+  amount_paid: number;
+  balance: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [clientMap, setClientMap] = useState<{ [key: string]: { name: string } }>({});
@@ -33,10 +45,8 @@ const Orders = () => {
           throw ordersError;
         }
 
+        // Fetch client names for each order
         if (ordersData) {
-          setOrders(ordersData);
-
-          // Fetch client names for each order
           const clientIds = [...new Set(ordersData.map(order => order.client_id))];
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
@@ -53,6 +63,21 @@ const Orders = () => {
               clientMap[client.id] = { name: client.name };
             });
             setClientMap(clientMap);
+            
+            // Transformar los datos al formato requerido por la interfaz Order
+            const transformedOrders: Order[] = ordersData.map((order: OrderFromDB) => ({
+              id: order.id,
+              clientId: order.client_id,
+              clientName: clientMap[order.client_id]?.name || "Cliente desconocido",
+              date: order.date || "",
+              status: order.status as 'pending' | 'completed' | 'cancelled',
+              items: [], // No tenemos los items en esta consulta
+              total: order.total,
+              amountPaid: order.amount_paid,
+              balance: order.balance
+            }));
+            
+            setOrders(transformedOrders);
           }
         }
       } catch (error: any) {
@@ -70,11 +95,11 @@ const Orders = () => {
   const tableData = orders.map(order => {
     return {
       id: order.id,
-      client_name: clientMap[order.client_id]?.name || "Cliente desconocido",
+      client_name: clientMap[order.clientId]?.name || "Cliente desconocido",
       date: order.date || "",
       status: order.status || "Pendiente",
       total: String(order.total || "0"),
-      amount_paid: String(order.amount_paid || "0"),
+      amount_paid: String(order.amountPaid || "0"),
       balance: String(order.balance || "0")
     };
   });

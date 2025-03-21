@@ -51,7 +51,6 @@ const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Agrupar variantes por producto
   const productVariantsMap: Record<string, ProductVariantFromDB[]> = {};
   productVariants.forEach(variant => {
     if (!productVariantsMap[variant.product_id]) {
@@ -67,7 +66,6 @@ const Products = () => {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      // Obtener productos
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
@@ -75,7 +73,6 @@ const Products = () => {
 
       if (productsError) throw productsError;
       
-      // Obtener variantes
       const { data: variantsData, error: variantsError } = await supabase
         .from('product_variants')
         .select('*')
@@ -295,15 +292,15 @@ const VariantsManager = ({
         return;
       }
 
-      const newVariants = variants.map(v => ({
+      const newVariant = {
         product_id: productId,
-        name: v.name,
-        price: parseFloat(v.price)
-      }));
+        name: formVariant.name,
+        price: parseFloat(formVariant.price)
+      };
 
       const { data: variantsData, error: variantsError } = await supabase
         .from('product_variants')
-        .insert(newVariants);
+        .insert([newVariant]);
 
       if (variantsError) throw variantsError;
 
@@ -522,7 +519,6 @@ const BulkImportForm = ({ onImport }: { onImport: (products: any[]) => void }) =
 
   const handleImport = () => {
     try {
-      // Intentar parsear el JSON
       const products = JSON.parse(importText);
       
       if (!Array.isArray(products)) {
