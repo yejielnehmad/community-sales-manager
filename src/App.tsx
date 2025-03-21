@@ -9,6 +9,7 @@ import Products from "./pages/Products";
 import Orders from "./pages/Orders";
 import MagicOrder from "./pages/MagicOrder";
 import NotFound from "./pages/NotFound";
+import { ChatAssistant } from "./components/ChatAssistant";
 
 const App = () => (
   <TooltipProvider>
@@ -24,6 +25,7 @@ const App = () => (
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <ChatAssistant />
     </BrowserRouter>
   </TooltipProvider>
 );

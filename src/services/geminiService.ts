@@ -156,3 +156,46 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
     throw new GeminiError(`Error al analizar el mensaje: ${(error as Error).message}`);
   }
 };
+
+/**
+ * Función para interactuar con el asistente virtual
+ */
+export const chatWithAssistant = async (
+  message: string, 
+  appContext: {
+    clients?: any[];
+    orders?: any[];
+    products?: any[];
+  }
+): Promise<string> => {
+  // Preparamos un contexto con datos de la aplicación para el asistente
+  const contextStr = JSON.stringify(appContext, null, 2);
+  
+  // Creamos el prompt para el modelo
+  const prompt = `
+  Eres un asistente virtual integrado en una aplicación de gestión de ventas llamada VentasCom.
+  Tu objetivo es ayudar al usuario respondiendo preguntas sobre los datos de la aplicación.
+  
+  Contexto actual de la aplicación (datos recientes):
+  ${contextStr}
+  
+  Pregunta del usuario: "${message}"
+  
+  Responde de manera clara, concisa y útil. Si la pregunta está relacionada con datos que no tienes 
+  disponibles en el contexto, indícalo amablemente y sugiere qué información podría consultar.
+  Si la pregunta no tiene relación con la aplicación, puedes responder de manera general pero
+  siempre orientada a ayudar en el contexto de una aplicación de gestión de ventas.
+  `;
+
+  try {
+    // Llamamos a la API de Gemini
+    const response = await callGeminiAPI(prompt);
+    return response;
+  } catch (error) {
+    console.error("Error en chatWithAssistant:", error);
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    throw new GeminiError(`Error al procesar tu consulta: ${(error as Error).message}`);
+  }
+};
