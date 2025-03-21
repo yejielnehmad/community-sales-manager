@@ -348,9 +348,9 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
           client_id: data.clientId,
           date: new Date().toISOString(),
           status: 'pending',
-          total: parseFloat(total.toString()),
-          amount_paid: parseFloat(amountPaid.toString()),
-          balance: parseFloat(balance.toString())
+          total: total,
+          amount_paid: amountPaid,
+          balance: balance
         })
         .select()
         .single();
@@ -362,8 +362,8 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
         product_id: item.productId,
         variant_id: item.variantId,
         quantity: item.quantity,
-        price: parseFloat(item.price.toString()),
-        total: parseFloat(item.total.toString())
+        price: item.price,
+        total: item.total
       }));
       
       const { error: itemsError } = await supabase

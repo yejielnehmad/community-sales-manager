@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu
 } from "lucide-react";
+import { AIStatusBadge } from "@/components/AIStatusBadge";
 
 interface MobileAppLayoutProps {
   children: React.ReactNode;
@@ -41,8 +42,9 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
           </SheetTrigger>
           <SheetContent side="left" className="w-[80vw] max-w-xs p-0">
             <div className="h-full flex flex-col">
-              <div className="py-4 border-b px-4">
+              <div className="py-4 border-b px-4 flex justify-between items-center">
                 <h1 className="text-xl font-bold text-primary">VentasCom</h1>
+                <AIStatusBadge />
               </div>
               <ScrollArea className="flex-1">
                 <div className="py-2">
@@ -75,7 +77,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
           {menuItems.find(item => item.path === location.pathname)?.label || "VentasCom"}
         </h1>
         
-        <div className="w-9"></div>
+        <AIStatusBadge />
       </header>
       
       {/* Contenido principal */}

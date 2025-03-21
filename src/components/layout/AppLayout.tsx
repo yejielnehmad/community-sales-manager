@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileAppLayout } from "./MobileAppLayout";
+import { AIStatusBadge } from "@/components/AIStatusBadge";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -24,8 +25,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar>
-          <SidebarHeader className="flex items-center justify-center py-4">
+          <SidebarHeader className="flex items-center justify-between py-4 px-4">
             <h1 className="text-xl font-bold text-primary">VentasCom</h1>
+            <AIStatusBadge />
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
