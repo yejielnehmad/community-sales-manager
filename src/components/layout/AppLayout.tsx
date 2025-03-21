@@ -3,6 +3,8 @@ import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter,
 import { Home, Users, ShoppingBag, ClipboardList, MessageSquare, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileAppLayout } from "./MobileAppLayout";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -10,7 +12,14 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const isMobile = useIsMobile();
   
+  // Si es móvil, renderizamos el layout móvil
+  if (isMobile) {
+    return <MobileAppLayout>{children}</MobileAppLayout>;
+  }
+  
+  // Layout de escritorio con sidebar
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
