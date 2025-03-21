@@ -1,21 +1,23 @@
 
+import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
-import { MessageAnalysis } from "@/types";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { Separator } from "@/components/ui/separator";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
+import { Loader2 } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
+import { OrderCard } from "@/components/OrderCard";
+import { PasteButton } from "@/components/PasteButton";
+import { OrderCard as OrderCardType, MessageAnalysis, MessageItem } from "@/types";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<MessageAnalysis | null>(null);
+  const [orders, setOrders] = useState<OrderCardType[]>([]);
   const { toast } = useToast();
 
   // Función para analizar el mensaje utilizando la API de Google Gemini
@@ -30,16 +32,27 @@ const MagicOrder = () => {
     }
 
     setIsAnalyzing(true);
-    setAnalysisResult(null);
 
     try {
-      const result = await analyzeCustomerMessage(message);
+      const results = await analyzeCustomerMessage(message);
       
-      setAnalysisResult(result);
+      // Convertir los resultados a formato de OrderCard
+      const newOrders = results.map(result => ({
+        client: result.client,
+        items: result.items || [],
+        isPaid: false,
+        status: 'pending' as const
+      }));
+      
+      setOrders(prevOrders => [...prevOrders, ...newOrders]);
+      
       toast({
         title: "Análisis completado",
-        description: `Se identificaron ${result.items.length} productos para ${result.client.name}`,
+        description: `Se identificaron ${newOrders.length} pedidos`,
       });
+      
+      // Limpiar el mensaje después de procesarlo
+      setMessage("");
     } catch (error) {
       console.error("Error al analizar el mensaje:", error);
       
@@ -72,46 +85,56 @@ const MagicOrder = () => {
     }
   };
 
-  const createOrder = async () => {
-    if (!analysisResult || !analysisResult.client || !analysisResult.items.length) {
-      toast({
-        title: "Error",
-        description: "No hay suficiente información para crear el pedido",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleUpdateOrder = (index: number, updatedOrder: OrderCardType) => {
+    const updatedOrders = [...orders];
+    updatedOrders[index] = updatedOrder;
+    setOrders(updatedOrders);
+  };
 
+  const handlePaste = (text: string) => {
+    setMessage(text);
+  };
+
+  const handleSaveOrder = async (orderIndex: number, order: OrderCardType) => {
     try {
-      // Buscar el cliente por nombre o crearlo si no existe
-      const { data: existingClients, error: clientSearchError } = await supabase
-        .from('clients')
-        .select('id, name')
-        .ilike('name', `%${analysisResult.client.name}%`)
-        .limit(1);
-
-      if (clientSearchError) throw clientSearchError;
-
-      let clientId;
-      if (existingClients && existingClients.length > 0) {
-        clientId = existingClients[0].id;
-      } else {
-        // Crear nuevo cliente
-        const { data: newClient, error: createClientError } = await supabase
-          .from('clients')
-          .insert([{ name: analysisResult.client.name }])
-          .select('id')
-          .single();
-
-        if (createClientError) throw createClientError;
-        clientId = newClient.id;
+      if (!order.client.id) {
+        toast({
+          title: "Error",
+          description: "Cliente no identificado correctamente",
+          variant: "destructive",
+        });
+        return false;
       }
 
-      // Calcular un total aproximado (en un sistema real, buscaríamos precios reales)
-      const total = analysisResult.items.reduce((sum, item) => sum + (item.quantity * 100), 0); // Precio ficticio de 100 por unidad
+      // Buscar el cliente por id
+      const clientId = order.client.id;
       
-      // Crear el pedido
-      const { data: order, error: orderError } = await supabase
+      // Calcular total y verificar que todos los items tengan ID
+      let hasInvalidItems = false;
+      let total = 0;
+      
+      for (const item of order.items) {
+        if (!item.product.id) {
+          hasInvalidItems = true;
+          break;
+        }
+        
+        // Usamos un precio estimado de 100 como fallback
+        const estimatedPrice = 100;
+        total += item.quantity * estimatedPrice;
+      }
+      
+      if (hasInvalidItems) {
+        toast({
+          title: "Error",
+          description: "Hay productos que no fueron identificados correctamente",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Crear el pedido en la base de datos
+      const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([
           {
@@ -119,28 +142,58 @@ const MagicOrder = () => {
             date: new Date().toISOString().split('T')[0],
             status: 'pending',
             total: total,
-            amount_paid: 0,
-            balance: total
+            amount_paid: order.isPaid ? total : 0,
+            balance: order.isPaid ? 0 : total
           }
         ])
         .select('id')
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        throw orderError;
+      }
+
+      // Crear los items del pedido
+      const orderItems = order.items.map(item => ({
+        order_id: newOrder.id,
+        product_id: item.product.id!,
+        variant_id: item.variant?.id || null,
+        quantity: item.quantity,
+        price: 100, // Precio estimado para simplificar
+        total: item.quantity * 100 // Total estimado
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        throw itemsError;
+      }
+
+      // Actualizar el estado del pedido en la interfaz
+      const updatedOrders = [...orders];
+      updatedOrders[orderIndex] = {
+        ...order,
+        id: newOrder.id,
+        status: 'saved'
+      };
+      setOrders(updatedOrders);
 
       toast({
-        title: "Pedido creado",
-        description: `El pedido se ha creado correctamente para ${analysisResult.client.name}`,
+        title: "Pedido guardado",
+        description: `El pedido para ${order.client.name} se ha guardado correctamente`,
       });
-      setMessage("");
-      setAnalysisResult(null);
+      
+      return true;
     } catch (error: any) {
-      console.error("Error al crear el pedido:", error);
+      console.error("Error al guardar el pedido:", error);
       toast({
         title: "Error",
-        description: error.message || "Error al crear el pedido",
+        description: error.message || "Error al guardar el pedido",
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -157,115 +210,67 @@ const MagicOrder = () => {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Nuevo Mensaje</CardTitle>
-              <CardDescription>
-                Ingresa el mensaje del cliente para analizarlo con IA
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>Nuevo Mensaje</CardTitle>
+            <CardDescription>
+              Ingresa el mensaje del cliente para analizarlo con IA
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
               <Textarea
                 placeholder="Por ejemplo: 'Hola, soy María López y quiero 2 paquetes de pañales talla 1 y 1.5 kg de queso fresco'"
                 className="min-h-32"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button 
-                onClick={handleAnalyzeMessage}
-                disabled={isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analizando...
-                  </>
-                ) : "Analizar Mensaje"}
-              </Button>
-            </CardFooter>
-          </Card>
+              <div className="flex items-center justify-end gap-2">
+                <PasteButton onPaste={handlePaste} />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end">
+            <Button 
+              onClick={handleAnalyzeMessage}
+              disabled={isAnalyzing || !message.trim()}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analizando...
+                </>
+              ) : "Analizar Mensaje"}
+            </Button>
+          </CardFooter>
+        </Card>
 
-          {analysisResult && (
-            <Tabs defaultValue="client" className="md:col-span-2">
-              <TabsList>
-                <TabsTrigger value="client">Cliente</TabsTrigger>
-                <TabsTrigger value="products">Productos</TabsTrigger>
-                <TabsTrigger value="summary">Resumen</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="client" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Cliente Identificado</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="font-medium">Nombre:</div>
-                      <div>{analysisResult.client?.name || "No identificado"}</div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="products" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Productos Identificados</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {analysisResult.items.map((item, index) => (
-                        <div key={index} className="p-3 border rounded-md">
-                          <div className="font-medium">{item.product}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Cantidad: {item.quantity} {item.variant || ""}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="summary" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumen del Pedido</CardTitle>
-                    <CardDescription>
-                      Confirma la información antes de crear el pedido
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <div className="font-medium">Cliente:</div>
-                        <div>{analysisResult.client?.name || "No identificado"}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">Productos:</div>
-                        <ul className="list-disc pl-5 mt-2 space-y-1">
-                          {analysisResult.items.map((item, index) => (
-                            <li key={index}>
-                              {item.quantity} {item.variant || ""} de {item.product}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-end">
-                    <Button onClick={createOrder}>
-                      Crear Pedido
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
+        {orders.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Pedidos Identificados</h2>
+              <Button 
+                variant="outline" 
+                onClick={() => setOrders([])}
+                disabled={orders.some(o => o.status === 'saved')}
+              >
+                Limpiar Todos
+              </Button>
+            </div>
+            <Separator />
+            
+            <div className="space-y-2">
+              {orders.map((order, index) => (
+                <OrderCard 
+                  key={index} 
+                  order={order}
+                  onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
+                  onSave={async (orderToSave) => handleSaveOrder(index, orderToSave)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

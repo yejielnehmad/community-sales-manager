@@ -1,6 +1,7 @@
 
 import { GOOGLE_API_KEY } from "@/lib/api-config";
-import { MessageAnalysis } from "@/types";
+import { MessageAnalysis, Product } from "@/types";
+import { supabase } from "@/lib/supabase";
 
 export class GeminiError extends Error {
   status?: number;
@@ -92,33 +93,130 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
 };
 
 /**
- * Función específica para analizar mensajes de clientes
+ * Función para obtener productos y clientes de la base de datos
  */
-export const analyzeCustomerMessage = async (message: string): Promise<MessageAnalysis> => {
-  // Creamos el prompt para el modelo
-  const prompt = `
-  Analiza este mensaje de un cliente y extrae la siguiente información:
-  1. Nombre del cliente
-  2. Lista de productos solicitados con cantidades y variantes si están mencionadas
+export const fetchDatabaseContext = async () => {
+  // Obtenemos productos con sus variantes
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, name, price, description');
+  
+  if (productsError) {
+    console.error("Error al obtener productos:", productsError);
+    throw new Error(`Error al obtener productos: ${productsError.message}`);
+  }
 
-  Mensaje del cliente: "${message}"
+  // Obtenemos variantes de productos
+  const { data: variants, error: variantsError } = await supabase
+    .from('product_variants')
+    .select('id, product_id, name, price');
+  
+  if (variantsError) {
+    console.error("Error al obtener variantes:", variantsError);
+    throw new Error(`Error al obtener variantes: ${variantsError.message}`);
+  }
 
-  Responde SOLAMENTE en formato JSON con esta estructura exacta (sin explicaciones adicionales):
-  {
-    "client": {
-      "name": "Nombre del cliente"
-    },
-    "items": [
+  // Organizamos las variantes por producto
+  const productsWithVariants = products.map(product => {
+    const productVariants = variants.filter(v => v.product_id === product.id);
+    return {
+      ...product,
+      variants: productVariants
+    };
+  });
+
+  // Obtenemos clientes
+  const { data: clients, error: clientsError } = await supabase
+    .from('clients')
+    .select('id, name, phone');
+  
+  if (clientsError) {
+    console.error("Error al obtener clientes:", clientsError);
+    throw new Error(`Error al obtener clientes: ${clientsError.message}`);
+  }
+
+  return {
+    products: productsWithVariants,
+    clients
+  };
+};
+
+/**
+ * Función específica para analizar mensajes de clientes con contexto de la base de datos
+ */
+export const analyzeCustomerMessage = async (message: string): Promise<MessageAnalysis[]> => {
+  try {
+    // Obtenemos datos de la BD para darle contexto al modelo
+    const dbContext = await fetchDatabaseContext();
+    
+    // Creamos el contexto para el prompt
+    const productsContext = dbContext.products.map(p => {
+      const variantsText = p.variants && p.variants.length 
+        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
+        : 'Sin variantes';
+      
+      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
+    }).join('\n');
+    
+    const clientsContext = dbContext.clients.map(c => 
+      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
+    ).join('\n');
+
+    // Creamos el prompt para el modelo
+    const prompt = `
+    Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada pedido debe tener cliente y productos.
+    Múltiples mensajes deben ser tratados como pedidos separados.
+    
+    CONTEXTO (productos y clientes existentes en la base de datos):
+    
+    PRODUCTOS:
+    ${productsContext}
+    
+    CLIENTES:
+    ${clientsContext}
+    
+    INSTRUCCIONES:
+    1. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
+    2. Identifica los productos solicitados con cantidades.
+    3. Si se menciona una variante específica, asóciala con el producto.
+    4. Si hay ambigüedad (ej. no se especifica variante pero el producto tiene variantes), marca como "duda".
+    5. Si no puedes identificar exactamente un producto o cliente, busca el más similar y propón alternativas.
+    
+    Mensaje del cliente a analizar: "${message}"
+    
+    Responde SOLAMENTE en formato JSON con esta estructura exacta:
+    [
       {
-        "product": "Nombre del producto",
-        "quantity": número,
-        "variant": "variante (si se menciona, de lo contrario omitir)"
+        "client": {
+          "id": "ID del cliente si lo encontraste exactamente",
+          "name": "Nombre del cliente",
+          "matchConfidence": "alto|medio|bajo"
+        },
+        "items": [
+          {
+            "product": {
+              "id": "ID del producto si lo encontraste exactamente",
+              "name": "Nombre del producto"
+            },
+            "quantity": número,
+            "variant": {
+              "id": "ID de la variante si la encontraste exactamente",
+              "name": "Nombre de la variante"
+            },
+            "status": "confirmado|duda",
+            "alternatives": [
+              {
+                "id": "ID de la alternativa",
+                "name": "Nombre de la alternativa"
+              }
+            ],
+            "notes": "Notas o dudas sobre este ítem"
+          }
+        ]
       }
     ]
-  }
-  `;
+    `;
 
-  try {
     // Obtenemos la respuesta de la API
     const responseText = await callGeminiAPI(prompt);
     
@@ -132,12 +230,12 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
     }
 
     try {
-      const parsedResult = JSON.parse(jsonText) as MessageAnalysis;
-      console.log("Datos analizados:", parsedResult);
+      const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
+      console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
       
       // Validación básica del resultado
-      if (!parsedResult.client || !parsedResult.items || !Array.isArray(parsedResult.items)) {
-        throw new GeminiError("El formato de los datos analizados no es válido", {
+      if (!Array.isArray(parsedResult)) {
+        throw new GeminiError("El formato de los datos analizados no es válido (no es un array)", {
           apiResponse: jsonText
         });
       }

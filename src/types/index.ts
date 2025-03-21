@@ -45,14 +45,46 @@ export interface Order {
   balance: number;
 }
 
+// Interfaces para análisis de mensajes
+export interface MessageProduct {
+  id?: string;
+  name: string;
+}
+
+export interface MessageVariant {
+  id?: string;
+  name: string;
+}
+
+export interface MessageAlternative {
+  id: string;
+  name: string;
+}
+
+export interface MessageItem {
+  product: MessageProduct;
+  quantity: number;
+  variant?: MessageVariant;
+  status: 'confirmado' | 'duda';
+  alternatives?: MessageAlternative[];
+  notes?: string;
+}
+
+export interface MessageClient {
+  id?: string;
+  name: string;
+  matchConfidence?: 'alto' | 'medio' | 'bajo';
+}
+
 export interface MessageAnalysis {
-  client?: {
-    id?: string;
-    name: string;
-  };
-  items: {
-    product: string;
-    quantity: number;
-    variant?: string;
-  }[];
+  client: MessageClient;
+  items: MessageItem[];
+}
+
+export interface OrderCard {
+  id?: string;
+  client: MessageClient;
+  items: MessageItem[];
+  isPaid: boolean;
+  status: 'pending' | 'saved';
 }
