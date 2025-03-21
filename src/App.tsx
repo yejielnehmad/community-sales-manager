@@ -1,7 +1,6 @@
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -12,7 +11,7 @@ import NotFound from "./pages/NotFound";
 import { ChatAssistant } from "./components/ChatAssistant";
 
 const App = () => (
-  <TooltipProvider>
+  <>
     <Toaster />
     <Sonner />
     <BrowserRouter>
@@ -27,7 +26,7 @@ const App = () => (
       </Routes>
       <ChatAssistant />
     </BrowserRouter>
-  </TooltipProvider>
+  </>
 );
 
 export default App;

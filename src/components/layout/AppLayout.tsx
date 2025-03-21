@@ -1,11 +1,12 @@
 
-import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenuButton, SidebarMenuItem, SidebarMenu, SidebarRail, SidebarInset } from "@/components/ui/sidebar";
-import { Home, Users, ShoppingBag, ClipboardList, LogOut, MessageSquarePlus } from "lucide-react";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenuButton, SidebarMenuItem, SidebarMenu, SidebarRail, SidebarInset } from "@/components/ui/sidebar";
+import { Home, Users, ShoppingBag, ClipboardList, MessageSquarePlus } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileAppLayout } from "./MobileAppLayout";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   
   // Layout de escritorio con sidebar
   return (
-    <SidebarProvider>
+    <TooltipProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar>
           <SidebarHeader className="flex items-center justify-between py-4 px-4">
@@ -73,18 +74,12 @@ export function AppLayout({ children }: AppLayoutProps) {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
-          <SidebarFooter className="p-4">
-            <Button variant="outline" className="w-full flex items-center gap-2">
-              <LogOut className="h-4 w-4" />
-              <span>Cerrar sesión</span>
-            </Button>
-          </SidebarFooter>
         </Sidebar>
         <SidebarRail />
         <SidebarInset className="p-4">
           {children}
         </SidebarInset>
       </div>
-    </SidebarProvider>
+    </TooltipProvider>
   );
 }
