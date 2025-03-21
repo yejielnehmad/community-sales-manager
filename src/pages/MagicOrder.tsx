@@ -39,6 +39,7 @@ const MagicOrder = () => {
     }
 
     setIsAnalyzing(true);
+    setAnalysisResult(null);
 
     try {
       // Prompt para el modelo de IA que explica lo que debe extraer
@@ -64,9 +65,11 @@ const MagicOrder = () => {
       }
       `;
 
+      console.log("Enviando prompt a Gemini:", prompt);
+
       // Llamada a la API de Google Gemini con el modelo correcto
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
         {
           method: "POST",
           headers: {
@@ -88,16 +91,22 @@ const MagicOrder = () => {
       );
 
       if (!response.ok) {
-        throw new Error(`Error en la API de Google Gemini: ${response.status} ${response.statusText}`);
+        throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       console.log("Respuesta de Gemini:", data);
 
+      // Verificar si hay errores en la respuesta
+      if (data.error) {
+        throw new Error(`Error de la API de Gemini: ${data.error.message || "Error desconocido"}`);
+      }
+
       // Extraer el texto generado del formato de respuesta de Gemini
       let jsonText = "";
       if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
         jsonText = data.candidates[0].content.parts[0].text;
+        console.log("Texto de respuesta:", jsonText);
       } else {
         throw new Error("Formato de respuesta inesperado de la API de Gemini");
       }
@@ -111,8 +120,25 @@ const MagicOrder = () => {
         jsonText = jsonText.replace(/```\n/, "").replace(/\n```$/, "");
       }
 
-      const parsedResult = JSON.parse(jsonText) as MessageAnalysis;
-      setAnalysisResult(parsedResult);
+      try {
+        const parsedResult = JSON.parse(jsonText) as MessageAnalysis;
+        console.log("Datos analizados:", parsedResult);
+        
+        // Validación básica del resultado
+        if (!parsedResult.client || !parsedResult.items || !Array.isArray(parsedResult.items)) {
+          throw new Error("El formato de los datos analizados no es válido");
+        }
+        
+        setAnalysisResult(parsedResult);
+        
+        toast({
+          title: "Análisis completado",
+          description: `Se identificaron ${parsedResult.items.length} productos para ${parsedResult.client.name}`,
+        });
+      } catch (parseError: any) {
+        console.error("Error al analizar JSON:", parseError, "Texto recibido:", jsonText);
+        throw new Error(`Error al procesar la respuesta: ${parseError.message}`);
+      }
     } catch (error: any) {
       console.error("Error al analizar el mensaje:", error);
       toast({

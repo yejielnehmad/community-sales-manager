@@ -19,7 +19,7 @@ export const AIStatusBadge = () => {
 
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
           {
             method: "POST",
             headers: {
@@ -58,6 +58,7 @@ export const AIStatusBadge = () => {
         } else {
           setStatus("error");
           setMessage("Respuesta inesperada de Gemini");
+          console.log("Respuesta completa:", JSON.stringify(data, null, 2));
         }
       } catch (error: any) {
         console.error("Error al verificar conexión con Gemini:", error);
