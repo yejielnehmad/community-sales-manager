@@ -1,666 +1,580 @@
-import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Product, ProductVariant } from "@/types";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, ChevronDown, ChevronUp, ShoppingBag, Pencil, Trash, Tag, Loader2, PlusCircle, MinusCircle } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { DataTable } from "@/components/ui/data-table";
+import { ColumnDef } from "@tanstack/react-table";
+import { MoreHorizontal, Plus, Trash } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
-type ProductFormValues = {
+type Product = {
+  id: string;
   name: string;
   description: string;
   price: string;
+  variants: ProductVariant[];
 };
 
-type VariantFormValues = {
+type ProductVariant = {
+  id: string;
   name: string;
   price: string;
 };
 
+type ProductFromDB = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+};
+
+type ProductVariantFromDB = {
+  id: string;
+  product_id: string;
+  name: string;
+  price: number;
+};
+
 const Products = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [openCollapsibles, setOpenCollapsibles] = useState<{[key: string]: boolean}>({});
-  const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [openVariantDialog, setOpenVariantDialog] = useState(false);
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
-  
-  const form = useForm<ProductFormValues>({
-    defaultValues: {
-      name: "",
-      description: "",
-      price: ""
+  const [products, setProducts] = useState<ProductFromDB[]>([]);
+  const [productVariants, setProductVariants] = useState<ProductVariantFromDB[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("list");
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Agrupar variantes por producto
+  const productVariantsMap: Record<string, ProductVariantFromDB[]> = {};
+  productVariants.forEach(variant => {
+    if (!productVariantsMap[variant.product_id]) {
+      productVariantsMap[variant.product_id] = [];
     }
+    productVariantsMap[variant.product_id].push(variant);
   });
-  
-  const editForm = useForm<ProductFormValues>({
-    defaultValues: {
-      name: "",
-      description: "",
-      price: ""
-    }
-  });
-  
-  const variantForm = useForm<VariantFormValues>({
-    defaultValues: {
-      name: "",
-      price: ""
-    }
-  });
-  
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('name');
-      
-      if (error) throw error;
-      
-      const productsWithVariants = await Promise.all(
-        (data || []).map(async (product) => {
-          const { data: variantsData, error: variantsError } = await supabase
-            .from('product_variants')
-            .select('*')
-            .eq('product_id', product.id);
-          
-          if (variantsError) throw variantsError;
-          
-          return {
-            id: product.id,
-            name: product.name,
-            description: product.description || '',
-            price: parseFloat(product.price),
-            variants: variantsData?.map(v => ({
-              id: v.id,
-              name: v.name,
-              price: parseFloat(v.price)
-            })) || []
-          } as Product;
-        })
-      );
-      
-      setProducts(productsWithVariants);
-    } catch (error) {
-      console.error('Error al cargar productos:', error);
-      toast.error('Error al cargar los productos');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchProducts();
   }, []);
-  
-  const handleCreateProduct = async (values: ProductFormValues) => {
-    setIsSaving(true);
+
+  const fetchProducts = async () => {
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Obtener productos
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .insert([
-          { 
-            name: values.name, 
-            description: values.description,
-            price: parseFloat(values.price)
-          }
-        ])
-        .select();
+        .select('*')
+        .order('name');
+
+      if (productsError) throw productsError;
       
-      if (error) throw error;
-      
-      toast.success('Producto creado correctamente');
-      form.reset();
-      fetchProducts();
+      // Obtener variantes
+      const { data: variantsData, error: variantsError } = await supabase
+        .from('product_variants')
+        .select('*')
+        .order('name');
+
+      if (variantsError) throw variantsError;
+
+      setProducts(productsData || []);
+      setProductVariants(variantsData || []);
     } catch (error) {
-      console.error('Error al crear producto:', error);
-      toast.error('Error al crear el producto');
+      console.error('Error fetching products:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los productos",
+        variant: "destructive",
+      });
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
-  
-  const handleUpdateProduct = async (values: ProductFormValues) => {
-    if (!editingProduct) return;
+
+  const tableData = products.map(product => {
+    const variants = productVariantsMap[product.id] || [];
     
-    setIsSaving(true);
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description || "",
+      price: String(product.price || "0"),
+      variants: variants.map(v => ({
+        id: v.id,
+        name: v.name,
+        price: String(v.price || "0")
+      }))
+    };
+  });
+
+  const bulkImportProducts = async (products: { name: string; description: string; price: string }[]) => {
     try {
-      const { data, error } = await supabase
+      const newProducts = products.map(p => ({
+        name: p.name,
+        description: p.description || "",
+        price: parseFloat(p.price)
+      }));
+
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .update({ 
-          name: values.name, 
-          description: values.description,
-          price: parseFloat(values.price)
-        })
-        .eq('id', editingProduct.id)
-        .select();
-      
-      if (error) throw error;
-      
-      toast.success('Producto actualizado correctamente');
-      setOpenEditDialog(false);
+        .insert(newProducts);
+
+      if (productsError) throw productsError;
+
+      toast({
+        title: "Productos importados",
+        description: `Se importaron ${products.length} productos correctamente`,
+      });
+
       fetchProducts();
+      setActiveTab("list");
     } catch (error) {
-      console.error('Error al actualizar producto:', error);
-      toast.error('Error al actualizar el producto');
-    } finally {
-      setIsSaving(false);
+      console.error('Error importing products:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron importar los productos",
+        variant: "destructive",
+      });
     }
   };
-  
-  const handleDeleteProduct = async (id: string) => {
-    if (window.confirm('¿Estás seguro de eliminar este producto?')) {
-      setIsDeleting(true);
-      try {
-        const { error } = await supabase
-          .from('products')
-          .delete()
-          .eq('id', id);
-        
-        if (error) throw error;
-        
-        toast.success('Producto eliminado correctamente');
-        fetchProducts();
-      } catch (error) {
-        console.error('Error al eliminar producto:', error);
-        toast.error('Error al eliminar el producto');
-      } finally {
-        setIsDeleting(false);
-      }
-    }
-  };
-  
-  const openEditProductDialog = (product: Product) => {
-    setEditingProduct(product);
-    editForm.setValue('name', product.name);
-    editForm.setValue('description', product.description);
-    editForm.setValue('price', product.price.toString());
-    setOpenEditDialog(true);
-  };
-  
-  const openManageVariants = (product: Product) => {
-    setEditingProduct(product);
-    setVariants(product.variants || []);
-    variantForm.reset();
-    setEditingVariant(null);
-    setOpenVariantDialog(true);
-  };
-  
-  const handleCreateVariant = async (values: VariantFormValues) => {
-    if (!editingProduct) return;
-    
-    setIsSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .insert([
-          { 
-            product_id: editingProduct.id,
-            name: values.name, 
-            price: parseFloat(values.price)
-          }
-        ])
-        .select();
-      
-      if (error) throw error;
-      
-      toast.success('Variante creada correctamente');
-      variantForm.reset();
-      
-      if (data && data[0]) {
-        const newVariant: ProductVariant = {
-          id: data[0].id,
-          name: data[0].name,
-          price: parseFloat(data[0].price)
-        };
-        
-        setVariants(prev => [...prev, newVariant]);
-      }
-      
-      fetchProducts();
-    } catch (error) {
-      console.error('Error al crear variante:', error);
-      toast.error('Error al crear la variante');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const editVariant = (variant: ProductVariant) => {
-    setEditingVariant(variant);
-    variantForm.setValue('name', variant.name);
-    variantForm.setValue('price', variant.price.toString());
-  };
-  
-  const handleUpdateVariant = async (values: VariantFormValues) => {
-    if (!editingVariant) return;
-    
-    setIsSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .update({ 
-          name: values.name, 
-          price: parseFloat(values.price)
-        })
-        .eq('id', editingVariant.id)
-        .select();
-      
-      if (error) throw error;
-      
-      toast.success('Variante actualizada correctamente');
-      
-      setVariants(prev => prev.map(v => 
-        v.id === editingVariant.id 
-          ? { ...v, name: values.name, price: parseFloat(values.price) } 
-          : v
-      ));
-      
-      fetchProducts();
-      
-      variantForm.reset();
-      setEditingVariant(null);
-    } catch (error) {
-      console.error('Error al actualizar variante:', error);
-      toast.error('Error al actualizar la variante');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const handleDeleteVariant = async (id: string) => {
-    if (window.confirm('¿Estás seguro de eliminar esta variante?')) {
-      setIsDeleting(true);
-      try {
-        const { error } = await supabase
-          .from('product_variants')
-          .delete()
-          .eq('id', id);
-        
-        if (error) throw error;
-        
-        toast.success('Variante eliminada correctamente');
-        
-        setVariants(prev => prev.filter(v => v.id !== id));
-        
-        fetchProducts();
-      } catch (error) {
-        console.error('Error al eliminar variante:', error);
-        toast.error('Error al eliminar la variante');
-      } finally {
-        setIsDeleting(false);
-      }
-    }
-  };
-  
-  const toggleCollapsible = (id: string) => {
-    setOpenCollapsibles(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
+
+  const columns: ColumnDef<Product>[] = [
+    {
+      accessorKey: "name",
+      header: "Nombre",
+    },
+    {
+      accessorKey: "description",
+      header: "Descripción",
+    },
+    {
+      accessorKey: "price",
+      header: "Precio Base",
+      cell: ({ row }) => {
+        return <div>{row.getValue("price")} €</div>;
+      },
+    },
+    {
+      accessorKey: "variants",
+      header: "Variantes",
+      cell: ({ row }) => {
+        const variants: ProductVariant[] = row.getValue("variants");
+        return (
+          <div className="flex flex-wrap gap-1">
+            {variants.length > 0 ? (
+              variants.map((variant) => (
+                <Badge key={variant.id} variant="outline">
+                  {variant.name}: {String(variant.price)} €
+                </Badge>
+              ))
+            ) : (
+              <span className="text-muted-foreground text-sm">Sin variantes</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const product = row.original;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Abrir menú</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setSelectedProduct(product.id)}>
+                Gestionar variantes
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-red-600">
+                Eliminar producto
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
 
   return (
     <AppLayout>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Productos</h1>
-            <p className="text-muted-foreground">Gestiona tus productos y variantes</p>
+            <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
+            <p className="text-muted-foreground">Gestiona tu catálogo de productos y variantes</p>
+          </div>
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuevo Producto
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <ProductForm onSubmit={fetchProducts} />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleCreateProduct)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombre</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nombre del producto" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Precio</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descripción</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Descripción del producto" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Guardando...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nuevo Producto
-                      </>
-                    )}
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="list">Listado</TabsTrigger>
+            <TabsTrigger value="import">Importar</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="list" className="space-y-4">
+            <Card>
+              <CardContent className="pt-6">
+                <DataTable columns={columns} data={tableData} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="import">
+            <BulkImportForm onImport={bulkImportProducts} />
+          </TabsContent>
+        </Tabs>
+
+        {selectedProduct && (
+          <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+            <DialogContent className="max-w-2xl">
+              <VariantsManager 
+                productId={selectedProduct} 
+                product={products.find(p => p.id === selectedProduct)} 
+                variants={productVariantsMap[selectedProduct] || []}
+                onUpdate={fetchProducts}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </AppLayout>
+  );
+};
+
+const VariantsManager = ({ 
+  productId, 
+  product, 
+  variants, 
+  onUpdate 
+}: { 
+  productId: string; 
+  product?: ProductFromDB; 
+  variants: ProductVariantFromDB[]; 
+  onUpdate: () => void;
+}) => {
+  const [formVariant, setFormVariant] = useState({
+    name: "",
+    price: "0" // Asegurarnos que es string para el input
+  });
+  const { toast } = useToast();
+
+  const handleAddVariant = async () => {
+    try {
+      if (!formVariant.name) {
+        toast({
+          title: "Error",
+          description: "El nombre de la variante es obligatorio",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const newVariants = variants.map(v => ({
+        product_id: productId,
+        name: v.name,
+        price: parseFloat(v.price)
+      }));
+
+      const { data: variantsData, error: variantsError } = await supabase
+        .from('product_variants')
+        .insert(newVariants);
+
+      if (variantsError) throw variantsError;
+
+      toast({
+        title: "Variante añadida",
+        description: "La variante se ha añadido correctamente",
+      });
+
+      setFormVariant({ name: "", price: "0" });
+      onUpdate();
+    } catch (error) {
+      console.error('Error adding variant:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo añadir la variante",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteVariant = async (variantId: string) => {
+    try {
+      const { error } = await supabase
+        .from('product_variants')
+        .delete()
+        .eq('id', variantId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Variante eliminada",
+        description: "La variante se ha eliminado correctamente",
+      });
+
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting variant:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la variante",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Gestionar Variantes: {product?.name}</DialogTitle>
+        <DialogDescription>
+          Añade o elimina variantes para este producto
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-2">
+            <Label htmlFor="variant-name">Nombre de la variante</Label>
+            <Input
+              id="variant-name"
+              value={formVariant.name}
+              onChange={(e) => setFormVariant({ ...formVariant, name: e.target.value })}
+              placeholder="Ej: 500g, 1kg, Rojo, etc."
+            />
+          </div>
+          <div>
+            <Label htmlFor="variant-price">Precio (€)</Label>
+            <Input
+              id="variant-price"
+              type="number"
+              value={formVariant.price}
+              onChange={(e) => setFormVariant({ ...formVariant, price: e.target.value })}
+              step="0.01"
+            />
+          </div>
+        </div>
+
+        <Button onClick={handleAddVariant} className="w-full">
+          <Plus className="mr-2 h-4 w-4" />
+          Añadir Variante
+        </Button>
+
+        <div className="space-y-2">
+          <Label>Variantes existentes</Label>
+          {variants.length > 0 ? (
+            <div className="space-y-2">
+              {variants.map((variant) => (
+                <div key={variant.id} className="flex justify-between items-center p-2 border rounded-md">
+                  <div>
+                    <span className="font-medium">{variant.name}</span>
+                    <span className="ml-2 text-muted-foreground">{variant.price} €</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteVariant(variant.id)}
+                  >
+                    <Trash className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-        
-        <div className="space-y-4">
-          {loading ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              ))}
             </div>
-          ) : products.length > 0 ? (
-            products.map(product => (
-              <Collapsible
-                key={product.id}
-                open={openCollapsibles[product.id]}
-                onOpenChange={() => toggleCollapsible(product.id)}
-                className="border rounded-lg overflow-hidden"
-              >
-                <CollapsibleTrigger asChild>
-                  <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <ShoppingBag className="h-5 w-5 text-primary" />
-                      <div>
-                        <h3 className="font-medium">{product.name}</h3>
-                        <p className="text-sm text-muted-foreground">${product.price.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {product.variants && product.variants.length > 0 && (
-                        <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
-                          {product.variants.length} variantes
-                        </span>
-                      )}
-                      {openCollapsibles[product.id] ? (
-                        <ChevronUp className="h-5 w-5" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5" />
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="border-t p-4 space-y-3">
-                    {product.description && (
-                      <p className="text-sm">{product.description}</p>
-                    )}
-                    
-                    {product.variants && product.variants.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Variantes:</h4>
-                        <div className="space-y-1">
-                          {product.variants.map(variant => (
-                            <div key={variant.id} className="flex justify-between items-center p-2 bg-muted/30 rounded text-sm">
-                              <div className="flex items-center gap-2">
-                                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span>{variant.name}</span>
-                              </div>
-                              <span>${variant.price.toFixed(2)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openManageVariants(product)}
-                      >
-                        <Tag className="h-4 w-4 mr-1" />
-                        Variantes
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditProductDialog(product)}
-                      >
-                        <Pencil className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteProduct(product.id)}
-                        disabled={isDeleting}
-                      >
-                        <Trash className="h-4 w-4 mr-1" />
-                        Eliminar
-                      </Button>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))
           ) : (
-            <div className="text-center p-8 bg-muted/20 rounded-lg">
-              <p>No hay productos registrados</p>
+            <div className="text-center p-4 border rounded-md text-muted-foreground">
+              No hay variantes para este producto
             </div>
           )}
         </div>
-        
-        <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Producto</DialogTitle>
-            </DialogHeader>
-            
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(handleUpdateProduct)} className="space-y-4">
-                <FormField
-                  control={editForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nombre del producto" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={editForm.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Precio</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={editForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descripción</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Descripción del producto" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Guardando...
-                      </>
-                    ) : (
-                      <>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Guardar Cambios
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={openVariantDialog} onOpenChange={setOpenVariantDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Variantes de {editingProduct?.name}</DialogTitle>
-            </DialogHeader>
-            
-            <Form {...variantForm}>
-              <form onSubmit={variantForm.handleSubmit(editingVariant ? handleUpdateVariant : handleCreateVariant)} className="space-y-4">
-                <FormField
-                  control={variantForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre de la variante</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: Tamaño grande" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={variantForm.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Precio</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Guardando...
-                      </>
-                    ) : editingVariant ? (
-                      <>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Actualizar Variante
-                      </>
-                    ) : (
-                      <>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Agregar Variante
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-            
-            {editingVariant && (
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={() => {
-                  setEditingVariant(null);
-                  variantForm.reset();
-                }}
-              >
-                <MinusCircle className="mr-2 h-4 w-4" />
-                Cancelar Edición
-              </Button>
-            )}
-            
-            <ScrollArea className="max-h-64 mt-2">
-              <div className="space-y-2">
-                {variants.length > 0 ? (
-                  variants.map(variant => (
-                    <div key={variant.id} className="flex justify-between items-center p-2 border rounded">
-                      <div>
-                        <p className="font-medium">{variant.name}</p>
-                        <p className="text-sm text-muted-foreground">${variant.price.toFixed(2)}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => editVariant(variant)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDeleteVariant(variant.id)}>
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center text-sm text-muted-foreground py-2">
-                    Aún no hay variantes para este producto
-                  </p>
-                )}
-              </div>
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
       </div>
-    </AppLayout>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onUpdate()}>
+          Cerrar
+        </Button>
+      </DialogFooter>
+    </>
+  );
+};
+
+const ProductForm = ({ onSubmit }: { onSubmit: () => void }) => {
+  const [formProduct, setFormProduct] = useState({
+    name: "",
+    description: "",
+    price: "0" // Asegurarnos que es string para el input
+  });
+  const { toast } = useToast();
+
+  const handleSubmit = async () => {
+    try {
+      if (!formProduct.name) {
+        toast({
+          title: "Error",
+          description: "El nombre del producto es obligatorio",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('products')
+        .insert([
+          {
+            name: formProduct.name,
+            description: formProduct.description,
+            price: parseFloat(formProduct.price),
+          }
+        ]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Producto creado",
+        description: "El producto se ha creado correctamente",
+      });
+
+      setFormProduct({ name: "", description: "", price: "0" });
+      onSubmit();
+    } catch (error) {
+      console.error('Error creating product:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear el producto",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Crear Nuevo Producto</DialogTitle>
+        <DialogDescription>
+          Añade un nuevo producto a tu catálogo
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Nombre del producto</Label>
+          <Input
+            id="name"
+            value={formProduct.name}
+            onChange={(e) => setFormProduct({ ...formProduct, name: e.target.value })}
+            placeholder="Ej: Leche, Pan, etc."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="description">Descripción (opcional)</Label>
+          <Textarea
+            id="description"
+            value={formProduct.description}
+            onChange={(e) => setFormProduct({ ...formProduct, description: e.target.value })}
+            placeholder="Descripción del producto..."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="price">Precio base (€)</Label>
+          <Input
+            id="price"
+            type="number"
+            value={formProduct.price}
+            onChange={(e) => setFormProduct({ ...formProduct, price: e.target.value })}
+            step="0.01"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button onClick={handleSubmit}>Crear Producto</Button>
+      </DialogFooter>
+    </>
+  );
+};
+
+const BulkImportForm = ({ onImport }: { onImport: (products: any[]) => void }) => {
+  const [importText, setImportText] = useState("");
+  const { toast } = useToast();
+
+  const handleImport = () => {
+    try {
+      // Intentar parsear el JSON
+      const products = JSON.parse(importText);
+      
+      if (!Array.isArray(products)) {
+        toast({
+          title: "Error de formato",
+          description: "El formato debe ser un array de productos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      onImport(products);
+    } catch (error) {
+      toast({
+        title: "Error de formato",
+        description: "El JSON no es válido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Importar Productos</CardTitle>
+        <CardDescription>
+          Importa múltiples productos desde un archivo JSON
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Textarea
+          className="min-h-[300px] font-mono"
+          placeholder={`[
+  {
+    "name": "Leche",
+    "description": "Leche entera",
+    "price": "1.20"
+  },
+  {
+    "name": "Pan",
+    "description": "Pan de molde",
+    "price": "1.50"
+  }
+]`}
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+        />
+      </CardContent>
+      <CardFooter>
+        <Button onClick={handleImport}>Importar Productos</Button>
+      </CardFooter>
+    </Card>
   );
 };
 
