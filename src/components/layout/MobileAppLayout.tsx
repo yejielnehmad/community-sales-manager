@@ -9,7 +9,6 @@ import {
   Users, 
   ShoppingBag, 
   ClipboardList, 
-  MessageSquare, 
   LogOut,
   Menu
 } from "lucide-react";
@@ -27,7 +26,6 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     { path: "/clients", label: "Clientes", icon: <Users className="h-5 w-5" /> },
     { path: "/products", label: "Productos", icon: <ShoppingBag className="h-5 w-5" /> },
     { path: "/orders", label: "Pedidos", icon: <ClipboardList className="h-5 w-5" /> },
-    { path: "/messages", label: "Mensajes", icon: <MessageSquare className="h-5 w-5" /> },
   ];
 
   return (

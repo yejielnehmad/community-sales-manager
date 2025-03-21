@@ -3,13 +3,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
 import Orders from "./pages/Orders";
-import Messages from "./pages/Messages";
+import MagicOrder from "./pages/MagicOrder";
+import NotFound from "./pages/NotFound";
 
 const App = () => (
   <TooltipProvider>
@@ -21,7 +20,7 @@ const App = () => (
         <Route path="/clients" element={<Clients />} />
         <Route path="/products" element={<Products />} />
         <Route path="/orders" element={<Orders />} />
-        <Route path="/messages" element={<Messages />} />
+        <Route path="/magic-order" element={<MagicOrder />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

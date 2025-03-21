@@ -1,6 +1,6 @@
 
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenuButton, SidebarMenuItem, SidebarMenu, SidebarRail, SidebarInset } from "@/components/ui/sidebar";
-import { Home, Users, ShoppingBag, ClipboardList, MessageSquare, LogOut } from "lucide-react";
+import { Home, Users, ShoppingBag, ClipboardList, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -54,18 +54,10 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname === "/orders"} tooltip="Pedidos">
+                <SidebarMenuButton asChild isActive={location.pathname === "/orders" || location.pathname === "/magic-order"} tooltip="Pedidos">
                   <Link to="/orders">
                     <ClipboardList />
                     <span>Pedidos</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname === "/messages"} tooltip="Mensajes">
-                  <Link to="/messages">
-                    <MessageSquare />
-                    <span>Mensajes</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
