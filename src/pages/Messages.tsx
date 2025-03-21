@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
-import { MessageAnalysis } from "@/types";
+import { MessageAnalysis, MessageProduct, MessageVariant } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 const Messages = () => {
@@ -36,13 +36,21 @@ const Messages = () => {
         },
         items: [
           {
-            product: "Pañales Talla 1",
-            quantity: 2
+            product: {
+              name: "Pañales Talla 1"
+            },
+            quantity: 2,
+            status: "confirmado"
           },
           {
-            product: "Queso Fresco",
+            product: {
+              name: "Queso Fresco"
+            },
             quantity: 1.5,
-            variant: "kg"
+            variant: {
+              name: "kg"
+            },
+            status: "confirmado"
           }
         ]
       };
@@ -127,9 +135,9 @@ const Messages = () => {
                     <div className="space-y-4">
                       {analysisResult.items.map((item, index) => (
                         <div key={index} className="p-3 border rounded-md">
-                          <div className="font-medium">{item.product}</div>
+                          <div className="font-medium">{item.product.name}</div>
                           <div className="text-sm text-muted-foreground">
-                            Cantidad: {item.quantity} {item.variant || ""}
+                            Cantidad: {item.quantity} {item.variant ? item.variant.name : ""}
                           </div>
                         </div>
                       ))}
@@ -157,7 +165,7 @@ const Messages = () => {
                         <ul className="list-disc pl-5 mt-2 space-y-1">
                           {analysisResult.items.map((item, index) => (
                             <li key={index}>
-                              {item.quantity} {item.variant || ""} de {item.product}
+                              {item.quantity} {item.variant ? item.variant.name : ""} de {item.product.name}
                             </li>
                           ))}
                         </ul>
