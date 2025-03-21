@@ -1,8 +1,9 @@
+
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 export const AIStatusBadge = () => {
@@ -87,30 +88,32 @@ export const AIStatusBadge = () => {
   }, [toast]);
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge 
-          variant="outline" 
-          className={`
-            ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
-              status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
-              "bg-yellow-100 text-yellow-800 border-yellow-300"} 
-            flex items-center gap-1 cursor-help
-          `}
-        >
-          {status === "connected" ? (
-            <CheckCircle className="h-3 w-3" />
-          ) : status === "error" ? (
-            <AlertTriangle className="h-3 w-3" />
-          ) : (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          )}
-          <span>IA</span>
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>{message}</p>
-      </TooltipContent>
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge 
+            variant="outline" 
+            className={`
+              ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
+                status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
+                "bg-yellow-100 text-yellow-800 border-yellow-300"} 
+              flex items-center gap-1 cursor-help
+            `}
+          >
+            {status === "connected" ? (
+              <CheckCircle className="h-3 w-3" />
+            ) : status === "error" ? (
+              <AlertTriangle className="h-3 w-3" />
+            ) : (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            )}
+            <span>IA</span>
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{message}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

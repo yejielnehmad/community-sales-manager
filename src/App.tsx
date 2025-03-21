@@ -9,24 +9,29 @@ import Orders from "./pages/Orders";
 import MagicOrder from "./pages/MagicOrder";
 import NotFound from "./pages/NotFound";
 import { ChatAssistant } from "./components/ChatAssistant";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import Messages from "./pages/Messages";
 
 const App = () => (
-  <>
-    <Toaster />
-    <Sonner />
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/clients" element={<Clients />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/magic-order" element={<MagicOrder />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <ChatAssistant />
-    </BrowserRouter>
-  </>
+  <TooltipProvider>
+    <>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/magic-order" element={<MagicOrder />} />
+          <Route path="/messages" element={<Messages />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <ChatAssistant />
+      </BrowserRouter>
+    </>
+  </TooltipProvider>
 );
 
 export default App;
