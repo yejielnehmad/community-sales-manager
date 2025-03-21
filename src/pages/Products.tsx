@@ -119,7 +119,7 @@ const Products = () => {
           { 
             name: values.name, 
             description: values.description,
-            price: parseFloat(values.price)
+            price: values.price
           }
         ])
         .select();
@@ -148,7 +148,7 @@ const Products = () => {
         .update({ 
           name: values.name, 
           description: values.description,
-          price: parseFloat(values.price)
+          price: values.price
         })
         .eq('id', editingProduct.id)
         .select();
@@ -219,7 +219,7 @@ const Products = () => {
           { 
             product_id: editingProduct.id,
             name: values.name, 
-            price: parseFloat(values.price)
+            price: values.price
           }
         ])
         .select();
@@ -267,7 +267,7 @@ const Products = () => {
         .from('product_variants')
         .update({ 
           name: values.name, 
-          price: parseFloat(values.price)
+          price: values.price
         })
         .eq('id', editingVariant.id)
         .select();
