@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +11,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Magic, ArrowRight, Loader2, ShoppingCart, User, Plus, Minus, CheckCircle } from "lucide-react";
+import { 
+  Sparkles, 
+  ArrowRight, 
+  Loader2, 
+  ShoppingCart, 
+  User, 
+  Plus, 
+  Minus, 
+  CheckCircle,
+  Trash
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface OrderForm {
@@ -40,11 +49,9 @@ const MagicOrder = () => {
     }
   });
   
-  // Cargar clientes y productos desde Supabase
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Cargar clientes
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
@@ -52,7 +59,6 @@ const MagicOrder = () => {
       
       if (clientsError) throw clientsError;
       
-      // Cargar productos con sus variantes
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
@@ -60,7 +66,6 @@ const MagicOrder = () => {
       
       if (productsError) throw productsError;
       
-      // Obtener variantes para cada producto
       const productsWithVariants = await Promise.all(
         (productsData || []).map(async (product) => {
           const { data: variantsData, error: variantsError } = await supabase
@@ -106,7 +111,6 @@ const MagicOrder = () => {
     fetchData();
   }, []);
   
-  // Analizar mensaje con IA de Google
   const analyzeMessage = async (message: string) => {
     if (!message.trim()) {
       toast.error('Por favor, ingresa un mensaje para analizar');
@@ -164,7 +168,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
       
       const generatedText = data.candidates[0].content.parts[0].text;
       
-      // Extraer solo el JSON del texto generado
       const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No se pudo extraer la información del mensaje');
@@ -173,7 +176,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
       const parsedResult = JSON.parse(jsonMatch[0]) as MessageAnalysis;
       setMessageAnalysis(parsedResult);
       
-      // Buscar cliente por nombre
       if (parsedResult.client?.name) {
         const matchingClient = clients.find(c => 
           c.name.toLowerCase().includes(parsedResult.client!.name.toLowerCase())
@@ -184,11 +186,9 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
         }
       }
       
-      // Crear items de pedido a partir del análisis
       const orderItems: OrderItem[] = [];
       
       for (const item of parsedResult.items) {
-        // Buscar producto que coincida con el nombre
         const matchingProduct = products.find(p => 
           p.name.toLowerCase().includes(item.product.toLowerCase())
         );
@@ -198,7 +198,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
           let variantName: string | undefined;
           let price = matchingProduct.price;
           
-          // Si hay variante especificada, buscarla
           if (item.variant) {
             const matchingVariant = matchingProduct.variants?.find(v => 
               v.name.toLowerCase().includes(item.variant!.toLowerCase())
@@ -233,7 +232,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
     }
   };
   
-  // Modificar la cantidad de un item
   const updateItemQuantity = (index: number, newQuantity: number) => {
     if (newQuantity <= 0) return;
     
@@ -248,14 +246,12 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
     form.setValue('items', updatedItems);
   };
   
-  // Eliminar un item del pedido
   const removeItem = (index: number) => {
     const currentItems = form.getValues('items');
     const updatedItems = currentItems.filter((_, i) => i !== index);
     form.setValue('items', updatedItems);
   };
   
-  // Actualizar variante de un producto
   const updateItemVariant = (index: number, variantId: string) => {
     const currentItems = form.getValues('items');
     const item = currentItems[index];
@@ -264,7 +260,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
     if (!product) return;
     
     if (variantId === 'base') {
-      // Seleccionó el producto base sin variante
       const updatedItem = {
         ...item,
         variantId: undefined,
@@ -277,7 +272,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
       updatedItems[index] = updatedItem;
       form.setValue('items', updatedItems);
     } else {
-      // Seleccionó una variante
       const variant = product.variants?.find(v => v.id === variantId);
       
       if (variant) {
@@ -296,7 +290,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
     }
   };
   
-  // Agregar un nuevo producto al pedido
   const addNewProduct = (productId: string, variantId?: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
@@ -327,12 +320,10 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
     form.setValue('items', [...currentItems, newItem]);
   };
   
-  // Calcular total del pedido
   const calculateTotal = (items: OrderItem[]): number => {
     return items.reduce((sum, item) => sum + item.total, 0);
   };
   
-  // Guardar el pedido
   const handleSubmit = async (data: OrderForm) => {
     if (!data.clientId) {
       toast.error('Por favor, selecciona un cliente');
@@ -351,7 +342,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
       const amountPaid = data.amountPaid || 0;
       const balance = total - amountPaid;
       
-      // Crear el pedido
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([{
@@ -367,7 +357,6 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
       
       if (orderError) throw orderError;
       
-      // Crear los items del pedido
       const orderItems = data.items.map(item => ({
         order_id: newOrder.id,
         product_id: item.productId,
@@ -409,7 +398,7 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <div className="flex items-center gap-2 text-primary">
-                  <Magic className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" />
                   <h3 className="text-lg font-medium">Análisis de mensaje</h3>
                 </div>
                 

@@ -1,92 +1,73 @@
 
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Search, User, Calendar, CreditCard, Package, Eye, Trash } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Order, OrderItem } from "@/types";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useNavigate } from "react-router-dom";
-
-const OrderStatusBadge = ({ status }: { status: Order['status'] }) => {
-  const statusConfig = {
-    pending: { label: 'Pendiente', className: 'bg-yellow-500 hover:bg-yellow-600' },
-    completed: { label: 'Completado', className: 'bg-green-500 hover:bg-green-600' },
-    cancelled: { label: 'Cancelado', className: 'bg-red-500 hover:bg-red-600' },
-  };
-  
-  const config = statusConfig[status];
-  
-  return (
-    <Badge className={config.className}>
-      {config.label}
-    </Badge>
-  );
-};
+import { Client, Order, OrderItem } from "@/types";
+import { ChevronDown, ChevronUp, ClipboardList, Package, User, Loader2, PlusCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 const Orders = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [clients, setClients] = useState<{[key: string]: Client}>({});
+  const [openCollapsibles, setOpenCollapsibles] = useState<{[key: string]: boolean}>({});
   
-  // Cargar pedidos desde Supabase
+  // Cargar pedidos
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      // Obtener pedidos
+      // 1. Cargar todos los clientes primero para tener acceso rápido
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select('*');
+      
+      if (clientsError) throw clientsError;
+      
+      const clientsMap: {[key: string]: Client} = {};
+      clientsData.forEach(client => {
+        clientsMap[client.id] = {
+          id: client.id,
+          name: client.name,
+          phone: client.phone || '',
+          createdAt: client.created_at,
+          totalOrders: 0,
+          balance: 0
+        };
+      });
+      setClients(clientsMap);
+      
+      // 2. Cargar todos los pedidos
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select(`
-          id,
-          client_id,
-          date,
-          status,
-          total,
-          amount_paid,
-          balance,
-          clients (
-            name
-          )
-        `)
+        .select('*')
         .order('date', { ascending: false });
       
       if (ordersError) throw ordersError;
       
-      // Obtener items de cada pedido
+      // 3. Cargar los items de cada pedido
       const ordersWithItems = await Promise.all(
-        (ordersData || []).map(async (order) => {
+        ordersData.map(async (order) => {
           const { data: itemsData, error: itemsError } = await supabase
             .from('order_items')
-            .select(`
-              id,
-              product_id,
-              variant_id,
-              quantity,
-              price,
-              total,
-              products (
-                name
-              ),
-              product_variants (
-                name
-              )
-            `)
+            .select('*, products(name), product_variants(name)')
             .eq('order_id', order.id);
           
           if (itemsError) throw itemsError;
           
-          const items: OrderItem[] = (itemsData || []).map(item => ({
+          const items: OrderItem[] = itemsData.map(item => ({
             id: item.id,
             productId: item.product_id,
-            productName: item.products.name,
-            variantId: item.variant_id || undefined,
-            variantName: item.product_variants?.name || undefined,
-            quantity: parseFloat(item.quantity),
+            productName: item.products?.name || 'Producto desconocido',
+            variantId: item.variant_id,
+            variantName: item.product_variants?.name,
+            quantity: item.quantity,
             price: parseFloat(item.price),
             total: parseFloat(item.total)
           }));
@@ -94,13 +75,13 @@ const Orders = () => {
           return {
             id: order.id,
             clientId: order.client_id,
-            clientName: order.clients.name,
+            clientName: clientsMap[order.client_id]?.name || 'Cliente desconocido',
             date: order.date,
             status: order.status,
-            items,
             total: parseFloat(order.total),
             amountPaid: parseFloat(order.amount_paid),
-            balance: parseFloat(order.balance)
+            balance: parseFloat(order.balance),
+            items
           } as Order;
         })
       );
@@ -118,34 +99,43 @@ const Orders = () => {
     fetchOrders();
   }, []);
   
-  // Filtrar pedidos según el término de búsqueda
-  const filteredOrders = orders.filter(
-    order => 
-      order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.includes(searchTerm)
-  );
+  // Toggle collapsible
+  const toggleCollapsible = (id: string) => {
+    setOpenCollapsibles(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
   
-  // Función para eliminar un pedido
-  const handleDeleteOrder = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este pedido? Esta acción no se puede deshacer.')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      toast.success('Pedido eliminado correctamente');
-      
-      // Eliminar pedido de la lista
-      setOrders(prev => prev.filter(order => order.id !== id));
-    } catch (error) {
-      console.error('Error al eliminar pedido:', error);
-      toast.error('Error al eliminar el pedido');
+  // Obtener etiqueta de estado
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Pendiente</Badge>;
+      case 'completed':
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Completado</Badge>;
+      case 'cancelled':
+        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Cancelado</Badge>;
+      default:
+        return <Badge variant="outline">Desconocido</Badge>;
     }
   };
+  
+  // Agrupar pedidos por cliente
+  const groupOrdersByClient = () => {
+    const grouped: {[key: string]: Order[]} = {};
+    
+    orders.forEach(order => {
+      if (!grouped[order.clientId]) {
+        grouped[order.clientId] = [];
+      }
+      grouped[order.clientId].push(order);
+    });
+    
+    return grouped;
+  };
+  
+  const groupedOrders = groupOrdersByClient();
 
   return (
     <AppLayout>
@@ -153,116 +143,120 @@ const Orders = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Pedidos</h1>
-            <p className="text-muted-foreground">Gestiona los pedidos de la venta comunitaria</p>
+            <p className="text-muted-foreground">Gestiona tus pedidos</p>
           </div>
-          <Button onClick={() => navigate('/magic-order')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Pedido
-          </Button>
+          
+          <Link to="/magic-order">
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nuevo Pedido
+            </Button>
+          </Link>
         </div>
-
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar por cliente o ID..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <Accordion type="multiple" className="space-y-2">
-          {loading ? (
-            <div className="flex justify-center p-6">
-              <p>Cargando pedidos...</p>
-            </div>
-          ) : filteredOrders.length > 0 ? (
-            filteredOrders.map((order) => (
-              <Card key={order.id} className="overflow-hidden">
-                <AccordionItem value={order.id} className="border-none">
-                  <AccordionTrigger className="px-4 py-3 hover:bg-muted/50 w-full flex justify-between">
-                    <div className="flex flex-1 justify-between items-center">
-                      <div className="font-medium text-left flex items-center gap-2">
-                        <OrderStatusBadge status={order.status} />
-                        <span>{order.clientName}</span>
-                      </div>
-                      <div className="mr-4 text-right">
-                        ${order.total.toFixed(2)}
-                        {order.balance > 0 && (
-                          <div className="text-sm text-red-600">
-                            Saldo: ${order.balance.toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4">
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span>Cliente: {order.clientName}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>Fecha: {new Date(order.date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span>Artículos: {order.items.length}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4 text-muted-foreground" />
-                          <span>Pagado: ${order.amountPaid.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Artículos:</h4>
-                        <div className="space-y-1 bg-muted/20 p-2 rounded-md">
-                          {order.items.map((item) => (
-                            <div key={item.id} className="grid grid-cols-[1fr,auto] text-sm">
+        
+        {loading ? (
+          <div className="flex justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : Object.keys(groupedOrders).length > 0 ? (
+          <div className="space-y-6">
+            {Object.entries(groupedOrders).map(([clientId, clientOrders]) => (
+              <Card key={clientId}>
+                <CardContent className="pt-6 pb-2 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-medium">{clients[clientId]?.name}</h3>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {clientOrders.map(order => (
+                      <Collapsible
+                        key={order.id}
+                        open={openCollapsibles[order.id]}
+                        onOpenChange={() => toggleCollapsible(order.id)}
+                        className="border rounded-md overflow-hidden"
+                      >
+                        <CollapsibleTrigger asChild>
+                          <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-muted/50">
+                            <div className="flex items-center gap-3">
+                              <ClipboardList className="h-5 w-5 text-primary" />
                               <div>
-                                {item.quantity} × {item.productName}
-                                {item.variantName && <span className="text-muted-foreground ml-1">({item.variantName})</span>}
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">Pedido del {format(new Date(order.date), 'PPP', { locale: es })}</span>
+                                  {getStatusBadge(order.status)}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {order.items.length} {order.items.length === 1 ? 'artículo' : 'artículos'} - Total: ${order.total.toFixed(2)}
+                                </p>
                               </div>
-                              <div className="text-right">${item.total.toFixed(2)}</div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex items-center gap-1"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Ver detalles
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          className="flex items-center gap-1"
-                          onClick={() => handleDeleteOrder(order.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                          Eliminar
-                        </Button>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                            <div>
+                              {openCollapsibles[order.id] ? (
+                                <ChevronUp className="h-5 w-5" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5" />
+                              )}
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="border-t p-3 space-y-3">
+                            <div className="space-y-2">
+                              {order.items.map(item => (
+                                <div key={item.id} className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                                  <div className="flex items-center gap-2">
+                                    <Package className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <p className="font-medium">{item.productName}</p>
+                                      {item.variantName && (
+                                        <p className="text-xs text-muted-foreground">Variante: {item.variantName}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium">${item.total.toFixed(2)}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {item.quantity} × ${item.price.toFixed(2)}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div className="border-t pt-2 space-y-1">
+                              <div className="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span>${order.total.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Pagado:</span>
+                                <span>${order.amountPaid.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between font-medium">
+                                <span>Saldo:</span>
+                                <span>${order.balance.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
+                </CardContent>
               </Card>
-            ))
-          ) : (
-            <div className="text-center p-6 bg-muted/20 rounded-lg">
-              <p>No se encontraron pedidos.</p>
-            </div>
-          )}
-        </Accordion>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center p-8 bg-muted/20 rounded-lg">
+            <p>No hay pedidos registrados</p>
+            <Link to="/magic-order" className="block mt-4">
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Crear primer pedido
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
