@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,9 +114,9 @@ const Orders = () => {
                     <TableCell>{row.client_name}</TableCell>
                     <TableCell>{row.date}</TableCell>
                     <TableCell>{row.status}</TableCell>
-                    <TableCell>{String(row.total || "0")}</TableCell>
-                    <TableCell>{String(row.amount_paid || "0")}</TableCell>
-                    <TableCell>{String(row.balance || "0")}</TableCell>
+                    <TableCell>{row.total}</TableCell>
+                    <TableCell>{row.amount_paid}</TableCell>
+                    <TableCell>{row.balance}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
