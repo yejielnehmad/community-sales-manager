@@ -16,6 +16,8 @@ import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { Link } from "react-router-dom";
+import { MessageSquarePlus } from "lucide-react";
 
 interface OrderFromDB {
   id: string;
@@ -107,9 +109,17 @@ const Orders = () => {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Órdenes</h1>
-          <p className="text-muted-foreground">Administra las órdenes de tus clientes</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Órdenes</h1>
+            <p className="text-muted-foreground">Administra las órdenes de tus clientes</p>
+          </div>
+          <Button asChild className="flex items-center gap-2">
+            <Link to="/magic-order">
+              <MessageSquarePlus className="h-4 w-4" />
+              <span>Pedido Mágico</span>
+            </Link>
+          </Button>
         </div>
 
         <Card>

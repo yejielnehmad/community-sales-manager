@@ -10,7 +10,8 @@ import {
   ShoppingBag, 
   ClipboardList, 
   LogOut,
-  Menu
+  Menu,
+  MessageSquarePlus
 } from "lucide-react";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 
@@ -27,6 +28,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     { path: "/clients", label: "Clientes", icon: <Users className="h-5 w-5" /> },
     { path: "/products", label: "Productos", icon: <ShoppingBag className="h-5 w-5" /> },
     { path: "/orders", label: "Pedidos", icon: <ClipboardList className="h-5 w-5" /> },
+    { path: "/magic-order", label: "Pedido Mágico", icon: <MessageSquarePlus className="h-5 w-5" /> },
   ];
 
   return (

@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,14 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { MessageAnalysis } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { GOOGLE_API_KEY } from "@/lib/api-config";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
-const Messages = () => {
+const MagicOrder = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<MessageAnalysis | null>(null);
   const { toast } = useToast();
 
-  // Mock function para analizar el mensaje - eventualmente usará la API de Google
+  // Función real para analizar el mensaje utilizando la API de Google Gemini
   const analyzeMessage = async () => {
     if (!message.trim()) {
       toast({
@@ -24,41 +28,172 @@ const Messages = () => {
       return;
     }
 
+    if (!GOOGLE_API_KEY) {
+      toast({
+        title: "Error",
+        description: "La clave de API de Google Gemini no está configurada",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
-    
-    // Simulación de llamada a la API
-    setTimeout(() => {
-      // Ejemplo de resultado de análisis (simulado)
-      const mockResult: MessageAnalysis = {
-        client: {
-          name: "María López"
+
+    try {
+      // Prompt para el modelo de IA que explica lo que debe extraer
+      const prompt = `
+      Analiza este mensaje de un cliente y extrae la siguiente información:
+      1. Nombre del cliente
+      2. Lista de productos solicitados con cantidades y variantes si están mencionadas
+
+      Mensaje del cliente: "${message}"
+
+      Responde SOLAMENTE en formato JSON con esta estructura exacta (sin explicaciones adicionales):
+      {
+        "client": {
+          "name": "Nombre del cliente"
         },
-        items: [
+        "items": [
           {
-            product: "Pañales Talla 1",
-            quantity: 2
-          },
-          {
-            product: "Queso Fresco",
-            quantity: 1.5,
-            variant: "kg"
+            "product": "Nombre del producto",
+            "quantity": número,
+            "variant": "variante (si se menciona, de lo contrario omitir)"
           }
         ]
-      };
-      
-      setAnalysisResult(mockResult);
+      }
+      `;
+
+      // Llamada a la API de Google Gemini
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.2,
+              topP: 0.8,
+              maxOutputTokens: 1024,
+            }
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error en la API de Google Gemini: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Respuesta de Gemini:", data);
+
+      // Extraer el texto generado del formato de respuesta de Gemini
+      let jsonText = "";
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+        jsonText = data.candidates[0].content.parts[0].text;
+      } else {
+        throw new Error("Formato de respuesta inesperado de la API de Gemini");
+      }
+
+      // Limpiar el texto para asegurar que sea JSON válido
+      jsonText = jsonText.trim();
+      // Eliminar marcadores de código si están presentes
+      if (jsonText.startsWith("```json")) {
+        jsonText = jsonText.replace(/```json\n/, "").replace(/\n```$/, "");
+      } else if (jsonText.startsWith("```")) {
+        jsonText = jsonText.replace(/```\n/, "").replace(/\n```$/, "");
+      }
+
+      const parsedResult = JSON.parse(jsonText) as MessageAnalysis;
+      setAnalysisResult(parsedResult);
+    } catch (error: any) {
+      console.error("Error al analizar el mensaje:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al analizar el mensaje",
+        variant: "destructive",
+      });
+    } finally {
       setIsAnalyzing(false);
-    }, 1500);
+    }
   };
 
-  const createOrder = () => {
-    // Aquí eventualmente crearemos el pedido en Supabase
-    toast({
-      title: "Pedido creado",
-      description: "El pedido se ha creado correctamente",
-    });
-    setMessage("");
-    setAnalysisResult(null);
+  const createOrder = async () => {
+    if (!analysisResult || !analysisResult.client || !analysisResult.items.length) {
+      toast({
+        title: "Error",
+        description: "No hay suficiente información para crear el pedido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Buscar el cliente por nombre o crearlo si no existe
+      const { data: existingClients, error: clientSearchError } = await supabase
+        .from('clients')
+        .select('id, name')
+        .ilike('name', `%${analysisResult.client.name}%`)
+        .limit(1);
+
+      if (clientSearchError) throw clientSearchError;
+
+      let clientId;
+      if (existingClients && existingClients.length > 0) {
+        clientId = existingClients[0].id;
+      } else {
+        // Crear nuevo cliente
+        const { data: newClient, error: createClientError } = await supabase
+          .from('clients')
+          .insert([{ name: analysisResult.client.name }])
+          .select('id')
+          .single();
+
+        if (createClientError) throw createClientError;
+        clientId = newClient.id;
+      }
+
+      // Calcular un total aproximado (en un sistema real, buscaríamos precios reales)
+      const total = analysisResult.items.reduce((sum, item) => sum + (item.quantity * 100), 0); // Precio ficticio de 100 por unidad
+      
+      // Crear el pedido
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert([
+          {
+            client_id: clientId,
+            date: new Date().toISOString().split('T')[0],
+            status: 'pending',
+            total: total,
+            amount_paid: 0,
+            balance: total
+          }
+        ])
+        .select('id')
+        .single();
+
+      if (orderError) throw orderError;
+
+      toast({
+        title: "Pedido creado",
+        description: `El pedido se ha creado correctamente para ${analysisResult.client.name}`,
+      });
+      setMessage("");
+      setAnalysisResult(null);
+    } catch (error: any) {
+      console.error("Error al crear el pedido:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al crear el pedido",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -90,7 +225,12 @@ const Messages = () => {
                 onClick={analyzeMessage}
                 disabled={isAnalyzing}
               >
-                {isAnalyzing ? "Analizando..." : "Analizar Mensaje"}
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analizando...
+                  </>
+                ) : "Analizar Mensaje"}
               </Button>
             </CardFooter>
           </Card>
@@ -178,4 +318,4 @@ const Messages = () => {
   );
 };
 
-export default Messages;
+export default MagicOrder;
