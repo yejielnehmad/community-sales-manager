@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,7 +40,6 @@ const Clients = () => {
     }
   });
 
-  // Cargar clientes
   const fetchClients = async () => {
     setLoading(true);
     try {
@@ -52,7 +50,6 @@ const Clients = () => {
       
       if (error) throw error;
       
-      // Obtener pedidos para cada cliente
       const clientsWithStats = await Promise.all(
         data.map(async (client) => {
           const { count: ordersCount, error: ordersError } = await supabase
@@ -65,7 +62,7 @@ const Clients = () => {
             .select('balance')
             .eq('client_id', client.id);
           
-          const totalBalance = balanceData?.reduce((sum, order) => sum + parseFloat(order.balance), 0) || 0;
+          const totalBalance = balanceData?.reduce((sum, order) => sum + parseFloat(order.balance.toString()), 0) || 0;
           
           return {
             id: client.id,
@@ -91,7 +88,6 @@ const Clients = () => {
     fetchClients();
   }, []);
 
-  // Crear nuevo cliente
   const handleCreateClient = async (values: ClientFormValues) => {
     setIsSaving(true);
     try {
@@ -115,7 +111,6 @@ const Clients = () => {
     }
   };
   
-  // Actualizar cliente
   const handleUpdateClient = async (values: ClientFormValues) => {
     if (!editingClient) return;
     
@@ -140,7 +135,6 @@ const Clients = () => {
     }
   };
   
-  // Eliminar cliente
   const handleDeleteClient = async (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar este cliente?')) {
       setIsDeleting(true);
@@ -163,7 +157,6 @@ const Clients = () => {
     }
   };
   
-  // Abrir diálogo de edición
   const openEditClientDialog = (client: Client) => {
     setEditingClient(client);
     editForm.setValue('name', client.name);
@@ -171,7 +164,6 @@ const Clients = () => {
     setOpenEditDialog(true);
   };
   
-  // Toggle collapsible
   const toggleCollapsible = (id: string) => {
     setOpenCollapsibles(prev => ({
       ...prev,
@@ -317,7 +309,6 @@ const Clients = () => {
           )}
         </div>
         
-        {/* Diálogo de edición */}
         <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
           <DialogContent>
             <DialogHeader>

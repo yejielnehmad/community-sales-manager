@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -19,11 +18,9 @@ const Orders = () => {
   const [clients, setClients] = useState<{[key: string]: Client}>({});
   const [openCollapsibles, setOpenCollapsibles] = useState<{[key: string]: boolean}>({});
   
-  // Cargar pedidos
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      // 1. Cargar todos los clientes primero para tener acceso rápido
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*');
@@ -43,7 +40,6 @@ const Orders = () => {
       });
       setClients(clientsMap);
       
-      // 2. Cargar todos los pedidos
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
@@ -51,7 +47,6 @@ const Orders = () => {
       
       if (ordersError) throw ordersError;
       
-      // 3. Cargar los items de cada pedido
       const ordersWithItems = await Promise.all(
         ordersData.map(async (order) => {
           const { data: itemsData, error: itemsError } = await supabase
@@ -99,7 +94,6 @@ const Orders = () => {
     fetchOrders();
   }, []);
   
-  // Toggle collapsible
   const toggleCollapsible = (id: string) => {
     setOpenCollapsibles(prev => ({
       ...prev,
@@ -107,7 +101,6 @@ const Orders = () => {
     }));
   };
   
-  // Obtener etiqueta de estado
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -121,7 +114,6 @@ const Orders = () => {
     }
   };
   
-  // Agrupar pedidos por cliente
   const groupOrdersByClient = () => {
     const grouped: {[key: string]: Order[]} = {};
     

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,7 +60,6 @@ const Products = () => {
     }
   });
   
-  // Cargar productos
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -72,7 +70,6 @@ const Products = () => {
       
       if (error) throw error;
       
-      // Obtener variantes para cada producto
       const productsWithVariants = await Promise.all(
         (data || []).map(async (product) => {
           const { data: variantsData, error: variantsError } = await supabase
@@ -109,7 +106,6 @@ const Products = () => {
     fetchProducts();
   }, []);
   
-  // Crear nuevo producto
   const handleCreateProduct = async (values: ProductFormValues) => {
     setIsSaving(true);
     try {
@@ -119,7 +115,7 @@ const Products = () => {
           { 
             name: values.name, 
             description: values.description,
-            price: values.price
+            price: parseFloat(values.price)
           }
         ])
         .select();
@@ -137,7 +133,6 @@ const Products = () => {
     }
   };
   
-  // Actualizar producto
   const handleUpdateProduct = async (values: ProductFormValues) => {
     if (!editingProduct) return;
     
@@ -148,7 +143,7 @@ const Products = () => {
         .update({ 
           name: values.name, 
           description: values.description,
-          price: values.price
+          price: parseFloat(values.price)
         })
         .eq('id', editingProduct.id)
         .select();
@@ -166,7 +161,6 @@ const Products = () => {
     }
   };
   
-  // Eliminar producto
   const handleDeleteProduct = async (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar este producto?')) {
       setIsDeleting(true);
@@ -189,7 +183,6 @@ const Products = () => {
     }
   };
   
-  // Abrir diálogo de edición
   const openEditProductDialog = (product: Product) => {
     setEditingProduct(product);
     editForm.setValue('name', product.name);
@@ -198,7 +191,6 @@ const Products = () => {
     setOpenEditDialog(true);
   };
   
-  // Abrir diálogo de variantes
   const openManageVariants = (product: Product) => {
     setEditingProduct(product);
     setVariants(product.variants || []);
@@ -207,7 +199,6 @@ const Products = () => {
     setOpenVariantDialog(true);
   };
   
-  // Crear variante
   const handleCreateVariant = async (values: VariantFormValues) => {
     if (!editingProduct) return;
     
@@ -219,7 +210,7 @@ const Products = () => {
           { 
             product_id: editingProduct.id,
             name: values.name, 
-            price: values.price
+            price: parseFloat(values.price)
           }
         ])
         .select();
@@ -229,7 +220,6 @@ const Products = () => {
       toast.success('Variante creada correctamente');
       variantForm.reset();
       
-      // Actualizar la lista de variantes localmente
       if (data && data[0]) {
         const newVariant: ProductVariant = {
           id: data[0].id,
@@ -240,7 +230,6 @@ const Products = () => {
         setVariants(prev => [...prev, newVariant]);
       }
       
-      // Recargar productos
       fetchProducts();
     } catch (error) {
       console.error('Error al crear variante:', error);
@@ -250,14 +239,12 @@ const Products = () => {
     }
   };
   
-  // Editar variante
   const editVariant = (variant: ProductVariant) => {
     setEditingVariant(variant);
     variantForm.setValue('name', variant.name);
     variantForm.setValue('price', variant.price.toString());
   };
   
-  // Actualizar variante
   const handleUpdateVariant = async (values: VariantFormValues) => {
     if (!editingVariant) return;
     
@@ -267,7 +254,7 @@ const Products = () => {
         .from('product_variants')
         .update({ 
           name: values.name, 
-          price: values.price
+          price: parseFloat(values.price)
         })
         .eq('id', editingVariant.id)
         .select();
@@ -276,17 +263,14 @@ const Products = () => {
       
       toast.success('Variante actualizada correctamente');
       
-      // Actualizar la lista de variantes localmente
       setVariants(prev => prev.map(v => 
         v.id === editingVariant.id 
           ? { ...v, name: values.name, price: parseFloat(values.price) } 
           : v
       ));
       
-      // Recargar productos
       fetchProducts();
       
-      // Restablecer formulario
       variantForm.reset();
       setEditingVariant(null);
     } catch (error) {
@@ -297,7 +281,6 @@ const Products = () => {
     }
   };
   
-  // Eliminar variante
   const handleDeleteVariant = async (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar esta variante?')) {
       setIsDeleting(true);
@@ -311,10 +294,8 @@ const Products = () => {
         
         toast.success('Variante eliminada correctamente');
         
-        // Actualizar la lista de variantes localmente
         setVariants(prev => prev.filter(v => v.id !== id));
         
-        // Recargar productos
         fetchProducts();
       } catch (error) {
         console.error('Error al eliminar variante:', error);
@@ -325,7 +306,6 @@ const Products = () => {
     }
   };
   
-  // Toggle collapsible
   const toggleCollapsible = (id: string) => {
     setOpenCollapsibles(prev => ({
       ...prev,
@@ -508,7 +488,6 @@ const Products = () => {
           )}
         </div>
         
-        {/* Diálogo de edición */}
         <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
           <DialogContent>
             <DialogHeader>
@@ -579,7 +558,6 @@ const Products = () => {
           </DialogContent>
         </Dialog>
         
-        {/* Diálogo de variantes */}
         <Dialog open={openVariantDialog} onOpenChange={setOpenVariantDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -687,3 +665,4 @@ const Products = () => {
 };
 
 export default Products;
+

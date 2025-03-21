@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -345,14 +344,14 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
       
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
-        .insert([{
+        .insert({
           client_id: data.clientId,
           date: new Date().toISOString(),
           status: 'pending',
-          total: total.toString(),
-          amount_paid: amountPaid.toString(),
-          balance: balance.toString()
-        }])
+          total: parseFloat(total.toString()),
+          amount_paid: parseFloat(amountPaid.toString()),
+          balance: parseFloat(balance.toString())
+        })
         .select()
         .single();
       
@@ -363,8 +362,8 @@ Solo devuelve un objeto JSON válido, nada más. Si no puedes identificar algún
         product_id: item.productId,
         variant_id: item.variantId,
         quantity: item.quantity,
-        price: item.price.toString(),
-        total: item.total.toString()
+        price: parseFloat(item.price.toString()),
+        total: parseFloat(item.total.toString())
       }));
       
       const { error: itemsError } = await supabase
