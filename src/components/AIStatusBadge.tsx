@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
+  const { toast } = useToast();
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -18,6 +20,8 @@ export const AIStatusBadge = () => {
       }
 
       try {
+        console.log("Verificando conexión con Gemini API...");
+        
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
           {
@@ -40,12 +44,21 @@ export const AIStatusBadge = () => {
           }
         );
 
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Error en la respuesta HTTP:", response.status, response.statusText, errorText);
+          setStatus("error");
+          setMessage(`Error HTTP: ${response.status} ${response.statusText}`);
+          return;
+        }
+
         const data = await response.json();
         console.log("Respuesta de verificación de Gemini:", data);
 
         if (data.error) {
           setStatus("error");
           setMessage(`Error: ${data.error.message || "Error de conexión"}`);
+          console.error("Error de la API de Gemini:", data.error);
         } else if (
           data.candidates && 
           data.candidates[0] && 
@@ -55,6 +68,10 @@ export const AIStatusBadge = () => {
         ) {
           setStatus("connected");
           setMessage("Gemini conectado correctamente");
+          toast({
+            title: "Gemini API conectada",
+            description: "La conexión con Gemini API se ha establecido correctamente",
+          });
         } else {
           setStatus("error");
           setMessage("Respuesta inesperada de Gemini");
@@ -68,7 +85,7 @@ export const AIStatusBadge = () => {
     };
 
     checkConnection();
-  }, []);
+  }, [toast]);
 
   return (
     <TooltipProvider>

@@ -7,10 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { MessageAnalysis } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
+import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -19,7 +19,7 @@ const MagicOrder = () => {
   const { toast } = useToast();
 
   // Función para analizar el mensaje utilizando la API de Google Gemini
-  const analyzeMessage = async () => {
+  const handleAnalyzeMessage = async () => {
     if (!message.trim()) {
       toast({
         title: "Error",
@@ -29,123 +29,44 @@ const MagicOrder = () => {
       return;
     }
 
-    if (!GOOGLE_API_KEY) {
-      toast({
-        title: "Error",
-        description: "La clave de API de Google Gemini no está configurada",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
     try {
-      // Prompt para el modelo de IA que explica lo que debe extraer
-      const prompt = `
-      Analiza este mensaje de un cliente y extrae la siguiente información:
-      1. Nombre del cliente
-      2. Lista de productos solicitados con cantidades y variantes si están mencionadas
-
-      Mensaje del cliente: "${message}"
-
-      Responde SOLAMENTE en formato JSON con esta estructura exacta (sin explicaciones adicionales):
-      {
-        "client": {
-          "name": "Nombre del cliente"
-        },
-        "items": [
-          {
-            "product": "Nombre del producto",
-            "quantity": número,
-            "variant": "variante (si se menciona, de lo contrario omitir)"
-          }
-        ]
-      }
-      `;
-
-      console.log("Enviando prompt a Gemini:", prompt);
-
-      // Llamada a la API de Google Gemini con el modelo correcto
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }],
-            generationConfig: {
-              temperature: 0.2,
-              topP: 0.8,
-              maxOutputTokens: 1024,
-            }
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Respuesta de Gemini:", data);
-
-      // Verificar si hay errores en la respuesta
-      if (data.error) {
-        throw new Error(`Error de la API de Gemini: ${data.error.message || "Error desconocido"}`);
-      }
-
-      // Extraer el texto generado del formato de respuesta de Gemini
-      let jsonText = "";
-      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-        jsonText = data.candidates[0].content.parts[0].text;
-        console.log("Texto de respuesta:", jsonText);
-      } else {
-        throw new Error("Formato de respuesta inesperado de la API de Gemini");
-      }
-
-      // Limpiar el texto para asegurar que sea JSON válido
-      jsonText = jsonText.trim();
-      // Eliminar marcadores de código si están presentes
-      if (jsonText.startsWith("```json")) {
-        jsonText = jsonText.replace(/```json\n/, "").replace(/\n```$/, "");
-      } else if (jsonText.startsWith("```")) {
-        jsonText = jsonText.replace(/```\n/, "").replace(/\n```$/, "");
-      }
-
-      try {
-        const parsedResult = JSON.parse(jsonText) as MessageAnalysis;
-        console.log("Datos analizados:", parsedResult);
+      const result = await analyzeCustomerMessage(message);
+      
+      setAnalysisResult(result);
+      toast({
+        title: "Análisis completado",
+        description: `Se identificaron ${result.items.length} productos para ${result.client.name}`,
+      });
+    } catch (error) {
+      console.error("Error al analizar el mensaje:", error);
+      
+      if (error instanceof GeminiError) {
+        // Personalizamos el mensaje de error basado en el tipo de error
+        let errorMessage = "Error al analizar el mensaje";
         
-        // Validación básica del resultado
-        if (!parsedResult.client || !parsedResult.items || !Array.isArray(parsedResult.items)) {
-          throw new Error("El formato de los datos analizados no es válido");
+        if (error.status) {
+          errorMessage = `Error HTTP ${error.status}: ${error.message}`;
+        } else if (error.apiResponse) {
+          errorMessage = `Error en la respuesta de la API: ${error.message}`;
+        } else {
+          errorMessage = error.message;
         }
-        
-        setAnalysisResult(parsedResult);
         
         toast({
-          title: "Análisis completado",
-          description: `Se identificaron ${parsedResult.items.length} productos para ${parsedResult.client.name}`,
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
         });
-      } catch (parseError: any) {
-        console.error("Error al analizar JSON:", parseError, "Texto recibido:", jsonText);
-        throw new Error(`Error al procesar la respuesta: ${parseError.message}`);
+      } else {
+        toast({
+          title: "Error",
+          description: (error as Error).message || "Error al analizar el mensaje",
+          variant: "destructive",
+        });
       }
-    } catch (error: any) {
-      console.error("Error al analizar el mensaje:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Error al analizar el mensaje",
-        variant: "destructive",
-      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -254,7 +175,7 @@ const MagicOrder = () => {
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button 
-                onClick={analyzeMessage}
+                onClick={handleAnalyzeMessage}
                 disabled={isAnalyzing}
               >
                 {isAnalyzing ? (
