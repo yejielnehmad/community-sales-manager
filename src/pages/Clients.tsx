@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
 import { Client } from "@/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Plus, User, ChevronDown, ChevronUp, Edit, Trash, Loader2, Phone } from "lucide-react";
@@ -26,6 +25,7 @@ const Clients = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [openCollapsibles, setOpenCollapsibles] = useState<{[key: string]: boolean}>({});
   const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openAddDialog, setOpenAddDialog] = useState(false);
   
   const form = useForm<ClientFormValues>({
     defaultValues: {
@@ -61,7 +61,7 @@ const Clients = () => {
       setClients(formattedClients);
     } catch (error) {
       console.error('Error al cargar clientes:', error);
-      toast.error('Error al cargar los clientes');
+      alert('Error al cargar los clientes');
     } finally {
       setLoading(false);
     }
@@ -83,12 +83,13 @@ const Clients = () => {
       
       if (error) throw error;
       
-      toast.success('Cliente creado correctamente');
+      alert('Cliente creado correctamente');
       form.reset();
+      setOpenAddDialog(false);
       fetchClients();
     } catch (error) {
       console.error('Error al crear cliente:', error);
-      toast.error('Error al crear el cliente');
+      alert('Error al crear el cliente');
     } finally {
       setIsSaving(false);
     }
@@ -107,12 +108,12 @@ const Clients = () => {
       
       if (error) throw error;
       
-      toast.success('Cliente actualizado correctamente');
+      alert('Cliente actualizado correctamente');
       setOpenEditDialog(false);
       fetchClients();
     } catch (error) {
       console.error('Error al actualizar cliente:', error);
-      toast.error('Error al actualizar el cliente');
+      alert('Error al actualizar el cliente');
     } finally {
       setIsSaving(false);
     }
@@ -129,11 +130,11 @@ const Clients = () => {
         
         if (error) throw error;
         
-        toast.success('Cliente eliminado correctamente');
+        alert('Cliente eliminado correctamente');
         fetchClients();
       } catch (error) {
         console.error('Error al eliminar cliente:', error);
-        toast.error('Error al eliminar el cliente');
+        alert('Error al eliminar el cliente');
       } finally {
         setIsDeleting(false);
       }
@@ -145,6 +146,11 @@ const Clients = () => {
     editForm.setValue('name', client.name);
     editForm.setValue('phone', client.phone);
     setOpenEditDialog(true);
+  };
+  
+  const openAddClientDialog = () => {
+    form.reset();
+    setOpenAddDialog(true);
   };
   
   const toggleCollapsible = (id: string) => {
@@ -162,61 +168,12 @@ const Clients = () => {
             <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
             <p className="text-muted-foreground">Gestiona tus clientes</p>
           </div>
+          
+          <Button onClick={openAddClientDialog} className="rounded-lg">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Cliente
+          </Button>
         </div>
-        
-        <Card className="overflow-hidden">
-          <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleCreateClient)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombre</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nombre del cliente" {...field} className="rounded-lg" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Teléfono</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Teléfono del cliente" {...field} className="rounded-lg" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving} className="rounded-lg">
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Guardando...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nuevo Cliente
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
         
         <div className="space-y-2">
           {loading ? (
@@ -294,6 +251,64 @@ const Clients = () => {
           )}
         </div>
         
+        {/* Diálogo para agregar cliente */}
+        <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nuevo Cliente</DialogTitle>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreateClient)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nombre del cliente" {...field} className="rounded-lg" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Teléfono</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Teléfono del cliente" {...field} className="rounded-lg" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={isSaving} className="rounded-lg">
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Crear Cliente
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Diálogo para editar cliente */}
         <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
           <DialogContent>
             <DialogHeader>

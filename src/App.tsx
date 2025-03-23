@@ -1,6 +1,4 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -13,12 +11,10 @@ import Messages from "./pages/Messages";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 // App version
-export const APP_VERSION = "1.0.3";
+export const APP_VERSION = "1.0.4";
 
 const App = () => (
   <>
-    <Toaster />
-    <Sonner />
     <TooltipProvider>
       <SidebarProvider>
         <BrowserRouter>

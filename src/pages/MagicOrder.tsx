@@ -14,7 +14,6 @@ import {
   ChevronUp,
   Clipboard
 } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
@@ -27,7 +26,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-export const MAGIC_ORDER_VERSION = "1.0.2";
+export const MAGIC_ORDER_VERSION = "1.0.3";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -35,7 +34,6 @@ const MagicOrder = () => {
   const [progress, setProgress] = useState(0);
   const [orders, setOrders] = useState<OrderCardType[]>([]);
   const [showGenerator, setShowGenerator] = useState(false);
-  const { toast } = useToast();
 
   const simulateProgress = () => {
     setProgress(0);
@@ -61,11 +59,7 @@ const MagicOrder = () => {
   // Función para analizar el mensaje utilizando la API de Google Gemini
   const handleAnalyzeMessage = async () => {
     if (!message.trim()) {
-      toast({
-        title: "Error",
-        description: "Por favor, ingresa un mensaje para analizar",
-        variant: "destructive",
-      });
+      alert("Por favor, ingresa un mensaje para analizar");
       return;
     }
 
@@ -88,11 +82,6 @@ const MagicOrder = () => {
       
       setOrders(prevOrders => [...prevOrders, ...newOrders]);
       
-      toast({
-        title: "Análisis completado",
-        description: `Se identificaron ${newOrders.length} pedidos`,
-      });
-      
       // Limpiar el mensaje después de procesarlo
       setMessage("");
     } catch (error) {
@@ -110,17 +99,9 @@ const MagicOrder = () => {
           errorMessage = error.message;
         }
         
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        alert(errorMessage);
       } else {
-        toast({
-          title: "Error",
-          description: (error as Error).message || "Error al analizar el mensaje",
-          variant: "destructive",
-        });
+        alert((error as Error).message || "Error al analizar el mensaje");
       }
     } finally {
       setTimeout(() => {
@@ -141,16 +122,9 @@ const MagicOrder = () => {
     try {
       const text = await navigator.clipboard.readText();
       setMessage(text);
-      toast({
-        title: "Texto pegado",
-        description: "El texto ha sido copiado del portapapeles"
-      });
+      alert("El texto ha sido copiado del portapapeles");
     } catch (err) {
-      toast({
-        title: "Error",
-        description: "No se pudo acceder al portapapeles",
-        variant: "destructive"
-      });
+      alert("No se pudo acceder al portapapeles");
     }
   };
 
@@ -162,11 +136,7 @@ const MagicOrder = () => {
   const handleSaveOrder = async (orderIndex: number, order: OrderCardType) => {
     try {
       if (!order.client.id) {
-        toast({
-          title: "Error",
-          description: "Cliente no identificado correctamente",
-          variant: "destructive",
-        });
+        alert("Cliente no identificado correctamente");
         return false;
       }
 
@@ -189,11 +159,7 @@ const MagicOrder = () => {
       }
       
       if (hasInvalidItems) {
-        toast({
-          title: "Error",
-          description: "Hay productos que no fueron identificados correctamente",
-          variant: "destructive",
-        });
+        alert("Hay productos que no fueron identificados correctamente");
         return false;
       }
 
@@ -244,20 +210,21 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
 
-      toast({
-        title: "Pedido guardado",
-        description: `El pedido para ${order.client.name} se ha guardado correctamente`,
-      });
+      alert(`El pedido para ${order.client.name} se ha guardado correctamente`);
       
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Error al guardar el pedido",
-        variant: "destructive",
-      });
+      alert(error.message || "Error al guardar el pedido");
       return false;
+    }
+  };
+
+  const handleDeleteOrder = (index: number) => {
+    if (window.confirm('¿Estás seguro de eliminar este pedido preliminar?')) {
+      const updatedOrders = [...orders];
+      updatedOrders.splice(index, 1);
+      setOrders(updatedOrders);
     }
   };
 
@@ -363,7 +330,7 @@ const MagicOrder = () => {
               <Button 
                 onClick={handleAnalyzeMessage}
                 disabled={isAnalyzing || !message.trim()}
-                className="flex items-center gap-2 transition-transform hover:scale-105 duration-200 relative overflow-hidden"
+                className="relative overflow-hidden"
               >
                 <div className="flex items-center gap-2 z-10 relative">
                   {isAnalyzing ? (
@@ -380,7 +347,7 @@ const MagicOrder = () => {
                 </div>
                 {isAnalyzing && (
                   <div 
-                    className="absolute left-0 top-0 h-full bg-primary/30 z-0 transition-all"
+                    className="absolute left-0 top-0 h-full bg-primary/50 z-0 transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 )}
@@ -408,13 +375,23 @@ const MagicOrder = () => {
             
             <div className="space-y-2">
               {orders.map((order, index) => (
-                <OrderCard 
-                  key={index} 
-                  order={order}
-                  onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
-                  onSave={async (orderToSave) => handleSaveOrder(index, orderToSave)}
-                  isPreliminary={true}
-                />
+                <div key={index} className="relative">
+                  <OrderCard 
+                    order={order}
+                    onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
+                    onSave={async (orderToSave) => handleSaveOrder(index, orderToSave)}
+                    isPreliminary={true}
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => handleDeleteOrder(index)}
+                    disabled={order.status === 'saved'}
+                  >
+                    Eliminar
+                  </Button>
+                </div>
               ))}
             </div>
           </div>

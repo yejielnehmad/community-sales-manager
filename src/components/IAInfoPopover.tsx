@@ -6,7 +6,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
-import { Brain, Sparkles, MessageSquare, Wand, Zap, FileText, Search } from "lucide-react";
+import { 
+  Brain, 
+  Sparkles, 
+  MessageSquare, 
+  Wand, 
+  Zap, 
+  FileText, 
+  Search,
+  Store,
+  UserCheck,
+  ShoppingCart
+} from "lucide-react";
+import { APP_VERSION } from "@/App";
 
 export function IAInfoPopover() {
   return (
@@ -61,11 +73,31 @@ export function IAInfoPopover() {
             
             <div className="border rounded-lg p-3 bg-card transition-all hover:bg-muted/30 hover:shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <FileText className="h-4 w-4 text-emerald-500" />
-                <h4 className="font-medium text-sm">Ejemplos de Mensaje</h4>
+                <Store className="h-4 w-4 text-emerald-500" />
+                <h4 className="font-medium text-sm">Categorización de Productos</h4>
               </div>
               <p className="text-xs text-muted-foreground">
-                Genera ejemplos de mensajes realistas basados en los datos de la aplicación.
+                Sugiere categorías para tus productos basado en sus descripciones.
+              </p>
+            </div>
+            
+            <div className="border rounded-lg p-3 bg-card transition-all hover:bg-muted/30 hover:shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <UserCheck className="h-4 w-4 text-indigo-500" />
+                <h4 className="font-medium text-sm">Segmentación de Clientes</h4>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ayuda a segmentar clientes según patrones de compra y preferencias.
+              </p>
+            </div>
+            
+            <div className="border rounded-lg p-3 bg-card transition-all hover:bg-muted/30 hover:shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <ShoppingCart className="h-4 w-4 text-rose-500" />
+                <h4 className="font-medium text-sm">Recomendación de Productos</h4>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sugiere productos adicionales basados en el historial de pedidos.
               </p>
             </div>
           </div>
@@ -75,7 +107,7 @@ export function IAInfoPopover() {
               <Zap className="h-4 w-4 text-amber-500 mr-2" />
               <span className="text-xs text-muted-foreground">Powered by Google Gemini</span>
             </div>
-            <div className="text-xs text-muted-foreground">v1.0.2</div>
+            <div className="text-xs text-muted-foreground">v{APP_VERSION}</div>
           </div>
         </div>
       </PopoverContent>
