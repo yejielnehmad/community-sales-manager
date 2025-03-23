@@ -7,6 +7,8 @@ import { MessageSquare, SendIcon, Loader2, X, AlertTriangle } from "lucide-react
 import { toast } from "@/hooks/use-toast";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { supabase } from "@/lib/supabase";
+import { callGeminiAPI, chatWithAssistant } from "@/services/geminiService";
+import { GOOGLE_API_KEY } from "@/lib/api-config";
 
 type Message = {
   id: string;
@@ -24,7 +26,29 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isApiAvailable, setIsApiAvailable] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Verificar si la API está disponible
+    const checkApiAvailability = async () => {
+      if (!GOOGLE_API_KEY) {
+        setIsApiAvailable(false);
+        return;
+      }
+      
+      try {
+        // Hacemos una prueba simple
+        await callGeminiAPI("Responde con 'ok'");
+        setIsApiAvailable(true);
+      } catch (error) {
+        console.error("Error al verificar disponibilidad de API:", error);
+        setIsApiAvailable(false);
+      }
+    };
+    
+    checkApiAvailability();
+  }, []);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -56,6 +80,21 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
     setIsLoading(true);
     
     try {
+      // Verificar si la API está disponible
+      if (!isApiAvailable) {
+        setTimeout(() => {
+          const assistantMessage: Message = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "Lo siento, el servicio de asistente IA no está disponible en este momento. Por favor, verifica tu conexión o la configuración de la API de Google Gemini.",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+          setIsLoading(false);
+        }, 800);
+        return;
+      }
+      
       // Obtener datos relevantes de la base de datos para contextualizar
       const { data: recentClients } = await supabase
         .from('clients')
@@ -81,18 +120,30 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         products: recentProducts || []
       };
       
-      // Simulación de respuesta del asistente
-      setTimeout(() => {
+      // Llamar a la API de Gemini
+      try {
+        const aiResponse = await chatWithAssistant(inputMessage, appContext);
+        
         const assistantMessage: Message = {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: "El servicio de asistente por IA no está disponible en este momento mientras configuramos la integración con Google Gemini. Pronto estará funcionando correctamente.",
+          content: aiResponse,
           timestamp: new Date(),
         };
         
         setMessages((prev) => [...prev, assistantMessage]);
-        setIsLoading(false);
-      }, 1500);
+      } catch (error) {
+        console.error("Error en respuesta de IA:", error);
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Lo siento, ocurrió un error al procesar tu consulta. Por favor, inténtalo de nuevo más tarde.",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      }
+      
+      setIsLoading(false);
     } catch (error) {
       console.error("Error al procesar mensaje:", error);
       
@@ -127,15 +178,17 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
               <div className="text-center text-muted-foreground py-8">
                 <MessageSquare className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>¡Hola! Puedes preguntarme sobre los clientes, productos o pedidos de tu aplicación.</p>
-                <div className="mt-4 p-3 bg-amber-50 rounded-md border border-amber-200 text-amber-800">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertTriangle className="h-4 w-4" />
-                    <p className="font-medium">Configuración en progreso</p>
+                {isApiAvailable === false && (
+                  <div className="mt-4 p-3 bg-amber-50 rounded-md border border-amber-200 text-amber-800">
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertTriangle className="h-4 w-4" />
+                      <p className="font-medium">Servicio no disponible</p>
+                    </div>
+                    <p className="text-sm">
+                      El asistente por IA no está disponible en este momento. Por favor, verifica la configuración de la API de Google Gemini.
+                    </p>
                   </div>
-                  <p className="text-sm">
-                    El asistente por IA está en fase de configuración. Pronto estará disponible con la integración completa de Google Gemini.
-                  </p>
-                </div>
+                )}
               </div>
             ) : (
               messages.map((message) => (

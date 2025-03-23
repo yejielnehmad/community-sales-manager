@@ -1,3 +1,4 @@
+
 export interface MessageItem {
   product: {
     id?: string;
@@ -47,4 +48,39 @@ export interface OrderCard {
   items: MessageItem[];
   isPaid: boolean;
   status: 'pending' | 'saved';
+  isPreliminary?: boolean;
+}
+
+export interface Client {
+  id?: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}
+
+export interface Product {
+  id?: string;
+  name: string;
+  price: number;
+  description?: string;
+  variants?: ProductVariant[];
+}
+
+export interface ProductVariant {
+  id: string;
+  product_id: string;
+  name: string;
+  price: number;
+}
+
+export interface MessageProduct {
+  id?: string;
+  name: string;
+}
+
+export interface MessageVariant {
+  id: string;
+  name: string;
 }

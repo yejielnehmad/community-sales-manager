@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import {
   ShoppingBag, 
   ClipboardList,
   Menu,
-  MessageSquarePlus,
   MessageCircle,
   Database,
   Wand
@@ -37,11 +36,24 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     { path: "/magic-order", label: "Mensaje Mágico", icon: <Wand className="h-5 w-5" /> },
   ];
 
+  const navigateTo = useCallback((path: string) => {
+    navigate(path);
+    setOpen(false);
+  }, [navigate]);
+
+  const openChat = useCallback(() => {
+    setChatOpen(true);
+    setOpen(false);
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-background">
       {/* Header móvil */}
       <header className="sticky top-0 z-10 border-b bg-background p-3 flex items-center justify-between shadow-sm">
-        <h1 className="text-lg font-bold text-primary cursor-pointer" onClick={() => navigate("/")}>
+        <h1 
+          className="text-lg font-bold text-primary cursor-pointer" 
+          onClick={() => navigateTo("/")}
+        >
           VentasCom
         </h1>
         
@@ -49,7 +61,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
           <AIStatusBadge />
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="focus:outline-none">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Menú</span>
               </Button>
@@ -62,25 +74,21 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
                 <ScrollArea className="flex-1">
                   <div className="py-2">
                     {menuItems.map((item) => (
-                      <Link
+                      <button
                         key={item.path}
-                        to={item.path}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors ${
+                        onClick={() => navigateTo(item.path)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left focus:outline-none ${
                           location.pathname === item.path ? "bg-muted font-medium" : ""
                         }`}
                       >
                         {item.icon}
                         <span>{item.label}</span>
-                      </Link>
+                      </button>
                     ))}
                     
                     <button
-                      onClick={() => {
-                        setChatOpen(true);
-                        setOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left"
+                      onClick={openChat}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left focus:outline-none"
                     >
                       <MessageCircle className="h-5 w-5" />
                       <span>Asistente</span>
@@ -88,7 +96,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
                     
                     <button
                       onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left focus:outline-none"
                     >
                       <Database className="h-5 w-5" />
                       <span>Supabase</span>

@@ -1,12 +1,12 @@
 
 import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenuButton, SidebarMenuItem, SidebarMenu, SidebarRail, SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Home, Users, ShoppingBag, ClipboardList, MessageSquarePlus, Database, MessageCircle, Wand } from "lucide-react";
+import { Home, Users, ShoppingBag, ClipboardList, Database, MessageCircle, Wand } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { APP_VERSION } from "@/App";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { ChatAssistant } from "@/components/ChatAssistant";
@@ -30,6 +30,23 @@ export function AppLayout({ children }: AppLayoutProps) {
     { path: "/magic-order", label: "Mensaje Mágico", icon: Wand },
   ];
   
+  // Navegación por rutas
+  const navigateTo = useCallback((path: string) => {
+    navigate(path);
+    setMenuOpen(false);
+  }, [navigate]);
+  
+  // Abrir chat
+  const openChat = useCallback(() => {
+    setChatOpen(true);
+    setMenuOpen(false);
+  }, []);
+  
+  // Abrir Supabase
+  const openSupabase = useCallback(() => {
+    window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank");
+  }, []);
+  
   // Layout para móvil
   if (isMobile) {
     return (
@@ -37,7 +54,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <header className="sticky top-0 z-10 border-b p-3 flex items-center justify-between bg-background shadow-sm">
           <h1 
             className="text-lg font-bold text-primary cursor-pointer" 
-            onClick={() => navigate('/')}
+            onClick={() => navigateTo('/')}
           >
             VentasCom
           </h1>
@@ -46,7 +63,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <AIStatusBadge />
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="focus:outline-none">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -61,11 +78,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                       <Button
                         key={item.path}
                         variant={location.pathname === item.path ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => {
-                          navigate(item.path);
-                          setMenuOpen(false);
-                        }}
+                        className="w-full justify-start focus:outline-none"
+                        onClick={() => navigateTo(item.path)}
                       >
                         <item.icon className="mr-2 h-4 w-4" />
                         {item.label}
@@ -74,11 +88,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                     
                     <Button
                       variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setChatOpen(true);
-                        setMenuOpen(false);
-                      }}
+                      className="w-full justify-start focus:outline-none"
+                      onClick={openChat}
                     >
                       <MessageCircle className="mr-2 h-4 w-4" />
                       Asistente
@@ -86,8 +97,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                     
                     <Button
                       variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}
+                      className="w-full justify-start focus:outline-none"
+                      onClick={openSupabase}
                     >
                       <Database className="mr-2 h-4 w-4" />
                       Supabase
@@ -120,7 +131,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <header className="border-b mb-4 pb-2 flex items-center justify-between">
             <h1 
               className="text-xl font-bold text-primary cursor-pointer" 
-              onClick={() => navigate('/')}
+              onClick={() => navigateTo('/')}
             >
               VentasCom
             </h1>

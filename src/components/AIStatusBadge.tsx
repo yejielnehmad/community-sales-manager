@@ -39,6 +39,8 @@ export const AIStatusBadge = () => {
                 maxOutputTokens: 10,
               }
             }),
+            // Agregar un timeout para evitar que se quede colgado
+            signal: AbortSignal.timeout(10000)
           }
         );
 
@@ -74,12 +76,29 @@ export const AIStatusBadge = () => {
       } catch (error: any) {
         console.error("Error al verificar conexión con Gemini:", error);
         setStatus("error");
-        setMessage(`Error al conectar con Gemini API: ${error.message}`);
+        setMessage(`Error al conectar con Gemini API: ${error.name === 'TimeoutError' ? 'Timeout' : error.message}`);
       }
     };
 
-    checkConnection();
-  }, []);
+    // Intentar reconectar cada 30 segundos si hay error
+    const checkWithRetry = async () => {
+      await checkConnection();
+      
+      if (status === "error") {
+        const intervalId = setInterval(async () => {
+          console.log("Reintentando conexión con Gemini API...");
+          await checkConnection();
+          if (status === "connected") {
+            clearInterval(intervalId);
+          }
+        }, 30000);
+        
+        return () => clearInterval(intervalId);
+      }
+    };
+
+    checkWithRetry();
+  }, [status]);
 
   return (
     <TooltipProvider>
