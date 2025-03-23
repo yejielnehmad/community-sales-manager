@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Client } from "@/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, User, ChevronDown, ChevronUp, Edit, Trash, Loader2 } from "lucide-react";
+import { Plus, User, ChevronDown, ChevronUp, Edit, Trash, Loader2, Phone } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ClientFormValues = {
@@ -51,32 +51,14 @@ const Clients = () => {
       
       if (error) throw error;
       
-      const clientsWithStats = await Promise.all(
-        data.map(async (client) => {
-          const { count: ordersCount, error: ordersError } = await supabase
-            .from('orders')
-            .select('*', { count: 'exact', head: true })
-            .eq('client_id', client.id);
-          
-          const { data: balanceData, error: balanceError } = await supabase
-            .from('orders')
-            .select('balance')
-            .eq('client_id', client.id);
-          
-          const totalBalance = balanceData?.reduce((sum, order) => sum + parseFloat(order.balance.toString()), 0) || 0;
-          
-          return {
-            id: client.id,
-            name: client.name,
-            phone: client.phone || '',
-            createdAt: client.created_at,
-            totalOrders: ordersCount || 0,
-            balance: totalBalance
-          } as Client;
-        })
-      );
+      const formattedClients = data.map(client => ({
+        id: client.id,
+        name: client.name,
+        phone: client.phone || '',
+        createdAt: client.created_at
+      }));
       
-      setClients(clientsWithStats);
+      setClients(formattedClients);
     } catch (error) {
       console.error('Error al cargar clientes:', error);
       toast.error('Error al cargar los clientes');
@@ -257,7 +239,16 @@ const Clients = () => {
                       </div>
                       <div>
                         <h3 className="font-medium">{client.name}</h3>
-                        <p className="text-xs text-muted-foreground">{client.phone || 'Sin teléfono'}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          {client.phone ? (
+                            <>
+                              <Phone className="h-3 w-3" />
+                              {client.phone}
+                            </>
+                          ) : (
+                            'Sin teléfono'
+                          )}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -271,17 +262,6 @@ const Clients = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="border-t p-3 space-y-3 bg-muted/10">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-background p-2 rounded-lg">
-                        <p className="text-xs font-medium text-muted-foreground">Pedidos</p>
-                        <p className="text-lg font-medium">{client.totalOrders}</p>
-                      </div>
-                      <div className="bg-background p-2 rounded-lg">
-                        <p className="text-xs font-medium text-muted-foreground">Saldo</p>
-                        <p className="text-lg font-medium">${client.balance.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="outline"

@@ -2,23 +2,13 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Link } from "react-router-dom";
-import { Wand, ClipboardList, User, Calendar, Tag, DollarSign, PiggyBank, CheckCircle, XCircle, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Wand, ClipboardList, Loader2 } from "lucide-react";
+import { OrderCardList } from "@/components/OrderCardList";
 
 interface OrderFromDB {
   id: string;
@@ -34,12 +24,15 @@ interface OrderFromDB {
 
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [clientMap, setClientMap] = useState<{ [key: string]: { name: string } }>({});
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchOrders = async () => {
+      setIsLoading(true);
       try {
+        // Obtener pedidos con sus items
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select('*')
@@ -61,6 +54,28 @@ const Orders = () => {
             throw clientsError;
           }
 
+          // Get order items
+          const orderIds = ordersData.map(order => order.id);
+          const { data: orderItemsData, error: orderItemsError } = await supabase
+            .from('order_items')
+            .select('*')
+            .in('order_id', orderIds);
+
+          if (orderItemsError) {
+            throw orderItemsError;
+          }
+
+          // Create map of order items by order ID
+          const orderItemsMap: { [key: string]: any[] } = {};
+          if (orderItemsData) {
+            orderItemsData.forEach(item => {
+              if (!orderItemsMap[item.order_id]) {
+                orderItemsMap[item.order_id] = [];
+              }
+              orderItemsMap[item.order_id].push(item);
+            });
+          }
+
           if (clientsData) {
             const clientMap: { [key: string]: { name: string } } = {};
             clientsData.forEach(client => {
@@ -75,7 +90,7 @@ const Orders = () => {
               clientName: clientMap[order.client_id]?.name || "Cliente desconocido",
               date: order.date || "",
               status: order.status as 'pending' | 'completed' | 'cancelled',
-              items: [], // No tenemos los items en esta consulta
+              items: orderItemsMap[order.id] || [],
               total: order.total,
               amountPaid: order.amount_paid,
               balance: order.balance
@@ -90,21 +105,20 @@ const Orders = () => {
           description: error.message,
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchOrders();
   }, [toast]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-500 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Completado</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-red-500 flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelado</Badge>;
-      default:
-        return <Badge className="bg-yellow-500 flex items-center gap-1"><Clock className="h-3 w-3" /> Pendiente</Badge>;
-    }
+  const handleOrderUpdate = (orderId: string, updates: Partial<Order>) => {
+    setOrders(prevOrders => prevOrders.map(order => 
+      order.id === orderId 
+        ? { ...order, ...updates } 
+        : order
+    ));
   };
 
   return (
@@ -130,76 +144,23 @@ const Orders = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-primary" />
-              Lista de Pedidos
+              Pedidos por Cliente
             </CardTitle>
             <CardDescription>
-              Aquí puedes ver todos los pedidos registrados en el sistema.
+              Aquí puedes ver todos los pedidos agrupados por cliente.
             </CardDescription>
           </CardHeader>
-          <CardContent className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">ID</TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4" />
-                      Cliente
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      Fecha
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <Tag className="h-4 w-4" />
-                      Estado
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="h-4 w-4" />
-                      Total
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" />
-                      Pagado
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <PiggyBank className="h-4 w-4" />
-                      Balance
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.id}</TableCell>
-                    <TableCell>{order.clientName}</TableCell>
-                    <TableCell>{order.date}</TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>${order.total.toFixed(2)}</TableCell>
-                    <TableCell>${order.amountPaid.toFixed(2)}</TableCell>
-                    <TableCell>${order.balance.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))}
-                {orders.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                      No hay pedidos registrados
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <OrderCardList 
+                orders={orders} 
+                onOrderUpdate={handleOrderUpdate}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

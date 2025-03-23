@@ -15,9 +15,25 @@ import {
   OrderCard as OrderCardType,
   MessageAlternative
 } from '@/types';
-import { ChevronDown, ChevronUp, Check, AlertCircle, ShoppingCart, User, Package } from 'lucide-react';
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Check, 
+  AlertCircle, 
+  ShoppingCart, 
+  User, 
+  Package, 
+  Info,
+  MessageSquare
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
 
 interface OrderCardProps {
   order: OrderCardType;
@@ -156,8 +172,25 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                   )}
                   
                   {item.notes && (
-                    <div className="text-sm text-muted-foreground mt-2 bg-muted p-2 rounded-md">
-                      <strong>Nota:</strong> {item.notes}
+                    <div className="flex items-center mt-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
+                              <Info className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <div className="max-w-xs p-1 text-sm">
+                              <strong>Nota:</strong> {item.notes}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <span className="text-sm text-muted-foreground ml-1">
+                        <MessageSquare className="h-3 w-3 inline mr-1" />
+                        Nota disponible
+                      </span>
                     </div>
                   )}
                   

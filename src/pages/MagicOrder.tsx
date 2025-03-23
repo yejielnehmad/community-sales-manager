@@ -5,19 +5,57 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, MessageSquareText, Wand } from 'lucide-react';
+import { Progress } from "@/components/ui/progress";
+import { 
+  Loader2, 
+  MessageSquareText, 
+  Wand, 
+  Sparkles, 
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
 import { PasteButton } from "@/components/PasteButton";
+import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
 import { OrderCard as OrderCardType, MessageAnalysis, MessageItem } from "@/types";
+import { generateMessageExample } from "@/services/aiLabsService";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [orders, setOrders] = useState<OrderCardType[]>([]);
+  const [showGenerator, setShowGenerator] = useState(false);
   const { toast } = useToast();
+
+  const simulateProgress = () => {
+    setProgress(0);
+    const duration = 5000; // 5 segundos para el análisis simulado
+    const interval = 20; // actualizar cada 20ms
+    const steps = duration / interval;
+    let currentStep = 0;
+    
+    const timer = setInterval(() => {
+      currentStep++;
+      // Función sigmoide para que sea más lento al principio y al final
+      const progressValue = 100 / (1 + Math.exp(-0.1 * (currentStep - steps/2)));
+      setProgress(progressValue);
+      
+      if (currentStep >= steps) {
+        clearInterval(timer);
+      }
+    }, interval);
+    
+    return () => clearInterval(timer);
+  };
 
   // Función para analizar el mensaje utilizando la API de Google Gemini
   const handleAnalyzeMessage = async () => {
@@ -31,9 +69,13 @@ const MagicOrder = () => {
     }
 
     setIsAnalyzing(true);
+    const stopSimulation = simulateProgress();
 
     try {
       const results = await analyzeCustomerMessage(message);
+      
+      // Asegurar que la barra de progreso llegue al 100%
+      setProgress(100);
       
       // Convertir los resultados a formato de OrderCard
       const newOrders = results.map(result => ({
@@ -80,7 +122,11 @@ const MagicOrder = () => {
         });
       }
     } finally {
-      setIsAnalyzing(false);
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setProgress(0);
+      }, 500); // Pequeño retraso para asegurar que la barra llegue al 100%
+      stopSimulation();
     }
   };
 
@@ -92,6 +138,25 @@ const MagicOrder = () => {
 
   const handlePaste = (text: string) => {
     setMessage(text);
+  };
+
+  const handleSelectExample = (example: string) => {
+    setMessage(example);
+    setShowGenerator(false);
+  };
+
+  const handleGenerateExample = async () => {
+    try {
+      const example = await generateMessageExample();
+      setMessage(example);
+    } catch (error) {
+      console.error("Error al generar ejemplo:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo generar un ejemplo",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveOrder = async (orderIndex: number, order: OrderCardType) => {
@@ -209,6 +274,33 @@ const MagicOrder = () => {
           </div>
         </div>
 
+        <Collapsible
+          open={showGenerator}
+          onOpenChange={setShowGenerator}
+        >
+          <div className="flex justify-end">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="mb-2">
+                {showGenerator ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-1" />
+                    Ocultar generador
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    IA Labs
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          
+          <CollapsibleContent>
+            <MessageExampleGenerator onSelectExample={handleSelectExample} />
+          </CollapsibleContent>
+        </Collapsible>
+
         <Card>
           <CardHeader>
             <CardTitle>Nuevo Mensaje</CardTitle>
@@ -226,27 +318,42 @@ const MagicOrder = () => {
               />
               <div className="flex items-center justify-end gap-2">
                 <PasteButton onPaste={handlePaste} />
+                <Button
+                  variant="outline"
+                  onClick={handleGenerateExample}
+                  disabled={isAnalyzing}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generar Ejemplo
+                </Button>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end">
-            <Button 
-              onClick={handleAnalyzeMessage}
-              disabled={isAnalyzing || !message.trim()}
-              className="flex items-center gap-2"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analizando...
-                </>
-              ) : (
-                <>
-                  <MessageSquareText className="h-4 w-4" />
-                  Analizar Mensaje
-                </>
-              )}
-            </Button>
+          <CardFooter className="flex flex-col gap-3">
+            {isAnalyzing && (
+              <div className="w-full">
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+            <div className="w-full flex justify-end">
+              <Button 
+                onClick={handleAnalyzeMessage}
+                disabled={isAnalyzing || !message.trim()}
+                className="flex items-center gap-2"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Sparkles className="h-4 w-4 animate-pulse" />
+                    Haciendo magia...
+                  </>
+                ) : (
+                  <>
+                    <Wand className="h-4 w-4" />
+                    Analizar Mensaje
+                  </>
+                )}
+              </Button>
+            </div>
           </CardFooter>
         </Card>
 
