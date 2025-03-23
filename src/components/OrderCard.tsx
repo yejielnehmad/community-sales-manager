@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { 
@@ -24,7 +24,6 @@ import {
   User, 
   Package, 
   Info,
-  MessageSquare,
   CreditCard
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -96,22 +95,27 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
   return (
-    <Card className="mb-2 overflow-hidden transition-all duration-200 hover:shadow-md border-l-4 relative" style={{ 
-      borderLeftColor: hasUncertainItems ? 'var(--warning)' : 'var(--primary)' 
-    }}>
+    <Card className="mb-2 overflow-hidden transition-all duration-200 hover:shadow-md rounded-xl shadow-sm relative">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full text-left">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between p-3">
-            <div className="flex items-center gap-2">
-              <div className="bg-primary/10 p-2 rounded-full">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <CardTitle className="text-base">
-                {order.client.name}
-              </CardTitle>
+          <div className="p-4 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="font-medium text-lg">{order.client.name}</div>
               {order.client.matchConfidence && order.client.matchConfidence !== 'alto' && (
                 <Badge variant="outline" className="text-xs">
                   Coincidencia: {order.client.matchConfidence}
+                </Badge>
+              )}
+              {order.status === 'saved' && (
+                <Badge className="bg-green-500 text-white">
+                  <Check className="h-3 w-3 mr-1" />
+                  Guardado
+                </Badge>
+              )}
+              {hasUncertainItems && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  <AlertCircle size={12} className="mr-1" />
+                  Requiere confirmación
                 </Badge>
               )}
             </div>
@@ -136,29 +140,17 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                   </Tooltip>
                 </TooltipProvider>
               )}
-              <div className="bg-muted/60 h-7 w-7 rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-110">
-                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <div className="h-8 w-8 rounded-full flex items-center justify-center bg-muted/20">
+                {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
               </div>
             </div>
-          </CardHeader>
+          </div>
         </CollapsibleTrigger>
-        
-        {order.status === 'saved' && (
-          <Badge className="absolute top-2 right-2 bg-green-500">
-            Guardado
-          </Badge>
-        )}
         
         <div className="px-4 py-2 bg-muted/10 border-t border-b">
           <div className="text-sm text-muted-foreground flex items-center gap-1">
             <ShoppingCart size={14} />
             {order.items.length} {order.items.length === 1 ? 'producto' : 'productos'}
-            {hasUncertainItems && (
-              <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
-                <AlertCircle size={12} className="mr-1" />
-                Requiere confirmación
-              </Badge>
-            )}
           </div>
         </div>
 

@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { Link } from "react-router-dom";
-import { Wand, ClipboardList, Loader2, User } from "lucide-react";
+import { Wand, ClipboardList, Loader2, User, Search, X } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
+import { Input } from "@/components/ui/input";
 
 interface OrderFromDB {
   id: string;
@@ -25,6 +26,8 @@ const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clientMap, setClientMap] = useState<{ [key: string]: { name: string } }>({});
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     fetchOrders();
@@ -161,6 +164,24 @@ const Orders = () => {
     ));
   };
 
+  const toggleSearch = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchTerm("");
+    }
+  };
+
+  // Filtrar órdenes basado en el término de búsqueda
+  const filteredOrders = searchTerm
+    ? orders.filter(order => 
+        order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.items.some(item => 
+          (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (item.variant && item.variant.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+      )
+    : orders;
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -172,22 +193,57 @@ const Orders = () => {
             </h1>
             <p className="text-muted-foreground">Administra los pedidos de tus clientes</p>
           </div>
-          <Button asChild className="flex items-center gap-2">
-            <Link to="/magic-order">
-              <Wand className="h-4 w-4" />
-              <span>Mensaje Mágico</span>
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleSearch}
+              className="flex items-center gap-1"
+            >
+              <Search className="h-4 w-4" />
+              {showSearch ? "Ocultar" : "Buscar"}
+            </Button>
+            <Button asChild className="flex items-center gap-2">
+              <Link to="/magic-order">
+                <Wand className="h-4 w-4" />
+                <span>Mensaje Mágico</span>
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        <Card>
+        {showSearch && (
+          <div className="relative">
+            <Input
+              placeholder="Buscar por cliente o producto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pr-10"
+            />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8"
+                onClick={() => setSearchTerm("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
+        <Card className="rounded-xl shadow-sm overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5 text-primary" />
               Pedidos por Cliente
             </CardTitle>
             <CardDescription>
-              Pedidos agrupados por cliente. Haz clic en una tarjeta para ver detalles.
+              {searchTerm 
+                ? `Resultados de búsqueda para "${searchTerm}"`
+                : "Pedidos agrupados por cliente. Haz clic en una tarjeta para ver detalles."
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -196,7 +252,7 @@ const Orders = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <OrderCardList orders={orders} onOrderUpdate={handleOrderUpdate} />
+              <OrderCardList orders={filteredOrders} onOrderUpdate={handleOrderUpdate} />
             )}
           </CardContent>
         </Card>

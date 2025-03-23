@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
-export const MAGIC_ORDER_VERSION = "1.0.6";
+export const MAGIC_ORDER_VERSION = "1.0.7";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -48,6 +50,7 @@ const MagicOrder = () => {
   const [showGenerator, setShowGenerator] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
+  const { toast } = useToast();
 
   const simulateProgress = () => {
     setProgress(0);
@@ -84,7 +87,35 @@ const MagicOrder = () => {
     const stopSimulation = simulateProgress();
 
     try {
-      const results = await analyzeCustomerMessage(message);
+      // Verificamos que Gemini API esté funcionando
+      let results;
+      try {
+        results = await analyzeCustomerMessage(message);
+      } catch (error) {
+        console.error("Error inicial al analizar:", error);
+        
+        // En caso de error de formato JSON, intentamos limpiar el mensaje
+        if (error instanceof GeminiError && 
+            error.message && 
+            error.message.includes("JSON")) {
+          
+          toast({
+            title: "Reintentando análisis",
+            description: "El primer intento falló, estamos reintentando con formato optimizado..."
+          });
+          
+          // Limpiar el mensaje para evitar caracteres problemáticos
+          const cleanedMessage = message
+            .replace(/[\u2018\u2019]/g, "'")
+            .replace(/[\u201C\u201D]/g, '"')
+            .replace(/\n+/g, ' ')
+            .trim();
+            
+          results = await analyzeCustomerMessage(cleanedMessage);
+        } else {
+          throw error; // Si no es un error de formato JSON, lo propagamos
+        }
+      }
       
       // Asegurar que la barra de progreso llegue al 100%
       setProgress(100);
@@ -101,6 +132,12 @@ const MagicOrder = () => {
       
       // Limpiar el mensaje después de procesarlo
       setMessage("");
+      
+      toast({
+        title: "Análisis completado",
+        description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} ${newOrders.length === 1 ? 'pedido' : 'pedidos'}`
+      });
+      
     } catch (error) {
       console.error("Error al analizar el mensaje:", error);
       
@@ -320,7 +357,7 @@ const MagicOrder = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        <Card>
+        <Card className="rounded-xl shadow-sm overflow-hidden">
           <CardHeader>
             <CardTitle>Nuevo Mensaje</CardTitle>
             <CardDescription>
@@ -424,7 +461,7 @@ const MagicOrder = () => {
 
       {/* Diálogo de confirmación para eliminar pedido */}
       <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => !open && setOrderToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este pedido?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -443,7 +480,7 @@ const MagicOrder = () => {
         open={alertMessage !== null}
         onOpenChange={(open) => !open && setAlertMessage(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
             <AlertDialogDescription>
