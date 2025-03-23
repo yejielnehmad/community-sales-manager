@@ -22,7 +22,18 @@ interface VersionChanges {
 // Historial completo de versiones
 const versionHistory: VersionChanges[] = [
   {
-    version: "1.2.0",
+    version: "1.3.0",
+    changes: [
+      "Nueva pantalla detallada de productos con estadísticas",
+      "Rediseño completo del dashboard con tarjetas de productos",
+      "Presentación mejorada del asistente IA en estilo Apple",
+      "Optimización del chat para resolver problemas de interacción",
+      "Mejoras en la experiencia táctil para dispositivos móviles",
+      "Visualización detallada de pedidos por producto"
+    ]
+  },
+  {
+    version: "1.2.2",
     changes: [
       "Corrección de problemas de scroll en diálogos de información",
       "Mejora visual en tarjetas de pedidos y productos",

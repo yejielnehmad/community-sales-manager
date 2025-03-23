@@ -1,12 +1,16 @@
 
 import { useEffect, useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingBag, Users, ClipboardList, Wallet, ChevronRight, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { ShoppingBag, Users, ClipboardList, Wallet, ChevronRight, Loader2, ArrowRight, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { ProductPendingBalances } from "@/components/ProductPendingBalances";
-import { VersionInfo } from "@/components/VersionInfo";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { getProductIcon } from "@/services/productIconService";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type DashboardStat = {
   clients: number;
@@ -103,15 +107,140 @@ const DashboardCard = ({
   </Card>
 );
 
+interface ProductSummaryCardProps {
+  product: any;
+  onCardClick: (productId: string) => void;
+}
+
+const ProductSummaryCard = ({ product, onCardClick }: ProductSummaryCardProps) => {
+  const [ordersCount, setOrdersCount] = useState<number | null>(null);
+  const [totalSales, setTotalSales] = useState<number | null>(null);
+  const [pendingPayments, setPendingPayments] = useState<number | null>(null);
+  const IconComponent = getProductIcon(product.name);
+  
+  useEffect(() => {
+    const fetchProductStats = async () => {
+      try {
+        // Obtener items de pedido para este producto
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select('*, orders(*)')
+          .eq('product_id', product.id);
+          
+        if (itemsError) throw itemsError;
+        
+        // Contar pedidos únicos
+        const uniqueOrderIds = new Set(orderItems?.map(item => item.order_id) || []);
+        setOrdersCount(uniqueOrderIds.size);
+        
+        // Calcular ventas totales
+        const sales = orderItems?.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) || 0;
+        setTotalSales(sales);
+        
+        // Calcular pagos pendientes
+        const pending = orderItems?.reduce((sum, item) => {
+          const order = item.orders;
+          if (order && order.status !== 'completed') {
+            // Calculamos la parte proporcional del balance pendiente para este item
+            const orderTotal = orderItems
+              .filter(oi => oi.order_id === item.order_id)
+              .reduce((t, oi) => t + (parseFloat(oi.price) * oi.quantity), 0);
+            
+            const itemPercentage = (parseFloat(item.price) * item.quantity) / orderTotal;
+            const itemPending = parseFloat(order.balance) * itemPercentage;
+            
+            return sum + itemPending;
+          }
+          return sum;
+        }, 0) || 0;
+        
+        setPendingPayments(pending);
+      } catch (error) {
+        console.error(`Error obteniendo stats para producto ${product.id}:`, error);
+      }
+    };
+    
+    fetchProductStats();
+  }, [product.id]);
+  
+  return (
+    <Card 
+      className="cursor-pointer hover:shadow-md transition-all"
+      onClick={() => onCardClick(product.id)}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <IconComponent className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{product.name}</CardTitle>
+              <CardDescription className="text-xs line-clamp-1">
+                {product.description || "Sin descripción"}
+              </CardDescription>
+            </div>
+          </div>
+          <Badge variant="outline" className="ml-2">
+            {product.variants?.length || 0} variantes
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <div className="text-sm font-medium">
+              {ordersCount === null ? (
+                <Loader2 className="h-3 w-3 animate-spin inline" />
+              ) : (
+                ordersCount
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">Pedidos</div>
+          </div>
+          <div>
+            <div className="text-sm font-medium">
+              {totalSales === null ? (
+                <Loader2 className="h-3 w-3 animate-spin inline" />
+              ) : (
+                `$${totalSales.toFixed(0)}`
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">Ventas</div>
+          </div>
+          <div>
+            <div className="text-sm font-medium">
+              {pendingPayments === null ? (
+                <Loader2 className="h-3 w-3 animate-spin inline" />
+              ) : (
+                `$${pendingPayments.toFixed(0)}`
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">Pendiente</div>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="pt-0">
+        <Button variant="ghost" size="sm" className="w-full text-xs justify-between">
+          Ver detalles <ArrowRight className="h-3 w-3 ml-1" />
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [stats, setStats] = useState<DashboardStat>({
     clients: 0,
     products: 0,
     orders: 0,
     pendingBalance: 0
   });
+  const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   // Valores animados
   const animatedClients = useCountUp(stats.clients, 1200, 100);
@@ -161,35 +290,42 @@ const Dashboard = () => {
       }
     };
 
+    const fetchProducts = async () => {
+      setIsLoadingProducts(true);
+      try {
+        // Obtener productos
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, variants:product_variants(*)')
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        setProducts(data || []);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    };
+
     fetchStats();
+    fetchProducts();
   }, []);
+
+  const navigateToProductDetail = (productId: string) => {
+    navigate(`/product/${productId}`);
+  };
 
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-2">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
             <p className="text-muted-foreground">Resumen de la venta comunitaria</p>
           </div>
-          <VersionInfo />
         </div>
-
-        {/* Productos con saldos pendientes - Ahora en la parte superior */}
-        <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />
-              Saldos Pendientes por Producto
-            </CardTitle>
-            <CardDescription>
-              Total de dinero que falta recaudar por cada producto
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProductPendingBalances />
-          </CardContent>
-        </Card>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <DashboardCard
@@ -227,6 +363,50 @@ const Dashboard = () => {
             isLoading={isLoading}
             animatedValue={isLoading ? 0 : animatedBalance}
           />
+        </div>
+
+        {/* Productos con saldos pendientes */}
+        <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Saldos Pendientes por Producto
+            </CardTitle>
+            <CardDescription>
+              Total de dinero que falta recaudar por cada producto
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProductPendingBalances />
+          </CardContent>
+        </Card>
+
+        {/* Tarjetas de productos */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Productos</h2>
+            <Button size="sm" variant="outline" onClick={() => navigate('/products')}>
+              Ver todos <ShoppingBag className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+          
+          {isLoadingProducts ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <ScrollArea className={isMobile ? "h-[500px]" : "h-auto"}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
+                {products.map((product) => (
+                  <ProductSummaryCard 
+                    key={product.id} 
+                    product={product} 
+                    onCardClick={navigateToProductDetail}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </div>
       </div>
     </AppLayout>
