@@ -4,16 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Brain, Sparkles, Check, Laptop, ShieldCheck, MessageSquare, BarChart4, Zap, X } from "lucide-react";
+import { ChatAssistant } from "@/components/ChatAssistant";
+import { AIStatusBadge } from "@/components/AIStatusBadge";
 
 export function IAPresentation() {
   const [isOpen, setIsOpen] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  const handleOpenChat = () => {
+    setIsOpen(false);
+    setShowChat(true);
+  };
+
+  const handleCloseChat = () => {
+    setShowChat(false);
+  };
 
   return (
     <>
       <Button
         variant="ghost"
         size="icon"
-        className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+        className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors touch-manipulation"
         onClick={() => setIsOpen(true)}
       >
         <Sparkles className="h-4 w-4 text-primary" />
@@ -23,7 +35,7 @@ export function IAPresentation() {
         <DialogContent className="sm:max-w-3xl h-[90vh] p-0 overflow-hidden flex flex-col">
           <div className="relative w-full bg-gradient-to-b from-primary/80 to-primary h-[300px] flex items-center justify-center">
             <Button 
-              className="absolute right-4 top-4 rounded-full bg-black/20 hover:bg-black/40 text-white" 
+              className="absolute right-4 top-4 rounded-full bg-black/20 hover:bg-black/40 text-white touch-manipulation" 
               size="icon" 
               variant="ghost"
               onClick={() => setIsOpen(false)}
@@ -32,8 +44,13 @@ export function IAPresentation() {
             </Button>
             
             <div className="text-center z-10">
-              <div className="bg-white/10 backdrop-blur-md rounded-full p-6 inline-flex mb-4">
-                <Brain className="h-12 w-12 text-white" />
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-white/10 backdrop-blur-md rounded-full p-6 inline-flex">
+                  <Brain className="h-12 w-12 text-white" />
+                </div>
+                <div className="ml-3">
+                  <AIStatusBadge />
+                </div>
               </div>
               <h2 className="text-3xl font-bold text-white mb-2">Asistente IA Avanzado</h2>
               <p className="text-white/90">Potenciado por Google Gemini</p>
@@ -140,10 +157,7 @@ export function IAPresentation() {
                 <Button 
                   className="w-full" 
                   size="lg"
-                  onClick={() => {
-                    setIsOpen(false);
-                    // Implementar lógica para abrir el chat
-                  }}
+                  onClick={handleOpenChat}
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Abrir Asistente IA
@@ -153,6 +167,8 @@ export function IAPresentation() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {showChat && <ChatAssistant onClose={handleCloseChat} />}
     </>
   );
 }

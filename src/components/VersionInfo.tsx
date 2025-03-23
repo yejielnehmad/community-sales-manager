@@ -22,6 +22,26 @@ interface VersionChanges {
 // Historial completo de versiones
 const versionHistory: VersionChanges[] = [
   {
+    version: "1.3.3",
+    changes: [
+      "Corrección de errores de tipos en Dashboard y ProductDetail",
+      "Optimización del rendimiento del asistente IA",
+      "Mejora en la gestión del ciclo de vida del chat",
+      "Corrección de errores de scroll en diálogos y componentes",
+      "Solución a problemas de desconexión del asistente IA",
+      "Estabilización general de la aplicación"
+    ]
+  },
+  {
+    version: "1.3.2",
+    changes: [
+      "Corrección de errores en la visualización de tarjetas",
+      "Mejora en la presentación del asistente de IA",
+      "Optimización del rendimiento en dispositivos móviles",
+      "Corrección de problemas de sincronización con la API de Gemini"
+    ]
+  },
+  {
     version: "1.3.0",
     changes: [
       "Nueva pantalla detallada de productos con estadísticas",

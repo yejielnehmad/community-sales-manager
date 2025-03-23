@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -114,7 +115,7 @@ const ProductDetail = () => {
               .reduce((t, oi) => t + (parseFloat(oi.price) * oi.quantity), 0);
             
             const itemPercentage = (parseFloat(item.price) * item.quantity) / orderTotal;
-            const itemPending = parseFloat(order.balance.toString()) * itemPercentage;
+            const itemPending = parseFloat(order.balance?.toString() || "0") * itemPercentage;
             
             return sum + itemPending;
           }
@@ -201,10 +202,10 @@ const ProductDetail = () => {
           currentOrder.items.push({
             variant_name: item.product_variant.name,
             quantity: item.quantity,
-            price: parseFloat(item.price)
+            price: parseFloat(item.price.toString())
           });
           
-          currentOrder.total += parseFloat(item.price) * item.quantity;
+          currentOrder.total += parseFloat(item.price.toString()) * item.quantity;
         });
         
         setOrders(Array.from(ordersMap.values()));
