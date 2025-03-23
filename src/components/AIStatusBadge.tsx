@@ -107,8 +107,7 @@ export const AIStatusBadge = () => {
         const intervalId = setInterval(async () => {
           console.log("Reintentando conexión con Gemini API...");
           await checkConnection();
-          // Corrigiendo esta línea que causa el error TS2367
-          if (status !== "error") {
+          if (status === "connected") {
             clearInterval(intervalId);
           }
         }, 30000);
@@ -121,52 +120,47 @@ export const AIStatusBadge = () => {
   }, [status]);
 
   return (
-    <PopoverProvider>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Badge 
-            variant="outline" 
-            className={`
-              ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
-                status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
-                "bg-yellow-100 text-yellow-800 border-yellow-300"} 
-              flex items-center gap-1 cursor-help hover:opacity-80 transition-opacity
-            `}
-          >
-            {status === "connected" ? (
-              <CheckCircle className="h-3 w-3" />
-            ) : status === "error" ? (
-              <AlertTriangle className="h-3 w-3" />
-            ) : (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            )}
-            <span>IA</span>
-          </Badge>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-4">
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm flex items-center gap-2">
-              <Info className="h-4 w-4 text-primary" />
-              Estado de la IA
-            </h4>
-            <div className={`
-              ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
-                status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
-                "bg-yellow-100 text-yellow-800 border-yellow-300"}
-              px-3 py-2 rounded-md border text-sm font-medium
-            `}>
-              {message}
-            </div>
-            <div className="text-xs text-muted-foreground mt-2 bg-muted p-2 rounded-md h-32 overflow-y-auto whitespace-pre-wrap">
-              <p className="font-semibold mb-1">Información detallada:</p>
-              {detailedInfo}
-            </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Badge 
+          variant="outline" 
+          className={`
+            ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
+              status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
+              "bg-yellow-100 text-yellow-800 border-yellow-300"} 
+            flex items-center gap-1 cursor-help hover:opacity-80 transition-opacity
+          `}
+        >
+          {status === "connected" ? (
+            <CheckCircle className="h-3 w-3" />
+          ) : status === "error" ? (
+            <AlertTriangle className="h-3 w-3" />
+          ) : (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          )}
+          <span>IA</span>
+        </Badge>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4">
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm flex items-center gap-2">
+            <Info className="h-4 w-4 text-primary" />
+            Estado de la IA
+          </h4>
+          <div className={`
+            ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
+              status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
+              "bg-yellow-100 text-yellow-800 border-yellow-300"}
+            px-3 py-2 rounded-md border text-sm font-medium
+          `}>
+            {message}
           </div>
-        </PopoverContent>
-      </Popover>
-    </PopoverProvider>
+          <div className="text-xs text-muted-foreground mt-2 bg-muted p-2 rounded-md h-32 overflow-y-auto whitespace-pre-wrap">
+            <p className="font-semibold mb-1">Información detallada:</p>
+            {detailedInfo}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
-
-// Fix: Necesitamos usar TooltipProvider en vez de PopoverProvider que no existe
-const PopoverProvider = ({ children }) => children;

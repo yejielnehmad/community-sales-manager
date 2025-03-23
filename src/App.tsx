@@ -15,10 +15,10 @@ import Messages from "./pages/Messages";
 export const APP_VERSION = "1.0.0";
 
 const App = () => (
-  <TooltipProvider>
-    <>
-      <Toaster />
-      <Sonner />
+  <>
+    <Toaster />
+    <Sonner />
+    <TooltipProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -31,8 +31,8 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </>
-  </TooltipProvider>
+    </TooltipProvider>
+  </>
 );
 
 export default App;
