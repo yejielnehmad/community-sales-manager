@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { CheckCircle, AlertTriangle, Loader2, Info } from "lucide-react";
@@ -20,6 +20,13 @@ export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
   const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Google Gemini");
+  // Creamos una referencia para acceder al valor actualizado de status
+  const statusRef = useRef(status);
+
+  // Actualizamos la referencia cuando cambia el estado
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -103,12 +110,12 @@ export const AIStatusBadge = () => {
     const checkWithRetry = async () => {
       await checkConnection();
       
-      if (status === "error") {
+      if (statusRef.current === "error") {
         const intervalId = setInterval(async () => {
           console.log("Reintentando conexión con Gemini API...");
           await checkConnection();
-          // Fix para el error TS2367 - Comparamos con el estado actual
-          if (status === "connected") {
+          // Usamos statusRef.current para acceder al valor actualizado
+          if (statusRef.current === "connected") {
             clearInterval(intervalId);
           }
         }, 30000);
@@ -118,7 +125,7 @@ export const AIStatusBadge = () => {
     };
 
     checkWithRetry();
-  }, [status]);
+  }, []);
 
   return (
     <Popover>
