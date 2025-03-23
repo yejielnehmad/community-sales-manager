@@ -4,14 +4,16 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
 import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Loader2, AlertTriangle } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { Product, ProductCard } from "@/components/ProductCard";
@@ -25,7 +27,7 @@ interface ProductFormData {
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDependencyDialogOpen, setIsDependencyDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -76,14 +78,19 @@ const Products = () => {
     fetchProducts();
   }, []);
 
-  const handleOpenDialog = (product?: Product) => {
+  const handleOpenForm = (product?: Product) => {
     setSelectedProduct(product || null);
-    setIsDialogOpen(true);
+    setIsFormOpen(true);
+    // Cuando abrimos el formulario, aseguramos que sea a pantalla completa
+    document.body.classList.add('overflow-hidden');
   };
 
-  const handleCloseDialog = () => {
+  const handleCloseForm = () => {
     setSelectedProduct(null);
-    setIsDialogOpen(false);
+    setIsFormOpen(false);
+    // Restauramos el scroll cuando se cierra
+    document.body.classList.remove('overflow-hidden');
+    document.body.style.overflow = '';
   };
 
   // Verificar dependencias antes de abrir el diálogo de eliminación
@@ -162,7 +169,7 @@ const Products = () => {
         description: "El producto ha sido creado exitosamente",
       });
       
-      handleCloseDialog();
+      handleCloseForm();
       fetchProducts();
     } catch (error) {
       console.error("Error creating product:", error);
@@ -221,7 +228,7 @@ const Products = () => {
         description: "El producto ha sido actualizado exitosamente",
       });
       
-      handleCloseDialog();
+      handleCloseForm();
       fetchProducts();
     } catch (error) {
       console.error("Error updating product:", error);
@@ -303,7 +310,7 @@ const Products = () => {
             <h1 className="text-3xl font-bold tracking-tight text-primary">Productos</h1>
             <p className="text-muted-foreground">Gestiona los productos disponibles para la venta</p>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="flex items-center gap-1">
+          <Button onClick={() => handleOpenForm()} className="flex items-center gap-1">
             <Plus className="h-4 w-4" />
             Nuevo
           </Button>
@@ -319,7 +326,7 @@ const Products = () => {
               <ProductCard 
                 key={product.id} 
                 product={product} 
-                onEdit={(p) => handleOpenDialog(p)} 
+                onEdit={(p) => handleOpenForm(p)} 
                 onDelete={(id) => handleOpenDeleteDialog(id)} 
               />
             ))}
@@ -330,7 +337,7 @@ const Products = () => {
             <Button 
               variant="outline" 
               className="mt-4"
-              onClick={() => handleOpenDialog()}
+              onClick={() => handleOpenForm()}
             >
               Agregar producto
             </Button>
@@ -338,18 +345,14 @@ const Products = () => {
         )}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{selectedProduct ? "Editar" : "Crear"} Producto</DialogTitle>
-          </DialogHeader>
-          <ProductForm
-            initialData={selectedProduct || undefined}
-            onSubmit={handleSubmit}
-            onCancel={handleCloseDialog}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Formulario a pantalla completa */}
+      {isFormOpen && (
+        <ProductForm
+          initialData={selectedProduct || undefined}
+          onSubmit={handleSubmit}
+          onCancel={handleCloseForm}
+        />
+      )}
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -388,6 +391,6 @@ const Products = () => {
       </AlertDialog>
     </AppLayout>
   );
-};
+}
 
 export default Products;

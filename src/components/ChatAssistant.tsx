@@ -31,22 +31,39 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   const [progress, setProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Limpieza de estilos cuando se desmonta el componente
+  // Limpieza de estilos cuando se monta/desmonta el componente
   useEffect(() => {
     return () => {
-      // Asegurarnos que se limpie cualquier estilo que pueda estar bloqueando la interfaz
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-      
-      // Eliminar cualquier overlay o modal que siga abierto
-      const overlays = document.querySelectorAll('[data-state="open"]');
-      overlays.forEach((el) => {
-        if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
-          el.setAttribute('data-state', 'closed');
-        }
-      });
+      cleanupUIAfterClose();
     };
   }, []);
+
+  const cleanupUIAfterClose = () => {
+    // Asegurarnos que se limpie cualquier estilo que pueda estar bloqueando la interfaz
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    document.body.style.pointerEvents = '';
+    
+    // Eliminar cualquier overlay o modal que siga abierto
+    const overlays = document.querySelectorAll('[data-state="open"]');
+    overlays.forEach((el) => {
+      if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
+        el.setAttribute('data-state', 'closed');
+      }
+    });
+    
+    // Eliminar cualquier clase de bloqueo que pueda haberse quedado
+    document.documentElement.classList.remove('overflow-hidden');
+    
+    // Forzar un reflow para asegurar que los cambios se apliquen
+    void document.documentElement.offsetHeight;
+  };
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   useEffect(() => {
     // Verificar si la API está disponible
@@ -69,33 +86,25 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
     checkApiAvailability();
   }, []);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
   const handleClose = () => {
     setIsOpen(false);
     
     // Limpiar inmediatamente los estilos que bloquean la interacción
-    document.body.style.overflow = '';
-    document.body.style.touchAction = '';
-    
-    // Eliminar cualquier modal o overlay que pueda estar abierto
-    const overlays = document.querySelectorAll('[data-state="open"]');
-    overlays.forEach((el) => {
-      if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
-        el.setAttribute('data-state', 'closed');
-      }
-    });
+    cleanupUIAfterClose();
     
     // Asegurarnos que el onClose se ejecute después de que la animación termine
     setTimeout(() => {
       if (onClose) {
         onClose();
       }
+      // Segunda limpieza después de un tiempo para asegurar
+      cleanupUIAfterClose();
     }, 300);
+    
+    // Tercera limpieza después de más tiempo para casos extremos
+    setTimeout(() => {
+      cleanupUIAfterClose();
+    }, 600);
   };
 
   const simulateProgress = () => {
@@ -350,4 +359,3 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
     </Drawer>
   );
 }
-
