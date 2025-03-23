@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -10,8 +9,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Messages from "./pages/Messages";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
-// App version
-export const APP_VERSION = "1.0.7";
+// Versión actual de la aplicación
+export const APP_VERSION = "1.0.8";
 
 const App = () => (
   <>

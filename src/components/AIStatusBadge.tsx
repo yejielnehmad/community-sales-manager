@@ -122,6 +122,7 @@ export const AIStatusBadge = () => {
           status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
           "bg-yellow-100 text-yellow-800 border-yellow-300"} 
         flex items-center gap-1 cursor-help hover:opacity-80 transition-all hover:scale-105 duration-300
+        active:bg-muted active:scale-95 touch-manipulation
       `}
     >
       {status === "connected" ? (

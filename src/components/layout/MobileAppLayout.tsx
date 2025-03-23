@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -12,11 +11,21 @@ import {
   Menu,
   MessageCircle,
   Database,
-  Wand
+  Wand,
+  Info
 } from "lucide-react";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { APP_VERSION } from "@/App";
 import { ChatAssistant } from "@/components/ChatAssistant";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
 
 interface MobileAppLayoutProps {
   children: React.ReactNode;
@@ -27,6 +36,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [showVersionInfo, setShowVersionInfo] = useState(false);
   
   const menuItems = [
     { path: "/", label: "Inicio", icon: <Home className="h-5 w-5" /> },
@@ -46,6 +56,11 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     setOpen(false);
   }, []);
 
+  const openVersionInfo = useCallback(() => {
+    setShowVersionInfo(true);
+    setOpen(false);
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-background">
       {/* Header móvil */}
@@ -58,10 +73,12 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
         </h1>
         
         <div className="flex items-center gap-2">
-          <AIStatusBadge />
+          <div className="pr-2 touch-manipulation">
+            <AIStatusBadge />
+          </div>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="focus:outline-none">
+              <Button variant="ghost" size="icon" className="focus:outline-none touch-manipulation">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Menú</span>
               </Button>
@@ -95,6 +112,14 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
                     </button>
                     
                     <button
+                      onClick={openVersionInfo}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left focus:outline-none"
+                    >
+                      <Info className="h-5 w-5" />
+                      <span>Información de Versión</span>
+                    </button>
+                    
+                    <button
                       onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left focus:outline-none"
                     >
@@ -104,7 +129,9 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
                   </div>
                 </ScrollArea>
                 <div className="p-4 border-t text-center">
-                  <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
+                  <Button variant="ghost" className="text-xs text-muted-foreground" onClick={openVersionInfo}>
+                    v{APP_VERSION}
+                  </Button>
                 </div>
               </div>
             </SheetContent>
@@ -116,6 +143,106 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
       <main className="flex-1 p-4">
         {children}
       </main>
+      
+      {/* Dialog de información de versión */}
+      <Dialog open={showVersionInfo} onOpenChange={setShowVersionInfo}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novedades de la versión {APP_VERSION}</DialogTitle>
+            <DialogDescription>
+              Descubre todas las mejoras y actualizaciones recientes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="border-l-4 border-primary pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.8</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Mejora de accesibilidad en dispositivos móviles</li>
+                <li>Solución a problemas de interacción en pantallas táctiles</li>
+                <li>Optimización de diálogos informativos</li>
+                <li>Corrección de errores de visualización</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.7</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Corrección de error en el asistente de IA</li>
+                <li>Mejora en la integración con la base de datos</li>
+                <li>Optimización del rendimiento del asistente</li>
+                <li>Estabilización de la aplicación</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.6</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Mejora en el acceso a las capacidades de IA desde el ícono del indicador</li>
+                <li>Eliminación de mensajes predefinidos en favor de generación por IA</li>
+                <li>Asistente de IA con acceso completo a datos de la aplicación</li>
+                <li>Panel detallado de información de la IA</li>
+                <li>Corrección de visualización de información de versiones</li>
+                <li>Mejoras en la interfaz de usuario</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.5</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Mejoras en interfaz de usuario de productos</li>
+                <li>Nueva funcionalidad para eliminar pedidos</li>
+                <li>Barra de progreso animada al procesar mensajes</li>
+                <li>Información detallada sobre capacidades de IA</li>
+                <li>Mejor integración con API de Google Gemini</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.4</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Corrección de errores de estabilidad</li>
+                <li>Mejoras en la visualización de datos</li>
+                <li>Optimización de rendimiento general</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.3</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Corrección de errores de estabilidad y rendimiento</li>
+                <li>Información detallada sobre capacidades de IA</li>
+                <li>Mejora en visualización de productos</li>
+                <li>Eliminación de pedidos</li>
+                <li>Optimización de la experiencia de usuario</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.2</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Generación de iconos para productos</li>
+                <li>Mejoras en el análisis de mensajes</li>
+                <li>Ejemplos de pedidos basados en datos reales</li>
+                <li>Barra de progreso para análisis de mensajes</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.1</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Lanzamiento inicial de la aplicación</li>
+                <li>Funcionalidades básicas de gestión</li>
+                <li>Integración con IA para procesamiento de mensajes</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <DialogClose asChild>
+              <Button>Cerrar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {chatOpen && <ChatAssistant onClose={() => setChatOpen(false)} />}
     </div>
