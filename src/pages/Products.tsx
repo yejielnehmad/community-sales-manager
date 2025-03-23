@@ -90,13 +90,19 @@ const Products = () => {
 
   const handleCreateProduct = async (formData: ProductFormData) => {
     try {
-      // Crear producto
+      // Calculamos el precio base del producto (podemos usar el precio promedio de las variantes)
+      const basePrice = formData.variants.length > 0 
+        ? formData.variants.reduce((sum, variant) => sum + variant.price, 0) / formData.variants.length 
+        : 0;
+      
+      // Crear producto con el precio requerido
       const { data: productData, error: productError } = await supabase
         .from('products')
-        .insert([{
+        .insert({
           name: formData.name,
-          description: formData.description
-        }])
+          description: formData.description,
+          price: basePrice // Añadimos el precio base calculado
+        })
         .select();
 
       if (productError) throw productError;
@@ -139,12 +145,18 @@ const Products = () => {
     if (!selectedProduct) return;
     
     try {
+      // Calculamos el precio actualizado (promedio de variantes)
+      const updatedPrice = formData.variants.length > 0 
+        ? formData.variants.reduce((sum, variant) => sum + variant.price, 0) / formData.variants.length 
+        : 0;
+      
       // Actualizar producto
       const { error: productError } = await supabase
         .from('products')
         .update({
           name: formData.name,
-          description: formData.description
+          description: formData.description,
+          price: updatedPrice // Actualizamos también el precio base
         })
         .eq('id', selectedProduct.id);
 
