@@ -7,27 +7,28 @@ import { useCallback, useEffect, useState } from "react"
  * @returns Boolean indicando si es móvil
  */
 export function useIsMobile(breakpoint: number = 768) {
-  const checkIsMobile = useCallback(() => {
-    // Verificamos si window está definido (para SSR)
-    if (typeof window === 'undefined') return false
-    return window.innerWidth < breakpoint
-  }, [breakpoint])
-
-  const [isMobile, setIsMobile] = useState<boolean>(checkIsMobile())
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(checkIsMobile())
-    }
-
-    // Aseguramos que se actualice al cargar y al redimensionar
-    handleResize()
-
-    window.addEventListener("resize", handleResize)
+    // Verificamos si window está definido (para SSR)
+    if (typeof window === 'undefined') return;
+    
+    // Función para verificar el tamaño de la pantalla
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+    
+    // Inicializamos el valor
+    checkIsMobile();
+    
+    // Configuramos el listener para cambios de tamaño
+    window.addEventListener("resize", checkIsMobile);
+    
+    // Limpiamos el listener al desmontar
     return () => {
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [checkIsMobile])
+      window.removeEventListener("resize", checkIsMobile);
+    };
+  }, [breakpoint]);
 
-  return isMobile
+  return isMobile;
 }
