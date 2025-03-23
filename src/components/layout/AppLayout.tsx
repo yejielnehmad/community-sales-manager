@@ -1,6 +1,6 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileAppLayout } from "@/components/layout/MobileAppLayout";
 import { APP_VERSION } from "@/App";
 import { IAInfoPopover } from "@/components/IAInfoPopover";
@@ -10,7 +10,7 @@ export interface AppLayoutProps {
 }
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
 
   if (isMobile) {
     return <MobileAppLayout>{children}</MobileAppLayout>;
