@@ -24,6 +24,14 @@ const PopoverContent = React.forwardRef<
       onOpenAutoFocus={(e) => {
         e.preventDefault(); // Evita que el foco automático cause problemas
       }}
+      onCloseAutoFocus={(e) => {
+        e.preventDefault(); // Evita que el foco automático al cerrar cause problemas
+      }}
+      onEscapeKeyDown={() => {
+        // Asegurar que los estilos se restablezcan al cerrar con ESC
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+      }}
       {...props}
     />
   </PopoverPrimitive.Portal>

@@ -31,6 +31,23 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   const [progress, setProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Limpieza de estilos cuando se desmonta el componente
+  useEffect(() => {
+    return () => {
+      // Asegurarnos que se limpie cualquier estilo que pueda estar bloqueando la interfaz
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      
+      // Eliminar cualquier overlay o modal que siga abierto
+      const overlays = document.querySelectorAll('[data-state="open"]');
+      overlays.forEach((el) => {
+        if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
+          el.setAttribute('data-state', 'closed');
+        }
+      });
+    };
+  }, []);
+
   useEffect(() => {
     // Verificar si la API está disponible
     const checkApiAvailability = async () => {
@@ -60,14 +77,24 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
 
   const handleClose = () => {
     setIsOpen(false);
+    
+    // Limpiar inmediatamente los estilos que bloquean la interacción
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    
+    // Eliminar cualquier modal o overlay que pueda estar abierto
+    const overlays = document.querySelectorAll('[data-state="open"]');
+    overlays.forEach((el) => {
+      if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
+        el.setAttribute('data-state', 'closed');
+      }
+    });
+    
     // Asegurarnos que el onClose se ejecute después de que la animación termine
     setTimeout(() => {
       if (onClose) {
         onClose();
       }
-      // Asegurarnos que se limpie cualquier estado que pueda estar bloqueando la interfaz
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
     }, 300);
   };
 
@@ -200,8 +227,10 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   return (
     <Drawer 
       open={isOpen} 
-      onOpenChange={setIsOpen} 
-      onClose={handleClose} 
+      onOpenChange={(isOpen) => {
+        if (!isOpen) handleClose();
+        setIsOpen(isOpen);
+      }} 
       modal={true}
     >
       <DrawerContent className="h-[85vh] sm:h-[65vh] max-w-lg mx-auto rounded-t-lg">
@@ -321,3 +350,4 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
     </Drawer>
   );
 }
+

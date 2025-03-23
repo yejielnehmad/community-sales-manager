@@ -47,26 +47,38 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     { path: "/magic-order", label: "Mensaje Mágico", icon: <Wand className="h-5 w-5" /> },
   ];
 
-  // Restaurar el funcionamiento normal cuando el chat se cierra
+  // Asegurar que se restaure la capacidad de interacción después de cerrar componentes de UI
   useEffect(() => {
-    if (!chatOpen) {
-      // Asegurar que se pueda interactuar con la interfaz
+    const restoreInteraction = () => {
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
       
-      // Eliminar cualquier otro estilo que pueda estar afectando
-      const overlays = document.querySelectorAll('[data-state="open"]');
-      overlays.forEach((el) => {
+      // Limpiar modales o drawers que pudieran haber quedado abiertos
+      const openElements = document.querySelectorAll('[data-state="open"]');
+      openElements.forEach((el) => {
         if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
           el.setAttribute('data-state', 'closed');
         }
       });
-    }
-  }, [chatOpen]);
+    };
+    
+    // Ejecutar la limpieza cuando cambiamos de ruta
+    restoreInteraction();
+    
+    return () => {
+      restoreInteraction();
+    };
+  }, [location.pathname]);
 
   const navigateTo = useCallback((path: string) => {
     navigate(path);
     setOpen(false);
+    
+    // Asegurar que la interfaz sea interactiva después de navegar
+    setTimeout(() => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }, 100);
   }, [navigate]);
 
   const openChat = useCallback(() => {
@@ -76,11 +88,18 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
 
   const closeChat = useCallback(() => {
     setChatOpen(false);
+    
     // Restaurar funcionalidad de interacción después de cerrar el chat
-    setTimeout(() => {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    }, 300);
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    
+    // Limpiar cualquier modal o drawer que pudiera haber quedado abierto
+    const openElements = document.querySelectorAll('[data-state="open"]');
+    openElements.forEach((el) => {
+      if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
+        el.setAttribute('data-state', 'closed');
+      }
+    });
   }, []);
 
   const openVersionInfo = useCallback(() => {
@@ -182,6 +201,16 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-2">
+              <h3 className="font-medium">Versión 1.1.0</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Solución a problemas de interacción con botones tras cerrar el asistente</li>
+                <li>Mejora en la eliminación de productos con verificación de dependencias</li>
+                <li>Implementación de mensajes informativos al intentar eliminar productos en uso</li>
+                <li>Optimización del rendimiento y estabilidad general de la aplicación</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
               <h3 className="font-medium">Versión 1.0.9</h3>
               <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
                 <li>Solución a problemas de interacción tras cerrar el asistente de IA</li>

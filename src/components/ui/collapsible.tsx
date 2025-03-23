@@ -27,6 +27,11 @@ const CollapsibleContent = React.forwardRef<
       "overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down",
       className
     )}
+    onTransitionEnd={() => {
+      // Asegurar que los estilos se restablezcan después de la transición
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }}
     {...props}
   />
 ))

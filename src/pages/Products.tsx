@@ -7,11 +7,12 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle 
+  DialogTitle,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, AlertTriangle } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { Product, ProductCard } from "@/components/ProductCard";
 
@@ -26,8 +27,10 @@ const Products = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDependencyDialogOpen, setIsDependencyDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [deleteDependencies, setDeleteDependencies] = useState<{count: number, items: any[]}>({count: 0, items: []});
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -83,9 +86,39 @@ const Products = () => {
     setIsDialogOpen(false);
   };
 
-  const handleOpenDeleteDialog = (productId: string) => {
-    setProductToDelete(productId);
-    setIsDeleteDialogOpen(true);
+  // Verificar dependencias antes de abrir el diálogo de eliminación
+  const handleOpenDeleteDialog = async (productId: string) => {
+    try {
+      // Verificar si el producto tiene pedidos asociados
+      const { data: orderItems, error: orderItemsError, count } = await supabase
+        .from('order_items')
+        .select('*', { count: 'exact' })
+        .eq('product_id', productId)
+        .limit(5);
+      
+      if (orderItemsError) throw orderItemsError;
+      
+      if (count && count > 0) {
+        // El producto tiene dependencias, mostrar diálogo de advertencia
+        setDeleteDependencies({
+          count: count || 0,
+          items: orderItems || []
+        });
+        setProductToDelete(productId);
+        setIsDependencyDialogOpen(true);
+      } else {
+        // No hay dependencias, proceder con el diálogo de confirmación normal
+        setProductToDelete(productId);
+        setIsDeleteDialogOpen(true);
+      }
+    } catch (error) {
+      console.error("Error checking product dependencies:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo verificar las dependencias del producto",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreateProduct = async (formData: ProductFormData) => {
@@ -194,7 +227,7 @@ const Products = () => {
       console.error("Error updating product:", error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar el producto",
+        description: "No se pudo actualizar el producto. Verifica que no tenga pedidos asociados.",
         variant: "destructive",
       });
     }
@@ -204,7 +237,23 @@ const Products = () => {
     if (!productToDelete) return;
     
     try {
-      // Eliminar variantes primero (por restricción de clave foránea)
+      // Verificar si hay order_items que usan este producto
+      const { count: orderItemsCount } = await supabase
+        .from('order_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('product_id', productToDelete);
+        
+      if (orderItemsCount && orderItemsCount > 0) {
+        toast({
+          title: "No se puede eliminar",
+          description: "Este producto tiene pedidos asociados. No puede ser eliminado.",
+          variant: "destructive",
+        });
+        setIsDeleteDialogOpen(false);
+        return;
+      }
+      
+      // Primero eliminar variantes
       const { error: variantsError } = await supabase
         .from('product_variants')
         .delete()
@@ -212,7 +261,7 @@ const Products = () => {
         
       if (variantsError) throw variantsError;
       
-      // Eliminar producto
+      // Luego eliminar producto
       const { error } = await supabase
         .from('products')
         .delete()
@@ -226,12 +275,13 @@ const Products = () => {
       });
       
       setIsDeleteDialogOpen(false);
+      setIsDependencyDialogOpen(false);
       fetchProducts();
     } catch (error) {
       console.error("Error deleting product:", error);
       toast({
         title: "Error",
-        description: "No se pudo eliminar el producto",
+        description: "No se pudo eliminar el producto. Verifica que no tenga pedidos asociados.",
         variant: "destructive",
       });
     }
@@ -312,6 +362,27 @@ const Products = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteProduct}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Diálogo para mostrar cuando un producto tiene dependencias */}
+      <AlertDialog open={isDependencyDialogOpen} onOpenChange={setIsDependencyDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-amber-500">
+              <AlertTriangle className="h-5 w-5" />
+              <AlertDialogTitle>No se puede eliminar este producto</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="mt-4">
+              Este producto está siendo usado en {deleteDependencies.count} pedido(s).
+              <div className="mt-2 p-3 bg-muted rounded-md text-sm">
+                Para mantener el historial de pedidos, no es posible eliminar productos que estén asociados a pedidos existentes.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Entendido</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
