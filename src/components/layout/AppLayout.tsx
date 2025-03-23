@@ -1,5 +1,5 @@
 
-import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenuButton, SidebarMenuItem, SidebarMenu, SidebarRail, SidebarInset } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenuButton, SidebarMenuItem, SidebarMenu, SidebarRail, SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Home, Users, ShoppingBag, ClipboardList, MessageSquarePlus, Database, MessageCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -109,81 +109,83 @@ export function AppLayout({ children }: AppLayoutProps) {
   
   // Layout de escritorio
   return (
-    <div className="flex min-h-screen w-full">
-      <SidebarInset className="p-4">
-        {children}
-      </SidebarInset>
-      <SidebarRail />
-      <Sidebar side="right">
-        <SidebarHeader className="flex items-center justify-between py-4 px-4">
-          <h1 className="text-xl font-bold text-primary">VentasCom</h1>
-          <AIStatusBadge />
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === "/"} tooltip="Inicio">
-                <Link to="/">
-                  <Home />
-                  <span>Inicio</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === "/clients"} tooltip="Clientes">
-                <Link to="/clients">
-                  <Users />
-                  <span>Clientes</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === "/products"} tooltip="Productos">
-                <Link to="/products">
-                  <ShoppingBag />
-                  <span>Productos</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === "/orders"} tooltip="Pedidos">
-                <Link to="/orders">
-                  <ClipboardList />
-                  <span>Pedidos</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === "/magic-order"} tooltip="Pedido Mágico">
-                <Link to="/magic-order">
-                  <MessageSquarePlus />
-                  <span>Pedido Mágico</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Chat Asistente" onClick={() => setChatOpen(true)}>
-                <button>
-                  <MessageCircle />
-                  <span>Asistente</span>
-                </button>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Supabase" onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}>
-                <button>
-                  <Database />
-                  <span>Supabase</span>
-                </button>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter className="p-4 text-center">
-          <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
-        </SidebarFooter>
-      </Sidebar>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex min-h-screen w-full">
+        <SidebarInset className="p-4">
+          {children}
+        </SidebarInset>
+        <SidebarRail />
+        <Sidebar side="right">
+          <SidebarHeader className="flex items-center justify-between py-4 px-4">
+            <h1 className="text-xl font-bold text-primary">VentasCom</h1>
+            <AIStatusBadge />
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname === "/"} tooltip="Inicio">
+                  <Link to="/">
+                    <Home />
+                    <span>Inicio</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname === "/clients"} tooltip="Clientes">
+                  <Link to="/clients">
+                    <Users />
+                    <span>Clientes</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname === "/products"} tooltip="Productos">
+                  <Link to="/products">
+                    <ShoppingBag />
+                    <span>Productos</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname === "/orders"} tooltip="Pedidos">
+                  <Link to="/orders">
+                    <ClipboardList />
+                    <span>Pedidos</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname === "/magic-order"} tooltip="Pedido Mágico">
+                  <Link to="/magic-order">
+                    <MessageSquarePlus />
+                    <span>Pedido Mágico</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Chat Asistente" onClick={() => setChatOpen(true)}>
+                  <button>
+                    <MessageCircle />
+                    <span>Asistente</span>
+                  </button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Supabase" onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}>
+                  <button>
+                    <Database />
+                    <span>Supabase</span>
+                  </button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarContent>
+          <SidebarFooter className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
+          </SidebarFooter>
+        </Sidebar>
+      </div>
       {chatOpen && <ChatAssistant onClose={() => setChatOpen(false)} />}
-    </div>
+    </SidebarProvider>
   );
 }
