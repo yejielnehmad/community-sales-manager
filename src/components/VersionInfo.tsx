@@ -22,6 +22,17 @@ interface VersionChanges {
 // Historial completo de versiones
 const versionHistory: VersionChanges[] = [
   {
+    version: "1.2.0",
+    changes: [
+      "Corrección de problemas de scroll en diálogos de información",
+      "Mejora visual en tarjetas de pedidos y productos",
+      "Implementación de búsqueda en clientes, productos y pedidos",
+      "Optimización de rendimiento general de la aplicación",
+      "Interfaz más moderna con menos bordes y marcos",
+      "Tarjetas más anchas y con mejor organización visual"
+    ]
+  },
+  {
     version: "1.1.0",
     changes: [
       "Mejora del diseño de tarjetas de pedidos con estilo más moderno",
@@ -64,7 +75,7 @@ export const VersionInfo = () => {
       </button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Info className="h-5 w-5 text-primary" />
@@ -75,30 +86,32 @@ export const VersionInfo = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="pr-4 flex-1 max-h-[50vh] overflow-auto">
-            <div className="space-y-6 py-3">
-              {versionsToShow.map((version, versionIndex) => (
-                <div key={versionIndex} className="space-y-3">
-                  {showAllVersions && versionIndex > 0 && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <div className="text-sm font-medium">Versión {version.version}</div>
-                      <div className="h-px flex-1 bg-border"></div>
-                    </div>
-                  )}
-                  <ul className="space-y-2">
-                    {version.changes.map((change, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <div className="bg-primary/10 p-1 rounded-full mt-0.5 flex-shrink-0">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
-                        </div>
-                        <span>{change}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+          <div className="overflow-hidden" style={{ maxHeight: "60vh" }}>
+            <ScrollArea className="h-full max-h-[50vh] pr-3">
+              <div className="space-y-6 py-3">
+                {versionsToShow.map((version, versionIndex) => (
+                  <div key={versionIndex} className="space-y-3">
+                    {showAllVersions && versionIndex > 0 && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <div className="text-sm font-medium">Versión {version.version}</div>
+                        <div className="h-px flex-1 bg-border"></div>
+                      </div>
+                    )}
+                    <ul className="space-y-2.5">
+                      {version.changes.map((change, index) => (
+                        <li key={index} className="flex items-start gap-2.5">
+                          <div className="bg-primary/10 p-1 rounded-full mt-0.5 flex-shrink-0">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                          </div>
+                          <span className="text-sm">{change}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
           
           <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
             <Button 
