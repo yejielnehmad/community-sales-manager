@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -115,7 +114,7 @@ const ProductDetail = () => {
               .reduce((t, oi) => t + (parseFloat(oi.price) * oi.quantity), 0);
             
             const itemPercentage = (parseFloat(item.price) * item.quantity) / orderTotal;
-            const itemPending = parseFloat(order.balance) * itemPercentage;
+            const itemPending = parseFloat(order.balance.toString()) * itemPercentage;
             
             return sum + itemPending;
           }

@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -19,7 +18,6 @@ type DashboardStat = {
   pendingBalance: number;
 };
 
-// Hook personalizado para animación de contador
 const useCountUp = (targetValue: number, duration: number = 1000, startDelay: number = 0) => {
   const [count, setCount] = useState(0);
   const startTimeRef = useRef<number | null>(null);
@@ -48,7 +46,6 @@ const useCountUp = (targetValue: number, duration: number = 1000, startDelay: nu
         const relativeProgress = runtime / duration;
         
         if (relativeProgress < 1) {
-          // Función de ease-out para hacer que la animación se desacelere al final
           const progress = 1 - Math.pow(1 - relativeProgress, 3);
           const nextCount = Math.floor(startValue + (targetValue - startValue) * progress);
           setCount(nextCount);
@@ -121,7 +118,6 @@ const ProductSummaryCard = ({ product, onCardClick }: ProductSummaryCardProps) =
   useEffect(() => {
     const fetchProductStats = async () => {
       try {
-        // Obtener items de pedido para este producto
         const { data: orderItems, error: itemsError } = await supabase
           .from('order_items')
           .select('*, orders(*)')
@@ -129,19 +125,15 @@ const ProductSummaryCard = ({ product, onCardClick }: ProductSummaryCardProps) =
           
         if (itemsError) throw itemsError;
         
-        // Contar pedidos únicos
         const uniqueOrderIds = new Set(orderItems?.map(item => item.order_id) || []);
         setOrdersCount(uniqueOrderIds.size);
         
-        // Calcular ventas totales
         const sales = orderItems?.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) || 0;
         setTotalSales(sales);
         
-        // Calcular pagos pendientes
         const pending = orderItems?.reduce((sum, item) => {
           const order = item.orders;
           if (order && order.status !== 'completed') {
-            // Calculamos la parte proporcional del balance pendiente para este item
             const orderTotal = orderItems
               .filter(oi => oi.order_id === item.order_id)
               .reduce((t, oi) => t + (parseFloat(oi.price) * oi.quantity), 0);
@@ -242,7 +234,6 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
-  // Valores animados
   const animatedClients = useCountUp(stats.clients, 1200, 100);
   const animatedProducts = useCountUp(stats.products, 1200, 200);
   const animatedOrders = useCountUp(stats.orders, 1200, 300);
@@ -252,22 +243,18 @@ const Dashboard = () => {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        // Obtener conteo de clientes
         const { count: clientsCount, error: clientsError } = await supabase
           .from('clients')
           .select('*', { count: 'exact', head: true });
 
-        // Obtener conteo de productos
         const { count: productsCount, error: productsError } = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true });
 
-        // Obtener conteo de pedidos
         const { count: ordersCount, error: ordersError } = await supabase
           .from('orders')
           .select('*', { count: 'exact', head: true });
 
-        // Obtener balance pendiente total
         const { data: ordersData, error: balanceError } = await supabase
           .from('orders')
           .select('balance')
@@ -293,7 +280,6 @@ const Dashboard = () => {
     const fetchProducts = async () => {
       setIsLoadingProducts(true);
       try {
-        // Obtener productos
         const { data, error } = await supabase
           .from('products')
           .select('*, variants:product_variants(*)')
@@ -361,11 +347,10 @@ const Dashboard = () => {
             description="Total a cobrar"
             icon={<Wallet className="h-4 w-4 text-purple-500" />}
             isLoading={isLoading}
-            animatedValue={isLoading ? 0 : animatedBalance}
+            animatedValue={animatedBalance}
           />
         </div>
 
-        {/* Productos con saldos pendientes */}
         <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
@@ -381,7 +366,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Tarjetas de productos */}
         <div>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Productos</h2>
