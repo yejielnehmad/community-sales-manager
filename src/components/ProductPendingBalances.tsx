@@ -152,12 +152,20 @@ export const ProductPendingBalances = () => {
               variant: orderItem.variant_id ? variantMap[orderItem.variant_id]?.name || `Variante (${orderItem.variant_id})` : null
             }));
             
+            // Asegurar que el status sea uno de los valores permitidos ('pending', 'completed', 'cancelled')
+            let orderStatus: 'pending' | 'completed' | 'cancelled' = 'pending';
+            if (order.status === 'completed') {
+              orderStatus = 'completed';
+            } else if (order.status === 'cancelled') {
+              orderStatus = 'cancelled';
+            }
+            
             productOrdersMap[productId][order.id] = {
               id: order.id,
               clientId: order.client_id,
               clientName: clientMap[order.client_id] || "Cliente desconocido",
               date: order.date || "",
-              status: order.status,
+              status: orderStatus,
               items: enrichedItems,
               total: order.total,
               amountPaid: order.amount_paid,

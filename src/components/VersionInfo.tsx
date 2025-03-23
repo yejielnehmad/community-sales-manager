@@ -20,11 +20,11 @@ export const VersionInfo = () => {
   const versionInfo = {
     version: APP_VERSION,
     changes: [
-      "Rediseño de tarjetas en la sección de pedidos",
-      "Nuevas tarjetas de productos pendientes de cobro en el dashboard",
-      "Mejora en la interfaz para agregar variantes de productos",
-      "Actualización de la insignia IA con infografía explicativa",
-      "Optimizaciones para experiencia móvil"
+      "Corrección de errores en componentes de pedidos",
+      "Solución al problema del ícono de carga en pedidos",
+      "Arreglo del error de tipos en balances de productos",
+      "Mejora en la validación de estados de pedidos",
+      "Optimización del rendimiento en dispositivos móviles"
     ],
   };
 
