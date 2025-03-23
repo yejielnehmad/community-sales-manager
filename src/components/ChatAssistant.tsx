@@ -60,9 +60,15 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
 
   const handleClose = () => {
     setIsOpen(false);
-    if (onClose) {
-      setTimeout(onClose, 300); // Delay para la animación
-    }
+    // Asegurarnos que el onClose se ejecute después de que la animación termine
+    setTimeout(() => {
+      if (onClose) {
+        onClose();
+      }
+      // Asegurarnos que se limpie cualquier estado que pueda estar bloqueando la interfaz
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }, 300);
   };
 
   const simulateProgress = () => {
@@ -192,7 +198,12 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   };
 
   return (
-    <Drawer open={isOpen} onOpenChange={setIsOpen} onClose={handleClose}>
+    <Drawer 
+      open={isOpen} 
+      onOpenChange={setIsOpen} 
+      onClose={handleClose} 
+      modal={true}
+    >
       <DrawerContent className="h-[85vh] sm:h-[65vh] max-w-lg mx-auto rounded-t-lg">
         <DrawerHeader className="flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -202,7 +213,12 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
             </DrawerTitle>
             <AIStatusBadge />
           </div>
-          <Button variant="ghost" size="icon" onClick={handleClose}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleClose}
+            className="focus:outline-none"
+          >
             <X className="h-4 w-4" />
           </Button>
         </DrawerHeader>

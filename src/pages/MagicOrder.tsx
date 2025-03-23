@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
-export const MAGIC_ORDER_VERSION = "1.0.7";
+export const MAGIC_ORDER_VERSION = "1.0.9";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -73,7 +72,6 @@ const MagicOrder = () => {
     return () => clearInterval(timer);
   };
 
-  // Función para analizar el mensaje utilizando la API de Google Gemini
   const handleAnalyzeMessage = async () => {
     if (!message.trim()) {
       setAlertMessage({
@@ -87,14 +85,12 @@ const MagicOrder = () => {
     const stopSimulation = simulateProgress();
 
     try {
-      // Verificamos que Gemini API esté funcionando
       let results;
       try {
         results = await analyzeCustomerMessage(message);
       } catch (error) {
         console.error("Error inicial al analizar:", error);
         
-        // En caso de error de formato JSON, intentamos limpiar el mensaje
         if (error instanceof GeminiError && 
             error.message && 
             error.message.includes("JSON")) {
@@ -104,7 +100,6 @@ const MagicOrder = () => {
             description: "El primer intento falló, estamos reintentando con formato optimizado..."
           });
           
-          // Limpiar el mensaje para evitar caracteres problemáticos
           const cleanedMessage = message
             .replace(/[\u2018\u2019]/g, "'")
             .replace(/[\u201C\u201D]/g, '"')
@@ -113,14 +108,12 @@ const MagicOrder = () => {
             
           results = await analyzeCustomerMessage(cleanedMessage);
         } else {
-          throw error; // Si no es un error de formato JSON, lo propagamos
+          throw error;
         }
       }
       
-      // Asegurar que la barra de progreso llegue al 100%
       setProgress(100);
       
-      // Convertir los resultados a formato de OrderCard
       const newOrders = results.map(result => ({
         client: result.client,
         items: result.items || [],
@@ -130,7 +123,6 @@ const MagicOrder = () => {
       
       setOrders(prevOrders => [...prevOrders, ...newOrders]);
       
-      // Limpiar el mensaje después de procesarlo
       setMessage("");
       
       toast({
@@ -142,7 +134,6 @@ const MagicOrder = () => {
       console.error("Error al analizar el mensaje:", error);
       
       if (error instanceof GeminiError) {
-        // Personalizamos el mensaje de error basado en el tipo de error
         let errorTitle = "Error de análisis";
         let errorMessage = "Error al analizar el mensaje";
         
@@ -168,7 +159,7 @@ const MagicOrder = () => {
       setTimeout(() => {
         setIsAnalyzing(false);
         setProgress(0);
-      }, 500); // Pequeño retraso para asegurar que la barra llegue al 100%
+      }, 500);
       stopSimulation();
     }
   };
@@ -210,10 +201,8 @@ const MagicOrder = () => {
         return false;
       }
 
-      // Buscar el cliente por id
       const clientId = order.client.id;
       
-      // Calcular total y verificar que todos los items tengan ID
       let hasInvalidItems = false;
       let total = 0;
       
@@ -223,7 +212,6 @@ const MagicOrder = () => {
           break;
         }
         
-        // Usamos un precio estimado de 100 como fallback
         const estimatedPrice = 100;
         total += item.quantity * estimatedPrice;
       }
@@ -236,7 +224,6 @@ const MagicOrder = () => {
         return false;
       }
 
-      // Crear el pedido en la base de datos
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -256,14 +243,13 @@ const MagicOrder = () => {
         throw orderError;
       }
 
-      // Crear los items del pedido
       const orderItems = order.items.map(item => ({
         order_id: newOrder.id,
         product_id: item.product.id!,
         variant_id: item.variant?.id || null,
         quantity: item.quantity,
-        price: 100, // Precio estimado para simplificar
-        total: item.quantity * 100 // Total estimado
+        price: 100,
+        total: item.quantity * 100
       }));
 
       const { error: itemsError } = await supabase
@@ -274,7 +260,6 @@ const MagicOrder = () => {
         throw itemsError;
       }
 
-      // Actualizar el estado del pedido en la interfaz
       const updatedOrders = [...orders];
       updatedOrders[orderIndex] = {
         ...order,
@@ -459,7 +444,6 @@ const MagicOrder = () => {
         )}
       </div>
 
-      {/* Diálogo de confirmación para eliminar pedido */}
       <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
@@ -475,7 +459,6 @@ const MagicOrder = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Diálogo para mensajes de alerta */}
       <AlertDialog 
         open={alertMessage !== null}
         onOpenChange={(open) => !open && setAlertMessage(null)}

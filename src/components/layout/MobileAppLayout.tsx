@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+
+import { useState, useCallback, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,23 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     { path: "/magic-order", label: "Mensaje Mágico", icon: <Wand className="h-5 w-5" /> },
   ];
 
+  // Restaurar el funcionamiento normal cuando el chat se cierra
+  useEffect(() => {
+    if (!chatOpen) {
+      // Asegurar que se pueda interactuar con la interfaz
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      
+      // Eliminar cualquier otro estilo que pueda estar afectando
+      const overlays = document.querySelectorAll('[data-state="open"]');
+      overlays.forEach((el) => {
+        if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
+          el.setAttribute('data-state', 'closed');
+        }
+      });
+    }
+  }, [chatOpen]);
+
   const navigateTo = useCallback((path: string) => {
     navigate(path);
     setOpen(false);
@@ -54,6 +72,15 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
   const openChat = useCallback(() => {
     setChatOpen(true);
     setOpen(false);
+  }, []);
+
+  const closeChat = useCallback(() => {
+    setChatOpen(false);
+    // Restaurar funcionalidad de interacción después de cerrar el chat
+    setTimeout(() => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }, 300);
   }, []);
 
   const openVersionInfo = useCallback(() => {
@@ -155,6 +182,16 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.9</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Solución a problemas de interacción tras cerrar el asistente de IA</li>
+                <li>Mejora en la usabilidad de botones y elementos táctiles</li>
+                <li>Optimización del rendimiento en dispositivos móviles</li>
+                <li>Corrección de errores en diálogos modales y navegación</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
               <h3 className="font-medium">Versión 1.0.8</h3>
               <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
                 <li>Mejora de accesibilidad en dispositivos móviles</li>
@@ -244,7 +281,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
         </DialogContent>
       </Dialog>
       
-      {chatOpen && <ChatAssistant onClose={() => setChatOpen(false)} />}
+      {chatOpen && <ChatAssistant onClose={closeChat} />}
     </div>
   );
 }
