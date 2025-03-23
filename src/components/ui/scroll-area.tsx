@@ -16,9 +16,9 @@ const ScrollArea = React.forwardRef<
     <ScrollAreaPrimitive.Viewport 
       className="h-full w-full rounded-[inherit]"
       style={{ 
-        // Mejora del rendimiento de scrolling
         overscrollBehavior: 'contain',
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch',
+        maxHeight: '100%'
       }}
     >
       {children}

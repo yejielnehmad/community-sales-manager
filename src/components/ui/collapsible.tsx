@@ -26,7 +26,7 @@ const CollapsibleContent = React.forwardRef<
     <CollapsiblePrimitive.CollapsibleContent
       ref={ref}
       className={cn(
-        "will-change-auto overflow-hidden transition-all duration-300 ease-in-out",
+        "will-change-auto overflow-y-auto max-h-[80vh] transition-all duration-300 ease-in-out",
         "data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down",
         className
       )}
