@@ -88,7 +88,8 @@ export const AIStatusBadge = () => {
         const intervalId = setInterval(async () => {
           console.log("Reintentando conexión con Gemini API...");
           await checkConnection();
-          if (status === "connected") {
+          // Corrigiendo esta línea que causa el error TS2367
+          if (status !== "error") {
             clearInterval(intervalId);
           }
         }, 30000);

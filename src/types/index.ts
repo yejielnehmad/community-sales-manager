@@ -20,7 +20,7 @@ export interface MessageAlternative {
 }
 
 export interface MessageClient {
-  id?: string;
+  id: string;  // Aquí cambio id de opcional a requerido
   name: string;
   matchConfidence?: 'alto' | 'medio' | 'bajo';
 }
@@ -58,6 +58,8 @@ export interface Client {
   email?: string;
   address?: string;
   notes?: string;
+  totalOrders?: number;  // Agregando la propiedad totalOrders
+  balance?: number;      // Agregando la propiedad balance
 }
 
 export interface Product {

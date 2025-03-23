@@ -32,6 +32,7 @@ const Messages = () => {
       // Ejemplo de resultado de análisis (simulado)
       const mockResult: MessageAnalysis = {
         client: {
+          id: "temp-id-123", // Añadiendo un ID temporal
           name: "María López"
         },
         items: [
@@ -48,6 +49,7 @@ const Messages = () => {
             },
             quantity: 1.5,
             variant: {
+              id: "variant-123", // Añadiendo un ID temporal
               name: "kg"
             },
             status: "confirmado"
