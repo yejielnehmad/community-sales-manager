@@ -1,4 +1,3 @@
-
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -20,13 +19,28 @@ export class GeminiError extends Error {
 /**
  * Función para realizar peticiones a la API de Google Gemini
  */
-export const callGeminiAPI = async (prompt: string): Promise<string> => {
+export const callGeminiAPI = async (prompt: string, options: {
+  temperature?: number;
+  maxOutputTokens?: number;
+  topP?: number;
+  timeout?: number;
+} = {}): Promise<string> => {
   if (!GOOGLE_API_KEY) {
     throw new GeminiError("API Key de Google Gemini no configurada");
   }
 
+  const {
+    temperature = 0.2, 
+    maxOutputTokens = 1024,
+    topP = 0.8,
+    timeout = 30000
+  } = options;
+
   try {
     console.log("Enviando petición a Gemini API:", prompt.substring(0, 100) + "...");
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -42,13 +56,16 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
             }]
           }],
           generationConfig: {
-            temperature: 0.2,
-            topP: 0.8,
-            maxOutputTokens: 1024,
+            temperature,
+            topP,
+            maxOutputTokens,
           }
         }),
+        signal: controller.signal
       }
     );
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -87,6 +104,11 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     if (error instanceof GeminiError) {
       throw error;
     }
+    
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new GeminiError('La petición a Gemini API fue abortada por timeout');
+    }
+    
     console.error("Error inesperado al llamar a Gemini API:", error);
     throw new GeminiError(`Error al conectar con Gemini API: ${(error as Error).message}`);
   }
@@ -217,8 +239,12 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
     ]
     `;
 
-    // Obtenemos la respuesta de la API
-    const responseText = await callGeminiAPI(prompt);
+    // Obtenemos la respuesta de la API con un timeout mayor para análisis complejos
+    const responseText = await callGeminiAPI(prompt, { 
+      temperature: 0.1, 
+      maxOutputTokens: 2048,
+      timeout: 45000
+    });
     
     // Limpiamos el texto para asegurar que sea JSON válido
     let jsonText = responseText.trim();
@@ -264,6 +290,7 @@ export const chatWithAssistant = async (
     clients?: any[];
     orders?: any[];
     products?: any[];
+    [key: string]: any;
   }
 ): Promise<string> => {
   // Preparamos un contexto con datos de la aplicación para el asistente
@@ -287,7 +314,10 @@ export const chatWithAssistant = async (
 
   try {
     // Llamamos a la API de Gemini
-    const response = await callGeminiAPI(prompt);
+    const response = await callGeminiAPI(prompt, {
+      temperature: 0.3,
+      maxOutputTokens: 1500
+    });
     return response;
   } catch (error) {
     console.error("Error en chatWithAssistant:", error);
@@ -295,5 +325,56 @@ export const chatWithAssistant = async (
       throw error;
     }
     throw new GeminiError(`Error al procesar tu consulta: ${(error as Error).message}`);
+  }
+};
+
+/**
+ * Nueva función para analizar el código fuente de la aplicación y dar sugerencias de desarrollo
+ */
+export const analyzeCodebase = async (
+  codeSnippets: { fileName: string; code: string }[],
+  question: string
+): Promise<string> => {
+  // Preparamos el código formateado para el prompt
+  const codeContext = codeSnippets.map(snippet => 
+    `Archivo: ${snippet.fileName}\n\`\`\`\n${snippet.code}\n\`\`\``
+  ).join('\n\n');
+  
+  const prompt = `
+  Eres un asistente de desarrollo React especializado, con experiencia en React, TypeScript, 
+  Tailwind CSS, y patrones de diseño modernos. Analiza el siguiente código y proporciona
+  sugerencias, mejoras o responde a la pregunta específica.
+  
+  CÓDIGO A ANALIZAR:
+  ${codeContext}
+  
+  PREGUNTA O SOLICITUD DEL DESARROLLADOR:
+  ${question}
+  
+  Proporciona un análisis detallado, explicando:
+  1. Los aspectos positivos del código actual
+  2. Oportunidades de mejora (rendimiento, legibilidad, mantenibilidad)
+  3. Sugerencias específicas con ejemplos de código si es apropiado
+  4. Respuesta directa a la pregunta del desarrollador
+  
+  Usa principios de código limpio, patrones React modernos y mejores prácticas de TypeScript en tus sugerencias.
+  `;
+
+  try {
+    // Llamamos a la API de Gemini con parámetros optimizados para análisis técnico
+    const response = await callGeminiAPI(prompt, {
+      temperature: 0.1,  // Respuestas más deterministas
+      maxOutputTokens: 2048,  // Respuestas más largas para análisis detallado
+      topP: 0.95,  // Más creativo en sugerencias
+      timeout: 60000  // Timeout extendido para análisis complejos
+    });
+    
+    return response;
+  } catch (error) {
+    console.error("Error en analyzeCodebase:", error);
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    throw new GeminiError(`Error al analizar el código: ${(error as Error).message}`);
   }
 };
