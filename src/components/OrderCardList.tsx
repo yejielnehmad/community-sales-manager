@@ -27,6 +27,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -44,15 +45,15 @@ interface OrderCardListProps {
 }
 
 export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => {
-  const [openCards, setOpenCards] = useState<{ [key: string]: boolean }>({});
+  const [openClients, setOpenClients] = useState<{ [key: string]: boolean }>({});
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
-  const toggleCard = (orderId: string) => {
-    setOpenCards(prev => ({
+  const toggleClient = (clientId: string) => {
+    setOpenClients(prev => ({
       ...prev,
-      [orderId]: !prev[orderId]
+      [clientId]: !prev[clientId]
     }));
   };
 
@@ -163,132 +164,171 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
+  const getTotalClientBalance = (clientOrders: Order[]) => {
+    const total = clientOrders.reduce((sum, order) => sum + order.total, 0);
+    const paid = clientOrders.reduce((sum, order) => sum + order.amountPaid, 0);
+    return { total, paid, balance: total - paid };
+  };
+
+  const isClientFullyPaid = (clientOrders: Order[]) => {
+    const { total, paid } = getTotalClientBalance(clientOrders);
+    return paid >= total * 0.99; // consideramos pagado si es 99% o más (por redondeos)
+  };
+
   return (
     <div className="space-y-6">
-      {Object.entries(ordersByClient).map(([clientId, { client, orders }]) => (
-        <div key={clientId} className="space-y-3">
-          <h3 className="text-lg font-medium flex items-center gap-2">
-            <div className="bg-primary/10 p-2 rounded-full">
-              <User className="h-4 w-4 text-primary" />
-            </div>
-            {client}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {orders.map(order => (
-              <Card key={order.id} className="overflow-hidden transition-all duration-200 hover:shadow-md border-l-4" style={{
-                borderLeftColor: order.amountPaid >= order.total ? 'var(--green-500)' : 'var(--yellow-500)'
-              }}>
-                <Collapsible 
-                  open={openCards[order.id]} 
-                  onOpenChange={() => toggleCard(order.id)}
-                >
-                  <CollapsibleTrigger className="w-full text-left">
-                    <div className="p-3 flex justify-between items-center">
-                      <div className="flex-1">
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(order.date).toLocaleDateString()}
-                        </div>
-                        <div className="font-medium">${order.total.toFixed(2)}</div>
+      {Object.entries(ordersByClient).map(([clientId, { client, orders: clientOrders }]) => {
+        const { total, balance } = getTotalClientBalance(clientOrders);
+        const isPaid = isClientFullyPaid(clientOrders);
+        
+        return (
+          <Card 
+            key={clientId} 
+            className="overflow-hidden transition-all duration-200 hover:shadow-md border-l-4" 
+            style={{
+              borderLeftColor: isPaid ? 'var(--green-500)' : 'var(--yellow-500)'
+            }}
+          >
+            <Collapsible 
+              open={openClients[clientId]} 
+              onOpenChange={() => toggleClient(clientId)}
+            >
+              <CollapsibleTrigger className="w-full text-left">
+                <div className="p-4 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">{client}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {clientOrders.length} {clientOrders.length === 1 ? 'pedido' : 'pedidos'}
                       </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={order.amountPaid >= order.total * 0.99}
-                          onCheckedChange={(checked) => handleTogglePaid(order.id, checked)}
-                          className="data-[state=checked]:bg-green-500"
-                        />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-bold">${total.toFixed(2)}</div>
+                      {!isPaid && (
+                        <div className="text-xs text-amber-500">
+                          Pendiente: ${balance.toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    <Switch
+                      checked={isPaid}
+                      className="data-[state=checked]:bg-green-500"
+                      disabled={true}
+                    />
+                    <div className="bg-muted/60 h-7 w-7 rounded-full flex items-center justify-center">
+                      {openClients[clientId] ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent>
+                <CardContent className="py-0 px-0">
+                  <div className="space-y-0 divide-y">
+                    {clientOrders.map((order, orderIndex) => (
+                      <div key={order.id} className="p-4">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(order.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(order.status)}
+                            <Switch
+                              checked={order.amountPaid >= order.total * 0.99}
+                              onCheckedChange={(checked) => handleTogglePaid(order.id, checked)}
+                              className="data-[state=checked]:bg-green-500"
+                            />
+                          </div>
+                        </div>
                         
-                        <div className="bg-muted/60 h-7 w-7 rounded-full flex items-center justify-center">
-                          {openCards[order.id] ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            Total: ${order.total.toFixed(2)}
+                          </Badge>
+                          {order.amountPaid < order.total && (
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
+                              <PiggyBank className="h-3 w-3" />
+                              Saldo: ${order.balance.toFixed(2)}
+                            </Badge>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  </CollapsibleTrigger>
-                  
-                  <CollapsibleContent>
-                    <div className="px-3 py-2 bg-muted/10 border-t border-b">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {getStatusBadge(order.status)}
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          Total: ${order.total.toFixed(2)}
-                        </Badge>
-                        {order.amountPaid < order.total && (
-                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
-                            <PiggyBank className="h-3 w-3" />
-                            Saldo: ${order.balance.toFixed(2)}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <CardContent className="pt-3 pb-3">
-                      <div className="space-y-3">
-                        <div className="font-medium text-sm flex items-center gap-2">
-                          <div className="bg-primary/10 p-1 rounded-full">
-                            <ShoppingCart className="h-3 w-3 text-primary" />
+                        
+                        <div className="space-y-3 mt-4">
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            <div className="bg-primary/10 p-1 rounded-full">
+                              <ShoppingCart className="h-3 w-3 text-primary" />
+                            </div>
+                            Productos
                           </div>
-                          Productos
-                        </div>
-                        
-                        <div className="space-y-2">
-                          {order.items.map((item, index) => {
-                            // Intentar mostrar nombres legibles para productos
-                            const productName = item.name || `Producto`;
-                            const quantity = item.quantity || 1;
-                            const variant = item.variant || '';
-                            
-                            return (
-                              <div key={index} className="p-2 border rounded-md bg-muted/5 text-sm">
-                                <div className="flex justify-between">
-                                  <div>{productName}</div>
-                                  <div className="font-medium">
-                                    {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+                          
+                          <div className="space-y-2">
+                            {order.items.map((item, index) => {
+                              // Intentar mostrar nombres legibles para productos
+                              const productName = item.name || `Producto`;
+                              const quantity = item.quantity || 1;
+                              const variant = item.variant || '';
+                              
+                              return (
+                                <div key={index} className="p-2 border rounded-md bg-muted/5 text-sm">
+                                  <div className="flex justify-between">
+                                    <div>{productName}</div>
+                                    <div className="font-medium">
+                                      {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+                                    </div>
                                   </div>
+                                  {variant && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Variante: {variant}
+                                    </div>
+                                  )}
                                 </div>
-                                {variant && (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Variante: {variant}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        <div className="flex gap-2 mt-3 justify-end">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="flex items-center gap-1"
-                            onClick={() => setOrderToDelete(order.id)}
-                          >
-                            <Trash className="h-3.5 w-3.5" />
-                            Eliminar
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            className="flex items-center gap-1"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                            Editar
-                          </Button>
+                              );
+                            })}
+                          </div>
+                          
+                          <div className="flex gap-2 mt-3 justify-end">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="flex items-center gap-1"
+                              onClick={() => setOrderToDelete(order.id)}
+                            >
+                              <Trash className="h-3.5 w-3.5" />
+                              Eliminar
+                            </Button>
+                            <Button 
+                              variant="default" 
+                              size="sm"
+                              className="flex items-center gap-1"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                              Editar
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Collapsible>
-              </Card>
-            ))}
-          </div>
-        </div>
-      ))}
+                    ))}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+        );
+      })}
       
       {Object.keys(ordersByClient).length === 0 && (
         <div className="text-center p-8 bg-muted/20 rounded-lg">

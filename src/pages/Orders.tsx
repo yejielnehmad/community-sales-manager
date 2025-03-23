@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { Link } from "react-router-dom";
-import { Wand, ClipboardList, Loader2 } from "lucide-react";
+import { Wand, ClipboardList, Loader2, User } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
 
 interface OrderFromDB {
@@ -116,8 +116,8 @@ const Orders = () => {
             // Enriquecer los items con nombres de productos y variantes
             orderItemsMap[item.order_id].push({
               ...item,
-              name: productMap[item.product_id] || `Producto (${item.product_id})`,
-              variant: item.variant_id ? variantMap[item.variant_id] || `Variante (${item.variant_id})` : null
+              name: productMap[item.product_id] || `Producto`,
+              variant: item.variant_id ? variantMap[item.variant_id] || `Variante` : null
             });
           });
         }
@@ -183,11 +183,11 @@ const Orders = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" />
+              <User className="h-5 w-5 text-primary" />
               Pedidos por Cliente
             </CardTitle>
             <CardDescription>
-              Aquí puedes ver todos los pedidos agrupados por cliente.
+              Pedidos agrupados por cliente. Haz clic en una tarjeta para ver detalles.
             </CardDescription>
           </CardHeader>
           <CardContent>

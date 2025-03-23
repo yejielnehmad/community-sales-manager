@@ -175,6 +175,22 @@ const Dashboard = () => {
           <VersionInfo />
         </div>
 
+        {/* Productos con saldos pendientes - Ahora en la parte superior */}
+        <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Saldos Pendientes por Producto
+            </CardTitle>
+            <CardDescription>
+              Total de dinero que falta recaudar por cada producto
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProductPendingBalances />
+          </CardContent>
+        </Card>
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <DashboardCard
             title="Clientes"
@@ -212,21 +228,6 @@ const Dashboard = () => {
             animatedValue={isLoading ? 0 : animatedBalance}
           />
         </div>
-
-        <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />
-              Saldos Pendientes por Producto
-            </CardTitle>
-            <CardDescription>
-              Total de dinero que falta recaudar por cada producto
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProductPendingBalances />
-          </CardContent>
-        </Card>
       </div>
     </AppLayout>
   );
