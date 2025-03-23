@@ -11,7 +11,7 @@ import Messages from "./pages/Messages";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 // App version
-export const APP_VERSION = "1.0.6";
+export const APP_VERSION = "1.0.7";
 
 const App = () => (
   <>

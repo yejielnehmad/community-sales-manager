@@ -128,15 +128,13 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         productsResult,
         ordersResult,
         orderItemsResult,
-        variantsResult,
-        statsResult
+        variantsResult
       ] = await Promise.all([
         supabase.from('clients').select('*').order('created_at', { ascending: false }),
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(15),
         supabase.from('order_items').select('*').limit(30),
-        supabase.from('product_variants').select('*').limit(30),
-        supabase.from('stats').select('*').limit(10)
+        supabase.from('product_variants').select('*').limit(30)
       ]);
       
       // Preparar el contexto completo de la aplicación
@@ -146,7 +144,6 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         orders: ordersResult.data || [],
         orderItems: orderItemsResult.data || [],
         variants: variantsResult.data || [],
-        stats: statsResult.data || [],
         conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
         currentDateTime: new Date().toISOString()
       };

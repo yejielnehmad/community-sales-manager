@@ -49,6 +49,16 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.7</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Corrección de error en el asistente de IA</li>
+                <li>Mejora en la integración con la base de datos</li>
+                <li>Optimización del rendimiento del asistente</li>
+                <li>Estabilización de la aplicación</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
               <h3 className="font-medium">Versión 1.0.6</h3>
               <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
                 <li>Mejora en el acceso a las capacidades de IA desde el ícono del indicador</li>
