@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
@@ -48,9 +47,7 @@ const DrawerContent = React.forwardRef<
       {...props}
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-      <div className="overflow-y-auto flex-1 max-h-[80vh]">
-        {children}
-      </div>
+      {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>
 ))

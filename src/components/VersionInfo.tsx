@@ -22,38 +22,7 @@ interface VersionChanges {
 // Historial completo de versiones
 const versionHistory: VersionChanges[] = [
   {
-    version: "1.3.3",
-    changes: [
-      "Corrección de errores de tipos en Dashboard y ProductDetail",
-      "Optimización del rendimiento del asistente IA",
-      "Mejora en la gestión del ciclo de vida del chat",
-      "Corrección de errores de scroll en diálogos y componentes",
-      "Solución a problemas de desconexión del asistente IA",
-      "Estabilización general de la aplicación"
-    ]
-  },
-  {
-    version: "1.3.2",
-    changes: [
-      "Corrección de errores en la visualización de tarjetas",
-      "Mejora en la presentación del asistente de IA",
-      "Optimización del rendimiento en dispositivos móviles",
-      "Corrección de problemas de sincronización con la API de Gemini"
-    ]
-  },
-  {
-    version: "1.3.0",
-    changes: [
-      "Nueva pantalla detallada de productos con estadísticas",
-      "Rediseño completo del dashboard con tarjetas de productos",
-      "Presentación mejorada del asistente IA en estilo Apple",
-      "Optimización del chat para resolver problemas de interacción",
-      "Mejoras en la experiencia táctil para dispositivos móviles",
-      "Visualización detallada de pedidos por producto"
-    ]
-  },
-  {
-    version: "1.2.2",
+    version: "1.2.0",
     changes: [
       "Corrección de problemas de scroll en diálogos de información",
       "Mejora visual en tarjetas de pedidos y productos",
