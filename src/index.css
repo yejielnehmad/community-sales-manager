@@ -33,7 +33,7 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 210 100% 50%;
 
-    --radius: 1rem;
+    --radius: 1.5rem;
 
     --sidebar-background: 210 50% 98%;
     --sidebar-foreground: 210 50% 30%;
@@ -93,4 +93,24 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.card-hover {
+  @apply transition-all hover:shadow-lg hover:scale-[1.02] hover:border-blue-300;
+}
+
+.btn-modern {
+  @apply text-xs px-2.5 py-1 rounded-full inline-flex items-center justify-center gap-1;
+}
+
+.btn-edit {
+  @apply btn-modern bg-blue-100 text-blue-700 hover:bg-blue-200;
+}
+
+.btn-delete {
+  @apply btn-modern bg-red-100 text-red-700 hover:bg-red-200;
+}
+
+.product-card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-2 card-hover;
 }

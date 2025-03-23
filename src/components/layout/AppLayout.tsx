@@ -7,7 +7,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { APP_VERSION } from "@/App";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { useState } from "react";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { ChatAssistant } from "@/components/ChatAssistant";
@@ -31,7 +30,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     { path: "/magic-order", label: "Pedido Mágico", icon: MessageSquarePlus },
   ];
   
-  // Layout para móvil, con menú en diálogo lateral
+  // Layout para móvil
   if (isMobile) {
     return (
       <div className="flex min-h-screen bg-background flex-col">
@@ -40,70 +39,63 @@ export function AppLayout({ children }: AppLayoutProps) {
             {menuItems.find(item => item.path === location.pathname)?.label || "VentasCom"}
           </h1>
           
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setChatOpen(true)}
-            >
-              <MessageCircle className="h-5 w-5" />
-            </Button>
-            
-            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[250px] p-0">
-                <div className="flex flex-col h-full">
-                  <div className="p-4 flex items-center justify-between border-b">
-                    <h2 className="font-bold text-primary">VentasCom</h2>
-                    <AIStatusBadge />
-                  </div>
-                  
-                  <div className="flex-1 p-2 space-y-1">
-                    {menuItems.map((item) => (
-                      <Button
-                        key={item.path}
-                        variant={location.pathname === item.path ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => {
-                          navigate(item.path);
-                          setMenuOpen(false);
-                        }}
-                      >
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {item.label}
-                      </Button>
-                    ))}
-                    
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => setChatOpen(true)}
-                    >
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      Asistente
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}
-                    >
-                      <Database className="mr-2 h-4 w-4" />
-                      Supabase
-                    </Button>
-                  </div>
-                  
-                  <div className="p-4 border-t text-center">
-                    <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
-                  </div>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[250px] p-0">
+              <div className="flex flex-col h-full">
+                <div className="p-4 flex items-center justify-between border-b">
+                  <h2 className="font-bold text-primary">VentasCom</h2>
+                  <AIStatusBadge />
                 </div>
-              </SheetContent>
-            </Sheet>
-          </div>
+                
+                <div className="flex-1 p-2 space-y-1">
+                  {menuItems.map((item) => (
+                    <Button
+                      key={item.path}
+                      variant={location.pathname === item.path ? "secondary" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        navigate(item.path);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <item.icon className="mr-2 h-4 w-4" />
+                      {item.label}
+                    </Button>
+                  ))}
+                  
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setChatOpen(true);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Asistente
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}
+                  >
+                    <Database className="mr-2 h-4 w-4" />
+                    Supabase
+                  </Button>
+                </div>
+                
+                <div className="p-4 border-t text-center">
+                  <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </header>
         
         <main className="flex-1 p-4">
@@ -115,7 +107,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     );
   }
   
-  // Layout de escritorio con sidebar a la derecha
+  // Layout de escritorio
   return (
     <div className="flex min-h-screen w-full">
       <SidebarInset className="p-4">

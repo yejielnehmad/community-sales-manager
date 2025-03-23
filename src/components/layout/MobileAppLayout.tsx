@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,12 +8,15 @@ import {
   Home, 
   Users, 
   ShoppingBag, 
-  ClipboardList, 
-  LogOut,
+  ClipboardList,
   Menu,
-  MessageSquarePlus
+  MessageSquarePlus,
+  MessageCircle,
+  Database
 } from "lucide-react";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
+import { APP_VERSION } from "@/App";
+import { ChatAssistant } from "@/components/ChatAssistant";
 
 interface MobileAppLayoutProps {
   children: React.ReactNode;
@@ -21,7 +24,9 @@ interface MobileAppLayoutProps {
 
 export function MobileAppLayout({ children }: MobileAppLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   
   const menuItems = [
     { path: "/", label: "Inicio", icon: <Home className="h-5 w-5" /> },
@@ -34,7 +39,11 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen w-full bg-background">
       {/* Header móvil */}
-      <header className="sticky top-0 z-10 border-b bg-background p-3 flex items-center justify-between">
+      <header className="sticky top-0 z-10 border-b bg-background p-3 flex items-center justify-between shadow-sm">
+        <h1 className="text-lg font-bold text-primary">
+          {menuItems.find(item => item.path === location.pathname)?.label || "VentasCom"}
+        </h1>
+        
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -42,7 +51,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
               <span className="sr-only">Menú</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[80vw] max-w-xs p-0">
+          <SheetContent side="right" className="w-[80vw] max-w-xs p-0">
             <div className="h-full flex flex-col">
               <div className="py-4 border-b px-4 flex justify-between items-center">
                 <h1 className="text-xl font-bold text-primary">VentasCom</h1>
@@ -63,45 +72,41 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
                       <span>{item.label}</span>
                     </Link>
                   ))}
+                  
+                  <button
+                    onClick={() => {
+                      setChatOpen(true);
+                      setOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    <span>Asistente</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => window.open("https://supabase.com/dashboard/project/frezmwtubianybvrkxmv", "_blank")}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left"
+                  >
+                    <Database className="h-5 w-5" />
+                    <span>Supabase</span>
+                  </button>
                 </div>
               </ScrollArea>
-              <div className="p-4 border-t">
-                <Button variant="outline" className="w-full flex items-center gap-2">
-                  <LogOut className="h-4 w-4" />
-                  <span>Cerrar sesión</span>
-                </Button>
+              <div className="p-4 border-t text-center">
+                <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
               </div>
             </div>
           </SheetContent>
         </Sheet>
-        
-        <h1 className="text-lg font-bold text-primary">
-          {menuItems.find(item => item.path === location.pathname)?.label || "VentasCom"}
-        </h1>
-        
-        <AIStatusBadge />
       </header>
       
       {/* Contenido principal */}
-      <main className="flex-1 p-4 pb-16">
+      <main className="flex-1 p-4">
         {children}
       </main>
       
-      {/* Navegación inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t p-1 flex items-center justify-around">
-        {menuItems.map((item) => (
-          <Link 
-            key={item.path} 
-            to={item.path}
-            className={`p-2 flex flex-col items-center justify-center gap-1 ${
-              location.pathname === item.path ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            {item.icon}
-            <span className="text-xs font-medium">{item.label}</span>
-          </Link>
-        ))}
-      </nav>
+      {chatOpen && <ChatAssistant onClose={() => setChatOpen(false)} />}
     </div>
   );
 }

@@ -29,7 +29,7 @@ const DashboardCard = ({
   isLoading?: boolean;
 }) => (
   <Card 
-    className={`transition-all hover:shadow-md ${onClick ? 'cursor-pointer' : ''}`}
+    className={`transition-all hover:shadow-md rounded-xl ${onClick ? 'cursor-pointer card-hover' : ''}`}
     onClick={onClick}
   >
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -105,7 +105,7 @@ const Dashboard = () => {
     <AppLayout>
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
           <p className="text-muted-foreground">Resumen de la venta comunitaria</p>
         </div>
 
@@ -144,7 +144,7 @@ const Dashboard = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
+          <Card className="rounded-xl shadow-sm">
             <CardHeader>
               <CardTitle>Pedidos Recientes</CardTitle>
               <CardDescription>Los últimos pedidos registrados</CardDescription>
@@ -153,7 +153,7 @@ const Dashboard = () => {
               <p className="text-center text-muted-foreground py-6">No hay pedidos recientes</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="rounded-xl shadow-sm">
             <CardHeader>
               <CardTitle>Productos Populares</CardTitle>
               <CardDescription>Los productos más solicitados</CardDescription>
