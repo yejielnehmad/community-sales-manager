@@ -4,7 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Sparkles, Copy, Check } from "lucide-react";
 import { generateMultipleExamples } from "@/services/aiLabsService";
-import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MessageExampleGeneratorProps {
   onSelectExample: (text: string) => void;
@@ -14,7 +22,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const [isGenerating, setIsGenerating] = useState(false);
   const [examples, setExamples] = useState<string>("");
   const [isCopied, setIsCopied] = useState(false);
-  const { toast } = useToast();
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
@@ -23,11 +31,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       setExamples(generatedExamples);
     } catch (error) {
       console.error("Error al generar ejemplos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron generar los ejemplos",
-        variant: "destructive",
-      });
+      setAlertMessage("No se pudieron generar los ejemplos. Por favor, intenta nuevamente.");
     } finally {
       setIsGenerating(false);
     }
@@ -38,19 +42,13 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
     
-    toast({
-      title: "Copiado",
-      description: "Ejemplos copiados al portapapeles",
-    });
+    setAlertMessage("Ejemplos copiados al portapapeles");
   };
 
   const handleUseExample = (example: string) => {
     onSelectExample(example);
     
-    toast({
-      title: "Ejemplo seleccionado",
-      description: "El ejemplo ha sido cargado en el campo de mensaje",
-    });
+    setAlertMessage("El ejemplo ha sido cargado en el campo de mensaje");
   };
 
   // Dividir los ejemplos en un array
@@ -147,6 +145,24 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           ))}
         </div>
       </CardContent>
+
+      {/* Diálogo para mensajes de alerta */}
+      <AlertDialog 
+        open={alertMessage !== null}
+        onOpenChange={(open) => !open && setAlertMessage(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Información</AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Aceptar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

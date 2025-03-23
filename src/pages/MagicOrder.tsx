@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { 
   Loader2, 
   MessageSquareText, 
@@ -12,7 +13,8 @@ import {
   Sparkles, 
   ChevronDown,
   ChevronUp,
-  Clipboard
+  Clipboard,
+  Trash2
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -25,8 +27,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-export const MAGIC_ORDER_VERSION = "1.0.3";
+export const MAGIC_ORDER_VERSION = "1.0.5";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -34,10 +47,12 @@ const MagicOrder = () => {
   const [progress, setProgress] = useState(0);
   const [orders, setOrders] = useState<OrderCardType[]>([]);
   const [showGenerator, setShowGenerator] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
 
   const simulateProgress = () => {
     setProgress(0);
-    const duration = 5000; // 5 segundos para el análisis simulado
+    const duration = 8000; // 8 segundos para el análisis simulado
     const interval = 20; // actualizar cada 20ms
     const steps = duration / interval;
     let currentStep = 0;
@@ -45,7 +60,7 @@ const MagicOrder = () => {
     const timer = setInterval(() => {
       currentStep++;
       // Función sigmoide para que sea más lento al principio y al final
-      const progressValue = 100 / (1 + Math.exp(-0.1 * (currentStep - steps/2)));
+      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - steps/2)));
       setProgress(progressValue);
       
       if (currentStep >= steps) {
@@ -59,7 +74,10 @@ const MagicOrder = () => {
   // Función para analizar el mensaje utilizando la API de Google Gemini
   const handleAnalyzeMessage = async () => {
     if (!message.trim()) {
-      alert("Por favor, ingresa un mensaje para analizar");
+      setAlertMessage({
+        title: "Campo vacío",
+        message: "Por favor, ingresa un mensaje para analizar"
+      });
       return;
     }
 
@@ -89,6 +107,7 @@ const MagicOrder = () => {
       
       if (error instanceof GeminiError) {
         // Personalizamos el mensaje de error basado en el tipo de error
+        let errorTitle = "Error de análisis";
         let errorMessage = "Error al analizar el mensaje";
         
         if (error.status) {
@@ -99,9 +118,15 @@ const MagicOrder = () => {
           errorMessage = error.message;
         }
         
-        alert(errorMessage);
+        setAlertMessage({
+          title: errorTitle,
+          message: errorMessage
+        });
       } else {
-        alert((error as Error).message || "Error al analizar el mensaje");
+        setAlertMessage({
+          title: "Error",
+          message: (error as Error).message || "Error al analizar el mensaje"
+        });
       }
     } finally {
       setTimeout(() => {
@@ -122,9 +147,15 @@ const MagicOrder = () => {
     try {
       const text = await navigator.clipboard.readText();
       setMessage(text);
-      alert("El texto ha sido copiado del portapapeles");
+      setAlertMessage({
+        title: "Texto copiado",
+        message: "El texto ha sido copiado del portapapeles"
+      });
     } catch (err) {
-      alert("No se pudo acceder al portapapeles");
+      setAlertMessage({
+        title: "Error de acceso",
+        message: "No se pudo acceder al portapapeles"
+      });
     }
   };
 
@@ -136,7 +167,10 @@ const MagicOrder = () => {
   const handleSaveOrder = async (orderIndex: number, order: OrderCardType) => {
     try {
       if (!order.client.id) {
-        alert("Cliente no identificado correctamente");
+        setAlertMessage({
+          title: "Error",
+          message: "Cliente no identificado correctamente"
+        });
         return false;
       }
 
@@ -159,7 +193,10 @@ const MagicOrder = () => {
       }
       
       if (hasInvalidItems) {
-        alert("Hay productos que no fueron identificados correctamente");
+        setAlertMessage({
+          title: "Error",
+          message: "Hay productos que no fueron identificados correctamente"
+        });
         return false;
       }
 
@@ -210,51 +247,37 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
 
-      alert(`El pedido para ${order.client.name} se ha guardado correctamente`);
+      setAlertMessage({
+        title: "Pedido guardado",
+        message: `El pedido para ${order.client.name} se ha guardado correctamente`
+      });
       
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
-      alert(error.message || "Error al guardar el pedido");
+      setAlertMessage({
+        title: "Error",
+        message: error.message || "Error al guardar el pedido"
+      });
       return false;
     }
   };
 
-  const handleDeleteOrder = (index: number) => {
-    if (window.confirm('¿Estás seguro de eliminar este pedido preliminar?')) {
+  const handleConfirmDeleteOrder = () => {
+    if (orderToDelete !== null) {
       const updatedOrders = [...orders];
-      updatedOrders.splice(index, 1);
+      updatedOrders.splice(orderToDelete.index, 1);
       setOrders(updatedOrders);
+      setOrderToDelete(null);
     }
   };
 
-  const AnimatedCounter = ({ value, duration = 1000 }: { value: number, duration?: number }) => {
-    const [count, setCount] = useState(0);
-    
-    useEffect(() => {
-      let startTime: number;
-      let animationFrame: number;
-      
-      const updateCount = (timestamp: number) => {
-        if (!startTime) startTime = timestamp;
-        const progress = Math.min((timestamp - startTime) / duration, 1);
-        setCount(Math.floor(progress * value));
-        
-        if (progress < 1) {
-          animationFrame = requestAnimationFrame(updateCount);
-        } else {
-          setCount(value);
-        }
-      };
-      
-      animationFrame = requestAnimationFrame(updateCount);
-      
-      return () => {
-        cancelAnimationFrame(animationFrame);
-      };
-    }, [value, duration]);
-    
-    return <span>{count}</span>;
+  const handleDeleteOrder = (index: number) => {
+    const order = orders[index];
+    setOrderToDelete({
+      index, 
+      name: order.client.name
+    });
   };
 
   return (
@@ -326,13 +349,20 @@ const MagicOrder = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
+            {progress > 0 && (
+              <div className="w-full mb-2">
+                <Progress value={progress} className="h-2 w-full" />
+                <div className="text-xs text-muted-foreground text-right mt-1">
+                  Analizando mensaje... {Math.round(progress)}%
+                </div>
+              </div>
+            )}
             <div className="w-full flex justify-end">
               <Button 
                 onClick={handleAnalyzeMessage}
                 disabled={isAnalyzing || !message.trim()}
-                className="relative overflow-hidden"
               >
-                <div className="flex items-center gap-2 z-10 relative">
+                <div className="flex items-center gap-2">
                   {isAnalyzing ? (
                     <>
                       <Sparkles className="h-4 w-4 animate-pulse" />
@@ -345,12 +375,6 @@ const MagicOrder = () => {
                     </>
                   )}
                 </div>
-                {isAnalyzing && (
-                  <div 
-                    className="absolute left-0 top-0 h-full bg-primary/50 z-0 transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                )}
               </Button>
             </div>
           </CardFooter>
@@ -389,6 +413,7 @@ const MagicOrder = () => {
                     onClick={() => handleDeleteOrder(index)}
                     disabled={order.status === 'saved'}
                   >
+                    <Trash2 className="h-4 w-4 mr-1" />
                     Eliminar
                   </Button>
                 </div>
@@ -397,6 +422,40 @@ const MagicOrder = () => {
           </div>
         )}
       </div>
+
+      {/* Diálogo de confirmación para eliminar pedido */}
+      <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => !open && setOrderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {orderToDelete && `El pedido preliminar para ${orderToDelete.name} será eliminado permanentemente. Esta acción no se puede deshacer.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteOrder}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo para mensajes de alerta */}
+      <AlertDialog 
+        open={alertMessage !== null}
+        onOpenChange={(open) => !open && setAlertMessage(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertMessage?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Aceptar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

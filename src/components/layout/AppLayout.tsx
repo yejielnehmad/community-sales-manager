@@ -11,7 +11,6 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
 export interface AppLayoutProps {
   children: React.ReactNode;
@@ -50,6 +49,26 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.5</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Mejoras en interfaz de usuario de productos</li>
+                <li>Nueva funcionalidad para eliminar pedidos</li>
+                <li>Barra de progreso animada al procesar mensajes</li>
+                <li>Información detallada sobre capacidades de IA</li>
+                <li>Mejor integración con API de Google Gemini</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.4</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Corrección de errores de estabilidad</li>
+                <li>Mejoras en la visualización de datos</li>
+                <li>Optimización de rendimiento general</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
               <h3 className="font-medium">Versión 1.0.3</h3>
               <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
                 <li>Corrección de errores de estabilidad y rendimiento</li>
