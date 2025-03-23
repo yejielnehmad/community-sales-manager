@@ -54,19 +54,6 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   // Dividir los ejemplos en un array
   const examplesList = examples ? examples.split("\n\n---\n\n") : [];
 
-  // Ejemplos predefinidos más naturales y variados
-  const predefinedExamples = [
-    "Hola buenas tardes, soy Carolina Gómez. Te escribo para hacer un pedido. Necesito 2 kg de carne molida, 1.5 kg de milanesas, un paquete grande de fideos tirabuzón y tres paquetes de arroz. ¿Podrías confirmarme si tiene todo eso disponible? Gracias!",
-    
-    "Buenas! Juan Martínez acá. Quiero pedir: 2 jabones de glicerina, 3 paquetes de pañales Pampers talle 3 (los amarillos), 4 rollos de papel higiénico y si tienen, un champú para pelo rizado. Lo necesito para mañana si es posible. Un abrazo",
-    
-    "Hola soy Marta del 3B. Te hago el pedido mensual: 5 botellas de jugo de naranja, 2kg de naranjas, 1kg de manzanas rojas y 3 lechugas. Si tienen las frutillas frescas que me comentaste la otra vez, sumame un kilo también. Avísame cuánto sería todo.",
-    
-    "Qué tal? Te habla Luis Fernández. Para mañana necesitaría 2 bolsas de leche en polvo (las de 800g), 1 caja de cereales de chocolate y 3 yogures enteros sabor frutilla. También si tenés queso cremoso, cortame 250g. Después paso a buscar el pedido a eso de las 5, te sirve?",
-    
-    "Buen día! Daniela Suárez te escribe. Quería saber si podés apartarme: 2 paquetes de café molido, una crema de leche, 500g de queso rallado y un aceite de oliva extra virgen. También me gustaría un kilo de tomates si tienen frescos. ¡Gracias por tu atención!"
-  ];
-
   return (
     <Card className="w-full mb-4">
       <CardHeader>
@@ -118,8 +105,17 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           )}
         </div>
         
+        {!examples && !isGenerating && (
+          <div className="text-center p-6 border border-dashed rounded-md">
+            <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-sm text-muted-foreground">
+              Haz clic en "Generar con IA" para crear ejemplos de mensajes de clientes basados en la información de tu negocio.
+            </p>
+          </div>
+        )}
+        
         <div className="space-y-3">
-          {(examplesList.length > 0 ? examplesList : predefinedExamples).map((example, index) => (
+          {examplesList.length > 0 && examplesList.map((example, index) => (
             <div 
               key={index} 
               className="p-3 border rounded-md transition-all duration-200 hover:bg-muted/30 hover:shadow-sm"

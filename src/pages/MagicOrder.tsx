@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export const MAGIC_ORDER_VERSION = "1.0.5";
+export const MAGIC_ORDER_VERSION = "1.0.6";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");

@@ -49,6 +49,18 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-2">
+              <h3 className="font-medium">Versión 1.0.6</h3>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+                <li>Mejora en el acceso a las capacidades de IA desde el ícono del indicador</li>
+                <li>Eliminación de mensajes predefinidos en favor de generación por IA</li>
+                <li>Asistente de IA con acceso completo a datos de la aplicación</li>
+                <li>Panel detallado de información de la IA</li>
+                <li>Corrección de visualización de información de versiones</li>
+                <li>Mejoras en la interfaz de usuario</li>
+              </ul>
+            </div>
+            
+            <div className="border-l-4 border-muted pl-4 py-2">
               <h3 className="font-medium">Versión 1.0.5</h3>
               <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
                 <li>Mejoras en interfaz de usuario de productos</li>
