@@ -1,63 +1,41 @@
+
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
-import { DataTable } from "@/components/ui/data-table";
-import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Plus, Trash } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash, Loader2, MoreVertical, ShoppingBag } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Product = {
   id: string;
   name: string;
   description: string;
-  price: string;
+  price: number;
   variants: ProductVariant[];
 };
 
 type ProductVariant = {
   id: string;
   name: string;
-  price: string;
-};
-
-type ProductFromDB = {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-};
-
-type ProductVariantFromDB = {
-  id: string;
-  product_id: string;
-  name: string;
   price: number;
 };
 
 const Products = () => {
-  const [products, setProducts] = useState<ProductFromDB[]>([]);
-  const [productVariants, setProductVariants] = useState<ProductVariantFromDB[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("list");
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  const productVariantsMap: Record<string, ProductVariantFromDB[]> = {};
-  productVariants.forEach(variant => {
-    if (!productVariantsMap[variant.product_id]) {
-      productVariantsMap[variant.product_id] = [];
-    }
-    productVariantsMap[variant.product_id].push(variant);
-  });
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -80,130 +58,64 @@ const Products = () => {
 
       if (variantsError) throw variantsError;
 
-      setProducts(productsData || []);
-      setProductVariants(variantsData || []);
+      // Organizar productos con sus variantes
+      const productsList = (productsData || []).map(product => {
+        const productVariants = (variantsData || [])
+          .filter(variant => variant.product_id === product.id)
+          .map(v => ({
+            id: v.id,
+            name: v.name,
+            price: v.price
+          }));
+        
+        return {
+          id: product.id,
+          name: product.name,
+          description: product.description || "",
+          price: product.price,
+          variants: productVariants
+        };
+      });
+
+      setProducts(productsList);
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los productos",
-        variant: "destructive",
-      });
+      toast.error("No se pudieron cargar los productos");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const tableData = products.map(product => {
-    const variants = productVariantsMap[product.id] || [];
-    
-    return {
-      id: product.id,
-      name: product.name,
-      description: product.description || "",
-      price: String(product.price || "0"),
-      variants: variants.map(v => ({
-        id: v.id,
-        name: v.name,
-        price: String(v.price || "0")
-      }))
-    };
-  });
-
-  const bulkImportProducts = async (products: { name: string; description: string; price: string }[]) => {
+  const handleDeleteProduct = async (productId: string) => {
+    setIsDeleting(true);
     try {
-      const newProducts = products.map(p => ({
-        name: p.name,
-        description: p.description || "",
-        price: parseFloat(p.price)
-      }));
+      // Primero eliminar las variantes
+      const { error: variantsError } = await supabase
+        .from('product_variants')
+        .delete()
+        .eq('product_id', productId);
+      
+      if (variantsError) throw variantsError;
 
-      const { data: productsData, error: productsError } = await supabase
+      // Luego eliminar el producto
+      const { error: productError } = await supabase
         .from('products')
-        .insert(newProducts);
+        .delete()
+        .eq('id', productId);
+      
+      if (productError) throw productError;
 
-      if (productsError) throw productsError;
-
-      toast({
-        title: "Productos importados",
-        description: `Se importaron ${products.length} productos correctamente`,
-      });
-
+      toast.success("Producto eliminado correctamente");
       fetchProducts();
-      setActiveTab("list");
     } catch (error) {
-      console.error('Error importing products:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron importar los productos",
-        variant: "destructive",
-      });
+      console.error('Error deleting product:', error);
+      toast.error("Error al eliminar el producto");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteConfirmOpen(false);
+      setProductToDelete(null);
     }
   };
-
-  const columns: ColumnDef<Product>[] = [
-    {
-      accessorKey: "name",
-      header: "Nombre",
-    },
-    {
-      accessorKey: "description",
-      header: "Descripción",
-    },
-    {
-      accessorKey: "price",
-      header: "Precio Base",
-      cell: ({ row }) => {
-        return <div>{row.getValue("price")} €</div>;
-      },
-    },
-    {
-      accessorKey: "variants",
-      header: "Variantes",
-      cell: ({ row }) => {
-        const variants: ProductVariant[] = row.getValue("variants");
-        return (
-          <div className="flex flex-wrap gap-1">
-            {variants.length > 0 ? (
-              variants.map((variant) => (
-                <Badge key={variant.id} variant="outline">
-                  {variant.name}: {String(variant.price)} €
-                </Badge>
-              ))
-            ) : (
-              <span className="text-muted-foreground text-sm">Sin variantes</span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const product = row.original;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Abrir menú</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setSelectedProduct(product.id)}>
-                Gestionar variantes
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600">
-                Eliminar producto
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-    },
-  ];
 
   return (
     <AppLayout>
@@ -213,364 +125,422 @@ const Products = () => {
             <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
             <p className="text-muted-foreground">Gestiona tu catálogo de productos y variantes</p>
           </div>
-          <div className="flex gap-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nuevo Producto
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <ProductForm onSubmit={fetchProducts} />
-              </DialogContent>
-            </Dialog>
-          </div>
+          <Button onClick={() => setIsNewProductDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Producto
+          </Button>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="list">Listado</TabsTrigger>
-            <TabsTrigger value="import">Importar</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="list" className="space-y-4">
-            <Card>
-              <CardContent className="pt-6">
-                <DataTable columns={columns} data={tableData} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="import">
-            <BulkImportForm onImport={bulkImportProducts} />
-          </TabsContent>
-        </Tabs>
-
-        {selectedProduct && (
-          <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-            <DialogContent className="max-w-2xl">
-              <VariantsManager 
-                productId={selectedProduct} 
-                product={products.find(p => p.id === selectedProduct)} 
-                variants={productVariantsMap[selectedProduct] || []}
-                onUpdate={fetchProducts}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : products.length === 0 ? (
+          <Card className="p-10 text-center">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <ShoppingBag className="h-10 w-10 text-muted-foreground" />
+              <h3 className="text-lg font-medium">No hay productos</h3>
+              <p className="text-sm text-muted-foreground">
+                Comienza añadiendo tu primer producto.
+              </p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => setIsNewProductDialogOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Añadir Producto
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard 
+                key={product.id} 
+                product={product} 
+                onEdit={() => setSelectedProduct(product)}
+                onDelete={() => {
+                  setProductToDelete(product.id);
+                  setIsDeleteConfirmOpen(true);
+                }}
               />
-            </DialogContent>
-          </Dialog>
+            ))}
+          </div>
         )}
       </div>
+
+      {/* Diálogo para nuevo producto */}
+      <ProductDialog 
+        open={isNewProductDialogOpen} 
+        onOpenChange={setIsNewProductDialogOpen}
+        onSave={fetchProducts}
+      />
+
+      {/* Diálogo para editar producto */}
+      {selectedProduct && (
+        <ProductDialog 
+          open={!!selectedProduct}
+          onOpenChange={(open) => !open && setSelectedProduct(null)}
+          product={selectedProduct}
+          onSave={fetchProducts}
+        />
+      )}
+
+      {/* Confirmación para eliminar producto */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Estás seguro?</DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. Se eliminará el producto y todas sus variantes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => productToDelete && handleDeleteProduct(productToDelete)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash className="mr-2 h-4 w-4" />
+                  Eliminar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
 
-const VariantsManager = ({ 
-  productId, 
+const ProductCard = ({ 
   product, 
-  variants, 
-  onUpdate 
+  onEdit, 
+  onDelete 
 }: { 
-  productId: string; 
-  product?: ProductFromDB; 
-  variants: ProductVariantFromDB[]; 
-  onUpdate: () => void;
+  product: Product; 
+  onEdit: () => void;
+  onDelete: () => void;
 }) => {
-  const [formVariant, setFormVariant] = useState({
+  return (
+    <Card className="overflow-hidden h-full flex flex-col">
+      <CardHeader className="p-4 pb-2 flex flex-row justify-between items-start gap-2">
+        <div className="flex-1 overflow-hidden">
+          <h3 className="font-medium truncate">{product.name}</h3>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDelete} className="text-destructive">
+              <Trash className="mr-2 h-4 w-4" />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardHeader>
+      <CardContent className="p-4 pt-2 pb-0 flex-1">
+        {product.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{product.description}</p>
+        )}
+        <div className="space-y-2">
+          <ScrollArea className="max-h-24">
+            {product.variants.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {product.variants.map((variant) => (
+                  <Badge key={variant.id} variant="outline" className="mb-1">
+                    {variant.name}: ${variant.price}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground italic">Sin variantes</div>
+            )}
+          </ScrollArea>
+        </div>
+      </CardContent>
+      <CardFooter className="p-4 pt-3 flex justify-end">
+        <Button size="sm" variant="outline" onClick={onEdit}>
+          <Pencil className="mr-2 h-3 w-3" />
+          Gestionar
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const ProductDialog = ({ 
+  open, 
+  onOpenChange,
+  product = null,
+  onSave
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  product?: Product | null;
+  onSave: () => void;
+}) => {
+  const isEditing = !!product;
+  const [formData, setFormData] = useState({
     name: "",
-    price: "0" // Asegurarnos que es string para el input
+    description: "",
   });
-  const { toast } = useToast();
+  const [variants, setVariants] = useState<{name: string; price: string}[]>([{ name: "", price: "" }]);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleAddVariant = async () => {
-    try {
-      if (!formVariant.name) {
-        toast({
-          title: "Error",
-          description: "El nombre de la variante es obligatorio",
-          variant: "destructive",
-        });
-        return;
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name,
+        description: product.description || "",
+      });
+      
+      if (product.variants.length > 0) {
+        setVariants(product.variants.map(v => ({
+          name: v.name,
+          price: v.price.toString()
+        })));
+      } else {
+        setVariants([{ name: "", price: "" }]);
       }
+    } else {
+      setFormData({ name: "", description: "" });
+      setVariants([{ name: "", price: "" }]);
+    }
+  }, [product]);
 
-      const newVariant = {
-        product_id: productId,
-        name: formVariant.name,
-        price: parseFloat(formVariant.price)
-      };
+  const handleVariantChange = (index: number, field: 'name' | 'price', value: string) => {
+    const newVariants = [...variants];
+    newVariants[index][field] = value;
+    setVariants(newVariants);
+  };
 
-      const { data: variantsData, error: variantsError } = await supabase
-        .from('product_variants')
-        .insert([newVariant]);
+  const addVariant = () => {
+    setVariants([...variants, { name: "", price: "" }]);
+  };
 
-      if (variantsError) throw variantsError;
-
-      toast({
-        title: "Variante añadida",
-        description: "La variante se ha añadido correctamente",
-      });
-
-      setFormVariant({ name: "", price: "0" });
-      onUpdate();
-    } catch (error) {
-      console.error('Error adding variant:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo añadir la variante",
-        variant: "destructive",
-      });
+  const removeVariant = (index: number) => {
+    if (variants.length > 1) {
+      const newVariants = [...variants];
+      newVariants.splice(index, 1);
+      setVariants(newVariants);
     }
   };
 
-  const handleDeleteVariant = async (variantId: string) => {
+  const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      toast.error("El nombre del producto es obligatorio");
+      return;
+    }
+
+    // Validar variantes
+    const validVariants = variants.filter(v => v.name.trim() !== "");
+    if (validVariants.length === 0) {
+      toast.error("Debes agregar al menos una variante");
+      return;
+    }
+
+    setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('product_variants')
-        .delete()
-        .eq('id', variantId);
+      if (isEditing && product) {
+        // Actualizar producto existente
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({
+            name: formData.name,
+            description: formData.description,
+            price: 0 // Ya no usamos precio base
+          })
+          .eq('id', product.id);
+          
+        if (updateError) throw updateError;
 
-      if (error) throw error;
+        // Eliminar variantes existentes
+        const { error: deleteError } = await supabase
+          .from('product_variants')
+          .delete()
+          .eq('product_id', product.id);
+          
+        if (deleteError) throw deleteError;
 
-      toast({
-        title: "Variante eliminada",
-        description: "La variante se ha eliminado correctamente",
-      });
-
-      onUpdate();
+        // Agregar nuevas variantes
+        const { error: variantsError } = await supabase
+          .from('product_variants')
+          .insert(
+            validVariants.map(v => ({
+              product_id: product.id,
+              name: v.name,
+              price: parseFloat(v.price) || 0
+            }))
+          );
+          
+        if (variantsError) throw variantsError;
+        
+        toast.success("Producto actualizado correctamente");
+      } else {
+        // Crear nuevo producto
+        const { data: newProduct, error: productError } = await supabase
+          .from('products')
+          .insert({
+            name: formData.name,
+            description: formData.description,
+            price: 0 // Ya no usamos precio base
+          })
+          .select();
+          
+        if (productError) throw productError;
+        
+        if (newProduct && newProduct.length > 0) {
+          // Agregar variantes
+          const { error: variantsError } = await supabase
+            .from('product_variants')
+            .insert(
+              validVariants.map(v => ({
+                product_id: newProduct[0].id,
+                name: v.name,
+                price: parseFloat(v.price) || 0
+              }))
+            );
+            
+          if (variantsError) throw variantsError;
+        }
+        
+        toast.success("Producto creado correctamente");
+      }
+      
+      onSave();
+      onOpenChange(false);
     } catch (error) {
-      console.error('Error deleting variant:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la variante",
-        variant: "destructive",
-      });
+      console.error('Error saving product:', error);
+      toast.error(isEditing ? "Error al actualizar el producto" : "Error al crear el producto");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Gestionar Variantes: {product?.name}</DialogTitle>
-        <DialogDescription>
-          Añade o elimina variantes para este producto
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="space-y-4 py-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <Label htmlFor="variant-name">Nombre de la variante</Label>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Editar Producto" : "Nuevo Producto"}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? "Modifica el producto y sus variantes." : "Añade un nuevo producto a tu catálogo."}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nombre del producto</Label>
             <Input
-              id="variant-name"
-              value={formVariant.name}
-              onChange={(e) => setFormVariant({ ...formVariant, name: e.target.value })}
-              placeholder="Ej: 500g, 1kg, Rojo, etc."
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Ej: Aceite, Arroz, etc."
             />
           </div>
-          <div>
-            <Label htmlFor="variant-price">Precio (€)</Label>
-            <Input
-              id="variant-price"
-              type="number"
-              value={formVariant.price}
-              onChange={(e) => setFormVariant({ ...formVariant, price: e.target.value })}
-              step="0.01"
+          
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción (opcional)</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Descripción del producto..."
+              rows={3}
             />
           </div>
-        </div>
-
-        <Button onClick={handleAddVariant} className="w-full">
-          <Plus className="mr-2 h-4 w-4" />
-          Añadir Variante
-        </Button>
-
-        <div className="space-y-2">
-          <Label>Variantes existentes</Label>
-          {variants.length > 0 ? (
-            <div className="space-y-2">
-              {variants.map((variant) => (
-                <div key={variant.id} className="flex justify-between items-center p-2 border rounded-md">
-                  <div>
-                    <span className="font-medium">{variant.name}</span>
-                    <span className="ml-2 text-muted-foreground">{variant.price} €</span>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label>Variantes y precios</Label>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={addVariant}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Agregar
+              </Button>
+            </div>
+            
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {variants.map((variant, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Input
+                      value={variant.name}
+                      onChange={(e) => handleVariantChange(index, 'name', e.target.value)}
+                      placeholder="Nombre (ej: 1kg, 500g)"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Input
+                      type="number"
+                      value={variant.price}
+                      onChange={(e) => handleVariantChange(index, 'price', e.target.value)}
+                      placeholder="Precio"
+                      step="0.01"
+                    />
                   </div>
                   <Button
+                    size="icon"
                     variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteVariant(variant.id)}
+                    className="h-8 w-8"
+                    onClick={() => removeVariant(index)}
+                    disabled={variants.length <= 1}
                   >
-                    <Trash className="h-4 w-4 text-red-500" />
+                    <Trash className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="text-center p-4 border rounded-md text-muted-foreground">
-              No hay variantes para este producto
-            </div>
-          )}
+          </div>
         </div>
-      </div>
-
-      <DialogFooter>
-        <Button variant="outline" onClick={() => onUpdate()}>
-          Cerrar
-        </Button>
-      </DialogFooter>
-    </>
-  );
-};
-
-const ProductForm = ({ onSubmit }: { onSubmit: () => void }) => {
-  const [formProduct, setFormProduct] = useState({
-    name: "",
-    description: "",
-    price: "0" // Asegurarnos que es string para el input
-  });
-  const { toast } = useToast();
-
-  const handleSubmit = async () => {
-    try {
-      if (!formProduct.name) {
-        toast({
-          title: "Error",
-          description: "El nombre del producto es obligatorio",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('products')
-        .insert([
-          {
-            name: formProduct.name,
-            description: formProduct.description,
-            price: parseFloat(formProduct.price),
-          }
-        ]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Producto creado",
-        description: "El producto se ha creado correctamente",
-      });
-
-      setFormProduct({ name: "", description: "", price: "0" });
-      onSubmit();
-    } catch (error) {
-      console.error('Error creating product:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo crear el producto",
-        variant: "destructive",
-      });
-    }
-  };
-
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Crear Nuevo Producto</DialogTitle>
-        <DialogDescription>
-          Añade un nuevo producto a tu catálogo
-        </DialogDescription>
-      </DialogHeader>
-      <div className="space-y-4 py-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Nombre del producto</Label>
-          <Input
-            id="name"
-            value={formProduct.name}
-            onChange={(e) => setFormProduct({ ...formProduct, name: e.target.value })}
-            placeholder="Ej: Leche, Pan, etc."
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="description">Descripción (opcional)</Label>
-          <Textarea
-            id="description"
-            value={formProduct.description}
-            onChange={(e) => setFormProduct({ ...formProduct, description: e.target.value })}
-            placeholder="Descripción del producto..."
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="price">Precio base (€)</Label>
-          <Input
-            id="price"
-            type="number"
-            value={formProduct.price}
-            onChange={(e) => setFormProduct({ ...formProduct, price: e.target.value })}
-            step="0.01"
-          />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button onClick={handleSubmit}>Crear Producto</Button>
-      </DialogFooter>
-    </>
-  );
-};
-
-const BulkImportForm = ({ onImport }: { onImport: (products: any[]) => void }) => {
-  const [importText, setImportText] = useState("");
-  const { toast } = useToast();
-
-  const handleImport = () => {
-    try {
-      const products = JSON.parse(importText);
-      
-      if (!Array.isArray(products)) {
-        toast({
-          title: "Error de formato",
-          description: "El formato debe ser un array de productos",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      onImport(products);
-    } catch (error) {
-      toast({
-        title: "Error de formato",
-        description: "El JSON no es válido",
-        variant: "destructive",
-      });
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Importar Productos</CardTitle>
-        <CardDescription>
-          Importa múltiples productos desde un archivo JSON
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Textarea
-          className="min-h-[300px] font-mono"
-          placeholder={`[
-  {
-    "name": "Leche",
-    "description": "Leche entera",
-    "price": "1.20"
-  },
-  {
-    "name": "Pan",
-    "description": "Pan de molde",
-    "price": "1.50"
-  }
-]`}
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-        />
-      </CardContent>
-      <CardFooter>
-        <Button onClick={handleImport}>Importar Productos</Button>
-      </CardFooter>
-    </Card>
+        
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleSubmit}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              isEditing ? "Actualizar" : "Crear"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -5,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Client } from "@/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, User, ChevronDown, ChevronUp, Phone, Edit, Trash, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Plus, User, ChevronDown, ChevronUp, Edit, Trash, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ClientFormValues = {
   name: string;
@@ -181,7 +182,7 @@ const Clients = () => {
           </div>
         </div>
         
-        <Card>
+        <Card className="overflow-hidden">
           <CardContent className="pt-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleCreateClient)} className="space-y-4">
@@ -193,7 +194,7 @@ const Clients = () => {
                       <FormItem>
                         <FormLabel>Nombre</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nombre del cliente" {...field} />
+                          <Input placeholder="Nombre del cliente" {...field} className="rounded-lg" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -207,7 +208,7 @@ const Clients = () => {
                       <FormItem>
                         <FormLabel>Teléfono</FormLabel>
                         <FormControl>
-                          <Input placeholder="Teléfono del cliente" {...field} />
+                          <Input placeholder="Teléfono del cliente" {...field} className="rounded-lg" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -216,7 +217,7 @@ const Clients = () => {
                 </div>
                 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving}>
+                  <Button type="submit" disabled={isSaving} className="rounded-lg">
                     {isSaving ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -235,7 +236,7 @@ const Clients = () => {
           </CardContent>
         </Card>
         
-        <div className="space-y-4">
+        <div className="space-y-2">
           {loading ? (
             <div className="flex justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -246,36 +247,38 @@ const Clients = () => {
                 key={client.id}
                 open={openCollapsibles[client.id]}
                 onOpenChange={() => toggleCollapsible(client.id)}
-                className="border rounded-lg overflow-hidden"
+                className="border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-sm"
               >
                 <CollapsibleTrigger asChild>
-                  <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-muted/50">
+                  <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-muted/50">
                     <div className="flex items-center gap-3">
-                      <User className="h-5 w-5 text-primary" />
+                      <div className="bg-primary/10 rounded-full p-2">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
                       <div>
                         <h3 className="font-medium">{client.name}</h3>
-                        <p className="text-sm text-muted-foreground">{client.phone || 'Sin teléfono'}</p>
+                        <p className="text-xs text-muted-foreground">{client.phone || 'Sin teléfono'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {openCollapsibles[client.id] ? (
-                        <ChevronUp className="h-5 w-5" />
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="h-5 w-5" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="border-t p-4 space-y-3">
+                  <div className="border-t p-3 space-y-3 bg-muted/10">
                     <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-sm font-medium">Pedidos totales</p>
-                        <p className="text-lg">{client.totalOrders}</p>
+                      <div className="bg-background p-2 rounded-lg">
+                        <p className="text-xs font-medium text-muted-foreground">Pedidos</p>
+                        <p className="text-lg font-medium">{client.totalOrders}</p>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">Saldo pendiente</p>
-                        <p className="text-lg">${client.balance.toFixed(2)}</p>
+                      <div className="bg-background p-2 rounded-lg">
+                        <p className="text-xs font-medium text-muted-foreground">Saldo</p>
+                        <p className="text-lg font-medium">${client.balance.toFixed(2)}</p>
                       </div>
                     </div>
                     
@@ -283,18 +286,20 @@ const Clients = () => {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-7 px-2 text-xs rounded-lg"
                         onClick={() => openEditClientDialog(client)}
                       >
-                        <Edit className="h-4 w-4 mr-1" />
+                        <Edit className="h-3 w-3 mr-1" />
                         Editar
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
+                        className="h-7 px-2 text-xs rounded-lg"
                         onClick={() => handleDeleteClient(client.id)}
                         disabled={isDeleting}
                       >
-                        <Trash className="h-4 w-4 mr-1" />
+                        <Trash className="h-3 w-3 mr-1" />
                         Eliminar
                       </Button>
                     </div>
@@ -324,7 +329,7 @@ const Clients = () => {
                     <FormItem>
                       <FormLabel>Nombre</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nombre del cliente" {...field} />
+                        <Input placeholder="Nombre del cliente" {...field} className="rounded-lg" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -338,7 +343,7 @@ const Clients = () => {
                     <FormItem>
                       <FormLabel>Teléfono</FormLabel>
                       <FormControl>
-                        <Input placeholder="Teléfono del cliente" {...field} />
+                        <Input placeholder="Teléfono del cliente" {...field} className="rounded-lg" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -346,7 +351,7 @@ const Clients = () => {
                 />
                 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving}>
+                  <Button type="submit" disabled={isSaving} className="rounded-lg">
                     {isSaving ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
