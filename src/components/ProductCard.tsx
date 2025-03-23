@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { getProductIcon } from "@/services/productIconService";
 
 export interface ProductVariant {
   id?: string;
@@ -26,12 +27,18 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const IconComponent = getProductIcon(product.name);
   
   return (
     <Card className="product-card">
       <CardHeader className="p-0 pb-2 space-y-1">
         <div className="flex justify-between items-start">
-          <h3 className="font-medium text-base">{product.name}</h3>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+              <IconComponent className="h-4 w-4" />
+            </div>
+            <h3 className="font-medium text-base">{product.name}</h3>
+          </div>
           <div className="flex gap-1">
             <Button 
               onClick={(e) => {
@@ -68,7 +75,15 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
             className="text-xs w-full justify-between" 
             onClick={() => setExpanded(!expanded)}
           >
-            {expanded ? "Ocultar variantes" : "Ver variantes"}
+            {expanded ? (
+              <>
+                Ocultar variantes <ChevronUp className="h-3 w-3" />
+              </>
+            ) : (
+              <>
+                Ver variantes <ChevronDown className="h-3 w-3" />
+              </>
+            )}
             <span className="font-medium">{product.variants.length}</span>
           </Button>
           

@@ -1,10 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { 
   Loader2, 
   MessageSquareText, 
@@ -27,7 +27,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-export const MAGIC_ORDER_VERSION = "1.0.1";
+export const MAGIC_ORDER_VERSION = "1.0.2";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -359,27 +359,30 @@ const MagicOrder = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
-            {isAnalyzing && (
-              <div className="w-full">
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
             <div className="w-full flex justify-end">
               <Button 
                 onClick={handleAnalyzeMessage}
                 disabled={isAnalyzing || !message.trim()}
-                className="flex items-center gap-2 transition-transform hover:scale-105 duration-200"
+                className="flex items-center gap-2 transition-transform hover:scale-105 duration-200 relative overflow-hidden"
               >
-                {isAnalyzing ? (
-                  <>
-                    <Sparkles className="h-4 w-4 animate-pulse" />
-                    Haciendo magia...
-                  </>
-                ) : (
-                  <>
-                    <Wand className="h-4 w-4" />
-                    Analizar Mensaje
-                  </>
+                <div className="flex items-center gap-2 z-10 relative">
+                  {isAnalyzing ? (
+                    <>
+                      <Sparkles className="h-4 w-4 animate-pulse" />
+                      Haciendo magia...
+                    </>
+                  ) : (
+                    <>
+                      <Wand className="h-4 w-4" />
+                      Analizar Mensaje
+                    </>
+                  )}
+                </div>
+                {isAnalyzing && (
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-primary/30 z-0 transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
                 )}
               </Button>
             </div>

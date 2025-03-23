@@ -156,7 +156,7 @@ export const generateMessageExample = async (): Promise<string> => {
   }
 };
 
-// Función para generar 5 mensajes de ejemplo con diferentes clientes y productos
+// Función para generar múltiples mensajes de ejemplo con diferentes clientes y productos
 export const generateMultipleExamples = async (count = 5): Promise<string> => {
   try {
     const messages = [];

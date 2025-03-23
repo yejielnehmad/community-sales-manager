@@ -88,7 +88,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Generando...
+                Generando con IA...
               </>
             ) : (
               <>
