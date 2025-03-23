@@ -1,17 +1,33 @@
-
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
-import { CheckCircle, AlertTriangle, Loader2, Brain, Sparkles } from "lucide-react";
+import { 
+  CheckCircle, 
+  AlertTriangle, 
+  Loader2, 
+  Brain, 
+  Info,
+  X
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
   const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Google Gemini");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const statusRef = useRef(status);
 
-  // Actualizamos la referencia cuando cambia el estado
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
@@ -93,7 +109,6 @@ export const AIStatusBadge = () => {
       }
     };
 
-    // Intentar reconectar cada 30 segundos si hay error
     const checkWithRetry = async () => {
       await checkConnection();
       
@@ -101,7 +116,6 @@ export const AIStatusBadge = () => {
         const intervalId = setInterval(async () => {
           console.log("Reintentando conexión con Gemini API...");
           await checkConnection();
-          // Usamos statusRef.current para acceder al valor actualizado
           if (statusRef.current === "connected") {
             clearInterval(intervalId);
           }
@@ -114,26 +128,99 @@ export const AIStatusBadge = () => {
     checkWithRetry();
   }, []);
 
+  const handleOpenDialog = () => {
+    setIsDialogOpen(true);
+  };
+
   return (
-    <Badge 
-      variant="outline" 
-      className={`
-        ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
-          status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
-          "bg-yellow-100 text-yellow-800 border-yellow-300"} 
-        flex items-center gap-1 cursor-help hover:opacity-80 transition-all hover:scale-105 duration-300
-        active:bg-muted active:scale-95 touch-manipulation
-      `}
-    >
-      {status === "connected" ? (
-        <CheckCircle className="h-3 w-3 animate-pulse" />
-      ) : status === "error" ? (
-        <AlertTriangle className="h-3 w-3" />
-      ) : (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      )}
-      <span>IA</span>
-      <Sparkles className="h-2 w-2 ml-1 text-amber-500" />
-    </Badge>
+    <>
+      <Badge 
+        variant="outline" 
+        onClick={handleOpenDialog}
+        className={`
+          ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
+            status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
+            "bg-yellow-100 text-yellow-800 border-yellow-300"} 
+          flex items-center gap-1 cursor-pointer hover:opacity-80 transition-all hover:scale-105 duration-300
+          active:bg-muted active:scale-95 touch-manipulation
+        `}
+      >
+        {status === "connected" ? (
+          <CheckCircle className="h-3 w-3 animate-pulse" />
+        ) : status === "error" ? (
+          <AlertTriangle className="h-3 w-3" />
+        ) : (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        )}
+        <span>IA</span>
+      </Badge>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              Inteligencia Artificial en tu Aplicación
+            </DialogTitle>
+            <DialogDescription>
+              Potencia tus ventas con tecnología de Google Gemini
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-5">
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-xl border border-purple-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="bg-primary/20 p-2 rounded-full">
+                  <Brain className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-medium text-lg">¿Qué puede hacer la IA por ti?</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <div className="bg-green-100 p-1 rounded-full mt-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                  </div>
+                  <p className="text-sm">Analizar mensajes de clientes para identificar productos y cantidades automáticamente</p>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <div className="bg-green-100 p-1 rounded-full mt-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                  </div>
+                  <p className="text-sm">Reconocer datos de clientes y detalles de sus pedidos</p>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <div className="bg-green-100 p-1 rounded-full mt-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                  </div>
+                  <p className="text-sm">Generar ejemplos de mensajes para probar y entrenar la función de análisis</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border p-3 rounded-lg bg-muted/5">
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                <Info className="h-4 w-4 text-blue-500" />
+                Estado actual de la conexión
+              </h4>
+              <div className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                {detailedInfo}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                <X className="h-4 w-4 mr-1" />
+                Cerrar
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ShoppingBag, Users, ClipboardList, Wallet, ChevronRight, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { ProductPendingBalances } from "@/components/ProductPendingBalances";
+import { VersionInfo } from "@/components/VersionInfo";
 
 type DashboardStat = {
   clients: number;
@@ -165,9 +167,12 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen de la venta comunitaria</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
+            <p className="text-muted-foreground">Resumen de la venta comunitaria</p>
+          </div>
+          <VersionInfo />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -208,26 +213,20 @@ const Dashboard = () => {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
-            <CardHeader>
-              <CardTitle>Pedidos Recientes</CardTitle>
-              <CardDescription>Los últimos pedidos registrados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-6">No hay pedidos recientes</p>
-            </CardContent>
-          </Card>
-          <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
-            <CardHeader>
-              <CardTitle>Productos Populares</CardTitle>
-              <CardDescription>Los productos más solicitados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-6">No hay datos suficientes</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Saldos Pendientes por Producto
+            </CardTitle>
+            <CardDescription>
+              Total de dinero que falta recaudar por cada producto
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProductPendingBalances />
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
