@@ -8,7 +8,8 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { useState } from "react";
 
@@ -46,6 +47,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Novedades de la versión {APP_VERSION}</DialogTitle>
+            <DialogDescription>
+              Descubre todas las mejoras y actualizaciones recientes.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-2">

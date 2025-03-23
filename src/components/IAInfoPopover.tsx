@@ -33,18 +33,20 @@ import { ChatAssistant } from "@/components/ChatAssistant";
 export function IAInfoPopover() {
   const [activeTab, setActiveTab] = useState("capacidades");
   const [chatOpen, setChatOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const handleOpenChat = () => {
     setChatOpen(true);
+    setOpen(false); // Cerrar el popover al abrir el chat
   };
 
   return (
     <>
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <div className="cursor-pointer">
+          <button className="focus:outline-none">
             <AIStatusBadge />
-          </div>
+          </button>
         </PopoverTrigger>
         <PopoverContent className="w-96 p-0 shadow-xl" align="end">
           <div className="p-4 bg-primary/10 border-b">
@@ -188,7 +190,10 @@ export function IAInfoPopover() {
                   variant="outline" 
                   size="sm" 
                   className="w-full mt-2 text-xs h-7"
-                  onClick={() => window.location.href = "/magic-order"}
+                  onClick={() => {
+                    window.location.href = "/magic-order";
+                    setOpen(false);
+                  }}
                 >
                   <Wand className="h-3.5 w-3.5 mr-1" />
                   Probar análisis de mensaje
@@ -230,7 +235,10 @@ export function IAInfoPopover() {
                   variant="outline" 
                   size="sm" 
                   className="w-full mt-2 text-xs h-7"
-                  onClick={() => window.location.href = "/products"}
+                  onClick={() => {
+                    window.location.href = "/products";
+                    setOpen(false);
+                  }}
                 >
                   <ArrowRight className="h-3.5 w-3.5 mr-1" />
                   Ir a productos
@@ -295,7 +303,12 @@ export function IAInfoPopover() {
                     Abrir asistente IA
                   </Button>
                   
-                  <Button variant="outline" size="sm" className="w-full text-xs">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-xs"
+                    onClick={() => window.open("https://ai.google.dev/gemini", "_blank")}
+                  >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     Más información sobre Google Gemini
                   </Button>
