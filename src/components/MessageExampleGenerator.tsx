@@ -93,7 +93,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                Generar nuevos ejemplos
+                Generar con IA
               </>
             )}
           </Button>

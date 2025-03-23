@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
@@ -19,6 +20,7 @@ export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
   const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Google Gemini");
+  const [open, setOpen] = useState(false);
   const statusRef = useRef(status);
 
   // Actualizamos la referencia cuando cambia el estado
@@ -166,7 +168,7 @@ export const AIStatusBadge = () => {
   );
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Badge 
           variant="outline" 

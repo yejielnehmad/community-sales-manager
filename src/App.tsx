@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Messages from "./pages/Messages";
 
 // App version
-export const APP_VERSION = "1.0.0";
+export const APP_VERSION = "1.0.1";
 
 const App = () => (
   <>

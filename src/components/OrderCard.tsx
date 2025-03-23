@@ -24,7 +24,8 @@ import {
   User, 
   Package, 
   Info,
-  MessageSquare
+  MessageSquare,
+  CreditCard
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -95,12 +96,12 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
   return (
-    <Card className="mb-4 overflow-hidden transition-all duration-200 hover:shadow-md border-l-4 relative" style={{ 
+    <Card className="mb-2 overflow-hidden transition-all duration-200 hover:shadow-md border-l-4 relative" style={{ 
       borderLeftColor: hasUncertainItems ? 'var(--warning)' : 'var(--primary)' 
     }}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full text-left">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between p-4">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between p-3">
             <div className="flex items-center gap-2">
               <div className="bg-primary/10 p-2 rounded-full">
                 <User className="h-4 w-4 text-primary" />
@@ -116,14 +117,24 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
             </div>
             <div className="flex items-center gap-3">
               {!isPreliminary && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Pagado</span>
-                  <Switch 
-                    checked={order.isPaid} 
-                    onCheckedChange={handleTogglePaid}
-                    disabled={order.status === 'saved'}
-                  />
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={order.isPaid} 
+                          onCheckedChange={handleTogglePaid}
+                          disabled={order.status === 'saved'}
+                          className="data-[state=checked]:bg-green-500"
+                        />
+                        <CreditCard className={`h-4 w-4 ${order.isPaid ? 'text-green-500' : 'text-muted-foreground'}`} />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>{order.isPaid ? 'Pedido pagado' : 'Marcar como pagado'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
               <div className="bg-muted/60 h-7 w-7 rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-110">
                 {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -179,21 +190,18 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
-                              <Info className="h-4 w-4 text-muted-foreground" />
-                            </Button>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Info className="h-3.5 w-3.5" />
+                              <span>Nota: {item.notes}</span>
+                            </div>
                           </TooltipTrigger>
                           <TooltipContent side="bottom">
                             <div className="max-w-xs p-1 text-sm">
-                              <strong>Nota:</strong> {item.notes}
+                              {item.notes}
                             </div>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      <span className="text-sm text-muted-foreground ml-1">
-                        <MessageSquare className="h-3 w-3 inline mr-1" />
-                        Nota disponible
-                      </span>
                     </div>
                   )}
                   

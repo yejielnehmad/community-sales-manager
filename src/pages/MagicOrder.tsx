@@ -27,6 +27,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+export const MAGIC_ORDER_VERSION = "1.0.1";
+
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -259,6 +261,35 @@ const MagicOrder = () => {
     }
   };
 
+  const AnimatedCounter = ({ value, duration = 1000 }: { value: number, duration?: number }) => {
+    const [count, setCount] = useState(0);
+    
+    useEffect(() => {
+      let startTime: number;
+      let animationFrame: number;
+      
+      const updateCount = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const progress = Math.min((timestamp - startTime) / duration, 1);
+        setCount(Math.floor(progress * value));
+        
+        if (progress < 1) {
+          animationFrame = requestAnimationFrame(updateCount);
+        } else {
+          setCount(value);
+        }
+      };
+      
+      animationFrame = requestAnimationFrame(updateCount);
+      
+      return () => {
+        cancelAnimationFrame(animationFrame);
+      };
+    }, [value, duration]);
+    
+    return <span>{count}</span>;
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -270,6 +301,7 @@ const MagicOrder = () => {
             </h1>
             <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
           </div>
+          <div className="text-xs text-muted-foreground">v{MAGIC_ORDER_VERSION}</div>
         </div>
 
         <Collapsible
@@ -320,6 +352,7 @@ const MagicOrder = () => {
                 className="absolute right-2 top-2 h-8 w-8 rounded-full opacity-70 hover:opacity-100 transition-opacity"
                 onClick={handlePaste}
                 type="button"
+                title="Pegar del portapapeles"
               >
                 <Clipboard className="h-4 w-4" />
               </Button>
