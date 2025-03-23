@@ -3,8 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, SendIcon, Loader2, X } from "lucide-react";
-import { toast } from "sonner";
+import { MessageSquare, SendIcon, Loader2, X, AlertTriangle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { supabase } from "@/lib/supabase";
 
@@ -86,7 +86,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         const assistantMessage: Message = {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: "Lo siento, el servicio de asistente no está disponible en este momento. Por favor, inténtalo más tarde.",
+          content: "El servicio de asistente por IA no está disponible en este momento mientras configuramos la integración con Google Gemini. Pronto estará funcionando correctamente.",
           timestamp: new Date(),
         };
         
@@ -96,7 +96,11 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
     } catch (error) {
       console.error("Error al procesar mensaje:", error);
       
-      toast.error("Error al procesar tu consulta. Por favor, inténtalo más tarde.");
+      toast({
+        title: "Error",
+        description: "Error al procesar tu consulta. Por favor, inténtalo más tarde.",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
@@ -106,7 +110,10 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
       <DrawerContent className="h-[85vh] sm:h-[65vh] max-w-lg mx-auto rounded-t-lg">
         <DrawerHeader className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <DrawerTitle>Asistente</DrawerTitle>
+            <DrawerTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Asistente IA
+            </DrawerTitle>
             <AIStatusBadge />
           </div>
           <Button variant="ghost" size="icon" onClick={handleClose}>
@@ -120,7 +127,15 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
               <div className="text-center text-muted-foreground py-8">
                 <MessageSquare className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>¡Hola! Puedes preguntarme sobre los clientes, productos o pedidos de tu aplicación.</p>
-                <p className="mt-2 text-sm">También puedes preguntarme por qué no se abre la vista previa en una nueva pestaña.</p>
+                <div className="mt-4 p-3 bg-amber-50 rounded-md border border-amber-200 text-amber-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle className="h-4 w-4" />
+                    <p className="font-medium">Configuración en progreso</p>
+                  </div>
+                  <p className="text-sm">
+                    El asistente por IA está en fase de configuración. Pronto estará disponible con la integración completa de Google Gemini.
+                  </p>
+                </div>
               </div>
             ) : (
               messages.map((message) => (

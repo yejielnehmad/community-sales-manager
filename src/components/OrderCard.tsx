@@ -9,14 +9,13 @@ import {
   CollapsibleContent, 
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
   MessageItem, 
   MessageClient, 
   OrderCard as OrderCardType,
   MessageAlternative
 } from '@/types';
-import { ChevronDown, ChevronUp, Check, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, AlertCircle, ShoppingCart, User, Package } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,9 +23,10 @@ interface OrderCardProps {
   order: OrderCardType;
   onUpdate: (updatedOrder: OrderCardType) => void;
   onSave: (order: OrderCardType) => Promise<boolean>;
+  isPreliminary?: boolean;
 }
 
-export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
+export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: OrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -59,6 +59,23 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
     }
   };
 
+  const handleSelectAlternative = (itemIndex: number, alternativeId: string) => {
+    const item = order.items[itemIndex];
+    if (item.alternatives) {
+      const selected = item.alternatives.find(alt => alt.id === alternativeId);
+      if (selected) {
+        handleItemUpdate(itemIndex, {
+          ...item,
+          status: 'confirmado',
+          variant: {
+            id: selected.id,
+            name: selected.name
+          }
+        });
+      }
+    }
+  };
+
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
   return (
@@ -69,6 +86,7 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
         <CardHeader className="pb-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">
                 {order.client.name}
               </CardTitle>
@@ -79,14 +97,16 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">Pagado</span>
-                <Switch 
-                  checked={order.isPaid} 
-                  onCheckedChange={handleTogglePaid}
-                  disabled={order.status === 'saved'}
-                />
-              </div>
+              {!isPreliminary && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Pagado</span>
+                  <Switch 
+                    checked={order.isPaid} 
+                    onCheckedChange={handleTogglePaid}
+                    disabled={order.status === 'saved'}
+                  />
+                </div>
+              )}
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm">
                   {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -102,7 +122,8 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
         </CardHeader>
         
         <CardContent className="pt-0 pb-2">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground flex items-center gap-1">
+            <ShoppingCart size={14} />
             {order.items.length} {order.items.length === 1 ? 'producto' : 'productos'}
             {hasUncertainItems && (
               <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
@@ -119,7 +140,10 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
               {order.items.map((item, index) => (
                 <div key={index} className={`p-3 border rounded-md ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : ''}`}>
                   <div className="flex justify-between">
-                    <div className="font-medium">{item.product.name}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      <Package className="h-4 w-4 text-primary" />
+                      {item.product.name}
+                    </div>
                     <div className="font-medium">
                       Cantidad: {item.quantity}
                     </div>
@@ -127,7 +151,7 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
                   
                   {item.variant && (
                     <div className="text-sm mt-1">
-                      Variante: {item.variant.name}
+                      Variante: <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
                     </div>
                   )}
                   
@@ -139,30 +163,19 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
                   
                   {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
                     <div className="mt-3 pt-3 border-t">
-                      <div className="text-sm font-medium mb-2">Seleccionar opción correcta:</div>
-                      <RadioGroup 
-                        defaultValue={item.variant?.id || ""}
-                        onValueChange={(value) => {
-                          const selected = item.alternatives?.find(alt => alt.id === value);
-                          if (selected) {
-                            handleItemUpdate(index, {
-                              ...item,
-                              status: 'confirmado',
-                              variant: {
-                                id: selected.id,
-                                name: selected.name
-                              }
-                            });
-                          }
-                        }}
-                      >
+                      <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
+                      <div className="flex flex-wrap gap-2">
                         {item.alternatives.map((alt) => (
-                          <div key={alt.id} className="flex items-center space-x-2 text-sm">
-                            <RadioGroupItem value={alt.id} id={`alt-${index}-${alt.id}`} />
-                            <label htmlFor={`alt-${index}-${alt.id}`}>{alt.name}</label>
-                          </div>
+                          <Badge 
+                            key={alt.id} 
+                            variant={item.variant?.id === alt.id ? "default" : "outline"}
+                            className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
+                            onClick={() => handleSelectAlternative(index, alt.id)}
+                          >
+                            {alt.name}
+                          </Badge>
                         ))}
-                      </RadioGroup>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -171,7 +184,7 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
           </CardContent>
           
           <CardFooter className="justify-end pt-0">
-            {order.status !== 'saved' && (
+            {!isPreliminary && order.status !== 'saved' && (
               <Button 
                 onClick={handleSaveOrder}
                 disabled={isSaving || hasUncertainItems}
@@ -182,6 +195,21 @@ export const OrderCard = ({ order, onUpdate, onSave }: OrderCardProps) => {
                   <>
                     <Check size={16} className="mr-1" />
                     Guardar Pedido
+                  </>
+                )}
+              </Button>
+            )}
+            {isPreliminary && order.status !== 'saved' && !hasUncertainItems && (
+              <Button 
+                onClick={handleSaveOrder}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>Confirmando...</>
+                ) : (
+                  <>
+                    <Check size={16} className="mr-1" />
+                    Confirmar Pedido
                   </>
                 )}
               </Button>

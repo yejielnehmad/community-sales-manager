@@ -4,12 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useToast } from "@/hooks/use-toast";
 
 export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
-  const { toast } = useToast();
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -68,10 +66,6 @@ export const AIStatusBadge = () => {
         ) {
           setStatus("connected");
           setMessage("Gemini conectado correctamente");
-          toast({
-            title: "Gemini API conectada",
-            description: "La conexión con Gemini API se ha establecido correctamente",
-          });
         } else {
           setStatus("error");
           setMessage("Respuesta inesperada de Gemini");
@@ -85,7 +79,7 @@ export const AIStatusBadge = () => {
     };
 
     checkConnection();
-  }, [toast]);
+  }, []);
 
   return (
     <TooltipProvider>

@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { AIStatusBadge } from "@/components/AIStatusBadge";
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageSquareText, Wand } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -202,11 +201,11 @@ const MagicOrder = () => {
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Procesador de Mensajes</h1>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Wand className="h-7 w-7 text-primary" />
+              Mensaje Mágico
+            </h1>
             <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
-          </div>
-          <div>
-            <AIStatusBadge />
           </div>
         </div>
 
@@ -234,13 +233,19 @@ const MagicOrder = () => {
             <Button 
               onClick={handleAnalyzeMessage}
               disabled={isAnalyzing || !message.trim()}
+              className="flex items-center gap-2"
             >
               {isAnalyzing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Analizando...
                 </>
-              ) : "Analizar Mensaje"}
+              ) : (
+                <>
+                  <MessageSquareText className="h-4 w-4" />
+                  Analizar Mensaje
+                </>
+              )}
             </Button>
           </CardFooter>
         </Card>
@@ -248,7 +253,10 @@ const MagicOrder = () => {
         {orders.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Pedidos Identificados</h2>
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <MessageSquareText className="h-5 w-5 text-primary" />
+                Pedidos Preliminares Identificados
+              </h2>
               <Button 
                 variant="outline" 
                 onClick={() => setOrders([])}
@@ -266,6 +274,7 @@ const MagicOrder = () => {
                   order={order}
                   onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
                   onSave={async (orderToSave) => handleSaveOrder(index, orderToSave)}
+                  isPreliminary={true}
                 />
               ))}
             </div>
