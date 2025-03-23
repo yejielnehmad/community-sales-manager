@@ -400,10 +400,8 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
               </div>
             </ScrollArea>
           </div>
-        </Tabs>
 
-        <DrawerFooter>
-          <TabsContent value="chat" className="m-0">
+          <TabsContent value="chat" className="flex-grow">
             <form onSubmit={handleChatSubmit} className="flex items-end gap-2">
               <Textarea
                 value={inputMessage}
@@ -432,7 +430,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
             </form>
           </TabsContent>
           
-          <TabsContent value="code" className="m-0">
+          <TabsContent value="code" className="flex-grow">
             <form onSubmit={handleCodeAnalysisSubmit} className="space-y-4">
               <div className="grid grid-cols-5 gap-2">
                 <div className="col-span-5 sm:col-span-2">
@@ -478,7 +476,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
               </Button>
             </form>
           </TabsContent>
-        </DrawerFooter>
+        </Tabs>
       </DrawerContent>
     </Drawer>
   );
