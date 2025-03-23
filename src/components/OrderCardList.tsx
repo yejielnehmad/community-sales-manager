@@ -3,12 +3,12 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Order } from "@/types";
+import { Switch } from "@/components/ui/switch";
 import { 
   Collapsible, 
   CollapsibleContent, 
   CollapsibleTrigger 
 } from "@/components/ui/collapsible";
-import { Slider } from "@/components/ui/slider";
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -31,7 +31,6 @@ interface OrderCardListProps {
 
 export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => {
   const [openCards, setOpenCards] = useState<{ [key: string]: boolean }>({});
-  const [sliderValues, setSliderValues] = useState<{ [key: string]: number }>({});
   const { toast } = useToast();
 
   const toggleCard = (orderId: string) => {
@@ -41,27 +40,18 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }));
   };
 
-  const handleSliderChange = async (orderId: string, value: number[]) => {
-    const newValue = value[0];
-    setSliderValues(prev => ({
-      ...prev,
-      [orderId]: newValue
-    }));
-    
+  const handleTogglePaid = async (orderId: string, isPaid: boolean) => {
     // Encontrar el pedido correspondiente
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
-    
-    // Calcular el nuevo monto pagado basado en el porcentaje del slider
-    const newAmountPaid = order.total * (newValue / 100);
     
     try {
       // Actualizar en la base de datos
       const { error } = await supabase
         .from('orders')
         .update({ 
-          amount_paid: newAmountPaid,
-          balance: order.total - newAmountPaid
+          amount_paid: isPaid ? order.total : 0,
+          balance: isPaid ? 0 : order.total
         })
         .eq('id', orderId);
       
@@ -70,16 +60,16 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       // Si hay un callback para actualizar la UI
       if (onOrderUpdate) {
         onOrderUpdate(orderId, {
-          amountPaid: newAmountPaid,
-          balance: order.total - newAmountPaid
+          amountPaid: isPaid ? order.total : 0,
+          balance: isPaid ? 0 : order.total
         });
       }
       
       // Mostrar toast si el pago está completo
-      if (newValue === 100) {
+      if (isPaid) {
         toast({
           title: "Pago completado",
-          description: `Pedido #${orderId} marcado como pagado completamente`,
+          description: `Pedido marcado como pagado completamente`,
         });
       }
     } catch (error: any) {
@@ -105,17 +95,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     ordersByClient[order.clientId].orders.push(order);
   });
 
-  // Inicializar los valores del slider si no existen
-  orders.forEach(order => {
-    if (sliderValues[order.id] === undefined) {
-      const paymentPercentage = order.total > 0 ? (order.amountPaid / order.total) * 100 : 0;
-      setSliderValues(prev => ({
-        ...prev,
-        [order.id]: paymentPercentage
-      }));
-    }
-  });
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -132,23 +111,22 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       {Object.entries(ordersByClient).map(([clientId, { client, orders }]) => (
         <div key={clientId} className="space-y-3">
           <h3 className="text-lg font-medium flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
+            <div className="bg-primary/10 p-2 rounded-full">
+              <User className="h-4 w-4 text-primary" />
+            </div>
             {client}
           </h3>
           <div className="space-y-3">
             {orders.map(order => (
-              <Card key={order.id} className="overflow-hidden">
+              <Card key={order.id} className="overflow-hidden transition-all duration-200 hover:shadow-md">
                 <Collapsible 
                   open={openCards[order.id]} 
                   onOpenChange={() => toggleCard(order.id)}
                 >
-                  <CollapsibleTrigger className="w-full">
+                  <CollapsibleTrigger className="w-full text-left">
                     <CardHeader className="p-4 flex flex-row items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col">
-                          <CardTitle className="text-base">
-                            Pedido #{order.id.substring(0, 8)}
-                          </CardTitle>
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {order.date}
@@ -157,11 +135,13 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                       </div>
                       <div className="flex items-center gap-2">
                         {getStatusBadge(order.status)}
-                        {openCards[order.id] ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        <div className="bg-muted/60 h-7 w-7 rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-110">
+                          {openCards[order.id] ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                   </CollapsibleTrigger>
@@ -184,16 +164,13 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                   <div className="px-4 py-3">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="font-medium">Pago:</span>
-                      <div className="grow">
-                        <Slider
-                          defaultValue={[sliderValues[order.id] || 0]}
-                          max={100}
-                          step={1}
-                          onValueChange={(value) => handleSliderChange(order.id, value)}
-                          className="w-full"
-                        />
-                      </div>
-                      <span>{Math.round(sliderValues[order.id] || 0)}%</span>
+                      <Switch
+                        checked={order.amountPaid >= order.total * 0.99}
+                        onCheckedChange={(checked) => handleTogglePaid(order.id, checked)}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {order.amountPaid >= order.total * 0.99 ? "Pagado completamente" : "Pendiente de pago"}
+                      </span>
                     </div>
                   </div>
                   
@@ -201,13 +178,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                     <CardContent className="pt-0">
                       <div className="space-y-4">
                         <div className="font-medium text-sm flex items-center gap-2 mt-2">
-                          <ShoppingCart className="h-4 w-4 text-primary" />
+                          <div className="bg-primary/10 p-1 rounded-full">
+                            <ShoppingCart className="h-3 w-3 text-primary" />
+                          </div>
                           Productos en este pedido
                         </div>
                         
                         <div className="space-y-2">
                           {order.items.map((item, index) => (
-                            <div key={index} className="p-3 border rounded-md bg-muted/5">
+                            <div key={index} className="p-3 border rounded-md bg-muted/5 hover:bg-muted/20 transition-colors duration-200">
                               <div className="flex justify-between">
                                 <div>{item.name || 'Producto'}</div>
                                 <div className="font-medium">

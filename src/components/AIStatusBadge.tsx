@@ -1,8 +1,7 @@
-
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { GOOGLE_API_KEY } from "@/lib/api-config";
-import { CheckCircle, AlertTriangle, Loader2, Info } from "lucide-react";
+import { CheckCircle, AlertTriangle, Loader2, Info, Sparkles, Bot, Zap, Brain, Lightbulb } from "lucide-react";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -20,7 +19,6 @@ export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
   const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Google Gemini");
-  // Creamos una referencia para acceder al valor actualizado de status
   const statusRef = useRef(status);
 
   // Actualizamos la referencia cuando cambia el estado
@@ -60,7 +58,6 @@ export const AIStatusBadge = () => {
                 maxOutputTokens: 10,
               }
             }),
-            // Agregar un timeout para evitar que se quede colgado
             signal: AbortSignal.timeout(10000)
           }
         );
@@ -127,6 +124,47 @@ export const AIStatusBadge = () => {
     checkWithRetry();
   }, []);
 
+  const getFeaturesList = () => (
+    <div className="grid grid-cols-2 gap-3 mt-4">
+      <div className="flex items-start gap-2">
+        <div className="bg-blue-100 p-2 rounded-full">
+          <Lightbulb className="h-4 w-4 text-blue-600" />
+        </div>
+        <div>
+          <p className="text-xs font-medium">Análisis de texto</p>
+          <p className="text-xs text-muted-foreground">Interpreta mensajes y extrae información</p>
+        </div>
+      </div>
+      <div className="flex items-start gap-2">
+        <div className="bg-green-100 p-2 rounded-full">
+          <Zap className="h-4 w-4 text-green-600" />
+        </div>
+        <div>
+          <p className="text-xs font-medium">Conversaciones</p>
+          <p className="text-xs text-muted-foreground">Procesa pedidos automáticamente</p>
+        </div>
+      </div>
+      <div className="flex items-start gap-2">
+        <div className="bg-purple-100 p-2 rounded-full">
+          <Brain className="h-4 w-4 text-purple-600" />
+        </div>
+        <div>
+          <p className="text-xs font-medium">Reconocimiento</p>
+          <p className="text-xs text-muted-foreground">Identifica clientes y productos</p>
+        </div>
+      </div>
+      <div className="flex items-start gap-2">
+        <div className="bg-amber-100 p-2 rounded-full">
+          <Bot className="h-4 w-4 text-amber-600" />
+        </div>
+        <div>
+          <p className="text-xs font-medium">Asistencia</p>
+          <p className="text-xs text-muted-foreground">Genera ejemplos inteligentes</p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -136,36 +174,59 @@ export const AIStatusBadge = () => {
             ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
               status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
               "bg-yellow-100 text-yellow-800 border-yellow-300"} 
-            flex items-center gap-1 cursor-help hover:opacity-80 transition-opacity
+            flex items-center gap-1 cursor-help hover:opacity-80 transition-all hover:scale-105 duration-300
           `}
         >
           {status === "connected" ? (
-            <CheckCircle className="h-3 w-3" />
+            <CheckCircle className="h-3 w-3 animate-pulse" />
           ) : status === "error" ? (
             <AlertTriangle className="h-3 w-3" />
           ) : (
             <Loader2 className="h-3 w-3 animate-spin" />
           )}
           <span>IA</span>
+          <Sparkles className="h-2 w-2 ml-1 text-amber-500" />
         </Badge>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-4">
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm flex items-center gap-2">
-            <Info className="h-4 w-4 text-primary" />
-            Estado de la IA
-          </h4>
+      <PopoverContent className="w-80 p-4 shadow-xl animate-in fade-in-50 duration-200">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h4 className="font-medium text-lg flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              Inteligencia Artificial
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Sistema de análisis y procesamiento potenciado por Google Gemini
+            </p>
+          </div>
+
           <div className={`
             ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
               status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
               "bg-yellow-100 text-yellow-800 border-yellow-300"}
-            px-3 py-2 rounded-md border text-sm font-medium
+            px-3 py-2 rounded-md border text-sm font-medium flex items-center gap-2
           `}>
+            {status === "connected" ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : status === "error" ? (
+              <AlertTriangle className="h-4 w-4" />
+            ) : (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
             {message}
           </div>
-          <div className="text-xs text-muted-foreground mt-2 bg-muted p-2 rounded-md h-32 overflow-y-auto whitespace-pre-wrap">
+          
+          <div className="text-xs bg-muted p-3 rounded-md h-20 overflow-y-auto whitespace-pre-wrap">
             <p className="font-semibold mb-1">Información detallada:</p>
             {detailedInfo}
+          </div>
+
+          <div className="border-t pt-3">
+            <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Funcionalidades disponibles
+            </h5>
+            {getFeaturesList()}
           </div>
         </div>
       </PopoverContent>

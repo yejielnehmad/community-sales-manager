@@ -95,15 +95,17 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
   return (
-    <Card className="mb-4 border-l-4 relative" style={{ 
+    <Card className="mb-4 overflow-hidden transition-all duration-200 hover:shadow-md border-l-4 relative" style={{ 
       borderLeftColor: hasUncertainItems ? 'var(--warning)' : 'var(--primary)' 
     }}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
+        <CollapsibleTrigger className="w-full text-left">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between p-4">
             <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">
+              <div className="bg-primary/10 p-2 rounded-full">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <CardTitle className="text-base">
                 {order.client.name}
               </CardTitle>
               {order.client.matchConfidence && order.client.matchConfidence !== 'alto' && (
@@ -115,7 +117,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
             <div className="flex items-center gap-3">
               {!isPreliminary && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">Pagado</span>
+                  <span className="text-sm text-muted-foreground">Pagado</span>
                   <Switch 
                     checked={order.isPaid} 
                     onCheckedChange={handleTogglePaid}
@@ -123,21 +125,20 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                   />
                 </div>
               )}
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                </Button>
-              </CollapsibleTrigger>
+              <div className="bg-muted/60 h-7 w-7 rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-110">
+                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </div>
             </div>
-          </div>
-          {order.status === 'saved' && (
-            <Badge className="absolute top-2 right-2 bg-green-500">
-              Guardado
-            </Badge>
-          )}
-        </CardHeader>
+          </CardHeader>
+        </CollapsibleTrigger>
         
-        <CardContent className="pt-0 pb-2">
+        {order.status === 'saved' && (
+          <Badge className="absolute top-2 right-2 bg-green-500">
+            Guardado
+          </Badge>
+        )}
+        
+        <div className="px-4 py-2 bg-muted/10 border-t border-b">
           <div className="text-sm text-muted-foreground flex items-center gap-1">
             <ShoppingCart size={14} />
             {order.items.length} {order.items.length === 1 ? 'producto' : 'productos'}
@@ -148,16 +149,18 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
               </Badge>
             )}
           </div>
-        </CardContent>
+        </div>
 
         <CollapsibleContent>
-          <CardContent className="pt-0">
-            <div className="space-y-4">
+          <CardContent className="pt-3">
+            <div className="space-y-3">
               {order.items.map((item, index) => (
-                <div key={index} className={`p-3 border rounded-md ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : ''}`}>
+                <div key={index} className={`p-3 border rounded-md transition-all duration-200 ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : 'hover:bg-muted/30'}`}>
                   <div className="flex justify-between">
                     <div className="font-medium flex items-center gap-2">
-                      <Package className="h-4 w-4 text-primary" />
+                      <div className="bg-primary/10 p-1 rounded-full">
+                        <Package className="h-3 w-3 text-primary" />
+                      </div>
                       {item.product.name}
                     </div>
                     <div className="font-medium">
@@ -221,6 +224,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
               <Button 
                 onClick={handleSaveOrder}
                 disabled={isSaving || hasUncertainItems}
+                className="transition-all duration-200 hover:scale-105"
               >
                 {isSaving ? (
                   <>Guardando...</>
@@ -236,6 +240,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
               <Button 
                 onClick={handleSaveOrder}
                 disabled={isSaving}
+                className="transition-all duration-200 hover:scale-105"
               >
                 {isSaving ? (
                   <>Confirmando...</>

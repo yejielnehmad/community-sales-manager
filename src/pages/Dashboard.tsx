@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingBag, Users, ClipboardList, Wallet, ChevronRight, Loader2 } from "lucide-react";
@@ -13,13 +13,67 @@ type DashboardStat = {
   pendingBalance: number;
 };
 
+// Hook personalizado para animación de contador
+const useCountUp = (targetValue: number, duration: number = 1000, startDelay: number = 0) => {
+  const [count, setCount] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
+  
+  useEffect(() => {
+    if (targetValue === 0) {
+      setCount(0);
+      return;
+    }
+    
+    const startValue = Math.max(0, Math.floor(targetValue * 0.1));
+    setCount(startValue);
+    
+    const timeout = setTimeout(() => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      
+      const animate = (timestamp: number) => {
+        if (!startTimeRef.current) {
+          startTimeRef.current = timestamp;
+        }
+        
+        const runtime = timestamp - startTimeRef.current;
+        const relativeProgress = runtime / duration;
+        
+        if (relativeProgress < 1) {
+          // Función de ease-out para hacer que la animación se desacelere al final
+          const progress = 1 - Math.pow(1 - relativeProgress, 3);
+          const nextCount = Math.floor(startValue + (targetValue - startValue) * progress);
+          setCount(nextCount);
+          frameRef.current = requestAnimationFrame(animate);
+        } else {
+          setCount(targetValue);
+        }
+      };
+      
+      frameRef.current = requestAnimationFrame(animate);
+    }, startDelay);
+    
+    return () => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      clearTimeout(timeout);
+    };
+  }, [targetValue, duration, startDelay]);
+  
+  return count;
+};
+
 const DashboardCard = ({ 
   title, 
   value, 
   description, 
   icon,
   onClick,
-  isLoading = false
+  isLoading = false,
+  animatedValue = 0
 }: { 
   title: string;
   value: string;
@@ -27,9 +81,10 @@ const DashboardCard = ({
   icon: React.ReactNode;
   onClick?: () => void;
   isLoading?: boolean;
+  animatedValue?: number;
 }) => (
   <Card 
-    className={`transition-all hover:shadow-md rounded-xl ${onClick ? 'cursor-pointer card-hover' : ''}`}
+    className={`transition-all hover:shadow-md rounded-xl ${onClick ? 'cursor-pointer hover:bg-muted/20' : ''}`}
     onClick={onClick}
   >
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -40,7 +95,7 @@ const DashboardCard = ({
       </div>
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold">{isLoading ? '...' : value}</div>
+      <div className="text-2xl font-bold">{isLoading ? '...' : animatedValue !== undefined ? animatedValue : value}</div>
       <p className="text-xs text-muted-foreground">{description}</p>
     </CardContent>
   </Card>
@@ -55,6 +110,12 @@ const Dashboard = () => {
     pendingBalance: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+
+  // Valores animados
+  const animatedClients = useCountUp(stats.clients, 1200, 100);
+  const animatedProducts = useCountUp(stats.products, 1200, 200);
+  const animatedOrders = useCountUp(stats.orders, 1200, 300);
+  const animatedBalance = useCountUp(stats.pendingBalance, 1500, 400);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -117,6 +178,7 @@ const Dashboard = () => {
             icon={<Users className="h-4 w-4 text-blue-500" />}
             onClick={() => navigate('/clients')}
             isLoading={isLoading}
+            animatedValue={animatedClients}
           />
           <DashboardCard
             title="Productos"
@@ -125,6 +187,7 @@ const Dashboard = () => {
             icon={<ShoppingBag className="h-4 w-4 text-green-500" />}
             onClick={() => navigate('/products')}
             isLoading={isLoading}
+            animatedValue={animatedProducts}
           />
           <DashboardCard
             title="Pedidos"
@@ -133,6 +196,7 @@ const Dashboard = () => {
             icon={<ClipboardList className="h-4 w-4 text-orange-500" />}
             onClick={() => navigate('/orders')}
             isLoading={isLoading}
+            animatedValue={animatedOrders}
           />
           <DashboardCard
             title="Saldo Pendiente"
@@ -140,11 +204,12 @@ const Dashboard = () => {
             description="Total a cobrar"
             icon={<Wallet className="h-4 w-4 text-purple-500" />}
             isLoading={isLoading}
+            animatedValue={isLoading ? 0 : animatedBalance}
           />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="rounded-xl shadow-sm">
+          <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle>Pedidos Recientes</CardTitle>
               <CardDescription>Los últimos pedidos registrados</CardDescription>
@@ -153,7 +218,7 @@ const Dashboard = () => {
               <p className="text-center text-muted-foreground py-6">No hay pedidos recientes</p>
             </CardContent>
           </Card>
-          <Card className="rounded-xl shadow-sm">
+          <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle>Productos Populares</CardTitle>
               <CardDescription>Los productos más solicitados</CardDescription>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,13 @@ import {
   Wand, 
   Sparkles, 
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Clipboard
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
-import { PasteButton } from "@/components/PasteButton";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
 import { OrderCard as OrderCardType, MessageAnalysis, MessageItem } from "@/types";
 import { generateMessageExample } from "@/services/aiLabsService";
@@ -136,27 +135,26 @@ const MagicOrder = () => {
     setOrders(updatedOrders);
   };
 
-  const handlePaste = (text: string) => {
-    setMessage(text);
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setMessage(text);
+      toast({
+        title: "Texto pegado",
+        description: "El texto ha sido copiado del portapapeles"
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "No se pudo acceder al portapapeles",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSelectExample = (example: string) => {
     setMessage(example);
     setShowGenerator(false);
-  };
-
-  const handleGenerateExample = async () => {
-    try {
-      const example = await generateMessageExample();
-      setMessage(example);
-    } catch (error) {
-      console.error("Error al generar ejemplo:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo generar un ejemplo",
-        variant: "destructive",
-      });
-    }
   };
 
   const handleSaveOrder = async (orderIndex: number, order: OrderCardType) => {
@@ -284,12 +282,12 @@ const MagicOrder = () => {
                 {showGenerator ? (
                   <>
                     <ChevronUp className="h-4 w-4 mr-1" />
-                    Ocultar generador
+                    Ocultar ejemplos
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-1" />
-                    IA Labs
+                    Ver ejemplos IA
                   </>
                 )}
               </Button>
@@ -309,24 +307,22 @@ const MagicOrder = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-4">
+            <div className="relative">
               <Textarea
                 placeholder="Por ejemplo: 'Hola, soy María López y quiero 2 paquetes de pañales talla 1 y 1.5 kg de queso fresco'"
-                className="min-h-32"
+                className="min-h-32 pr-12"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
-              <div className="flex items-center justify-end gap-2">
-                <PasteButton onPaste={handlePaste} />
-                <Button
-                  variant="outline"
-                  onClick={handleGenerateExample}
-                  disabled={isAnalyzing}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generar Ejemplo
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-2 h-8 w-8 rounded-full opacity-70 hover:opacity-100 transition-opacity"
+                onClick={handlePaste}
+                type="button"
+              >
+                <Clipboard className="h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
@@ -339,7 +335,7 @@ const MagicOrder = () => {
               <Button 
                 onClick={handleAnalyzeMessage}
                 disabled={isAnalyzing || !message.trim()}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 transition-transform hover:scale-105 duration-200"
               >
                 {isAnalyzing ? (
                   <>
