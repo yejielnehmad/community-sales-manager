@@ -101,7 +101,7 @@ const DashboardCard = ({
       </div>
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold">{isLoading ? '...' : animatedValue !== undefined ? animatedValue : value}</div>
+      <div className="text-2xl font-bold">{isLoading ? '...' : animatedValue !== undefined ? animatedValue.toString() : value}</div>
       <p className="text-xs text-muted-foreground">{description}</p>
     </CardContent>
   </Card>

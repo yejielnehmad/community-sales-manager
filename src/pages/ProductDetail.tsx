@@ -56,6 +56,7 @@ type ProductOrder = {
     name: string;
     email: string;
     phone?: string;
+    image_url?: string;
   };
   date: string;
   status: string;
@@ -95,7 +96,7 @@ const ProductDetail = () => {
         // Obtener estadísticas de ventas por variante
         const { data: orderItems, error: itemsError } = await supabase
           .from('order_items')
-          .select('*, orders(*), product_variant!inner(*)')
+          .select('*, orders(*), product_variant:product_variants!inner(*)')
           .eq('product_id', id);
           
         if (itemsError) throw itemsError;
@@ -128,7 +129,7 @@ const ProductDetail = () => {
         // Sumar estadísticas por variante
         const variantsWithStats = productData.variants.map((variant: any) => {
           const variantOrders = orderItems.filter(item => 
-            item.product_variant_id === variant.id
+            item.variant_id === variant.id
           );
           
           const orderCount = new Set(variantOrders.map(item => item.order_id)).size;
@@ -452,10 +453,10 @@ const ProductDetail = () => {
                             ))}
                           </div>
                           
-                          {order.balance && parseFloat(order.balance) > 0 && (
+                          {order.balance && parseFloat(order.balance.toString()) > 0 && (
                             <div className="mt-2 flex justify-between text-sm">
                               <span className="text-amber-600 font-medium">Saldo pendiente:</span>
-                              <span className="text-amber-600 font-medium">${parseFloat(order.balance).toFixed(2)}</span>
+                              <span className="text-amber-600 font-medium">${parseFloat(order.balance.toString()).toFixed(2)}</span>
                             </div>
                           )}
                         </div>

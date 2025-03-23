@@ -12,7 +12,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import ProductDetail from "./pages/ProductDetail";
 
 // Versión actual de la aplicación
-export const APP_VERSION = "1.3.0";
+export const APP_VERSION = "1.3.1";
 
 const App = () => (
   <>
