@@ -9,9 +9,10 @@ import NotFound from "./pages/NotFound";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Messages from "./pages/Messages";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import ProductDetails from "./pages/ProductDetails";
 
 // Versión actual de la aplicación
-export const APP_VERSION = "1.4.0";
+export const APP_VERSION = "1.5.0";
 
 const App = () => (
   <>
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/orders" element={<Orders />} />
             <Route path="/magic-order" element={<MagicOrder />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/product-details/:productId" element={<ProductDetails />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
