@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Order } from "@/types";
 import { Switch } from "@/components/ui/switch";
@@ -69,6 +70,22 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     ordersByClient[order.clientId].orders.push(order);
   });
 
+  // Inicializar el estado de pago de productos basado en órdenes
+  useEffect(() => {
+    const initialPaidStatus: { [key: string]: boolean } = {};
+    
+    orders.forEach(order => {
+      const isPaid = order.amountPaid >= order.total * 0.99;
+      
+      order.items.forEach(item => {
+        const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
+        initialPaidStatus[key] = isPaid;
+      });
+    });
+    
+    setProductPaidStatus(initialPaidStatus);
+  }, [orders]);
+
   const toggleClient = (clientId: string) => {
     if (openClientId && openClientId !== clientId) {
       setOpenClientId(null);
@@ -95,6 +112,18 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       if (error) throw error;
       
+      // Actualizar el estado de los productos en este pedido
+      const updatedProductStatus: { [key: string]: boolean } = {};
+      order.items.forEach(item => {
+        const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
+        updatedProductStatus[key] = isPaid;
+      });
+      
+      setProductPaidStatus(prev => ({
+        ...prev,
+        ...updatedProductStatus
+      }));
+      
       if (onOrderUpdate) {
         onOrderUpdate(orderId, {
           amountPaid: isPaid ? order.total : 0,
@@ -106,6 +135,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         toast({
           title: "Pago completado",
           description: `Pedido marcado como pagado completamente`,
+          variant: "default"
         });
       }
     } catch (error: any) {
@@ -118,38 +148,158 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
-  const handleToggleProductPaid = (productKey: string, orderId: string, isPaid: boolean) => {
-    setProductPaidStatus(prev => ({
-      ...prev,
-      [productKey]: isPaid
-    }));
-    
-    toast({
-      title: isPaid ? "Producto pagado" : "Producto marcado como no pagado",
-      description: "Se ha actualizado el estado de pago del producto"
-    });
+  const handleToggleProductPaid = async (productKey: string, orderId: string, itemId: string, isPaid: boolean) => {
+    try {
+      setIsSaving(true);
+      
+      // Encontrar todos los productos para esta orden
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+      
+      // Obtener el precio del producto que estamos cambiando
+      const item = order.items.find(item => item.id === itemId);
+      if (!item) return;
+      
+      const productTotal = item.price * item.quantity;
+      
+      // Actualizar el estado local primero
+      setProductPaidStatus(prev => ({
+        ...prev,
+        [productKey]: isPaid
+      }));
+      
+      // Calcular el nuevo monto pagado basado en todos los productos marcados como pagados
+      let newAmountPaid = 0;
+      order.items.forEach(orderItem => {
+        const itemKey = `${orderItem.name || 'Producto'}_${orderItem.variant || ''}_${order.id}`;
+        // Si es el ítem actual, usar el nuevo estado; de lo contrario, usar el estado existente
+        const isItemPaid = itemKey === productKey 
+          ? isPaid 
+          : (productPaidStatus[itemKey] || false);
+        
+        if (isItemPaid) {
+          newAmountPaid += orderItem.price * orderItem.quantity;
+        }
+      });
+      
+      // Redondear para evitar problemas de precisión
+      newAmountPaid = Math.round(newAmountPaid * 100) / 100;
+      const newBalance = Math.max(0, order.total - newAmountPaid);
+      
+      // Actualizar en la base de datos
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          amount_paid: newAmountPaid,
+          balance: newBalance
+        })
+        .eq('id', orderId);
+        
+      if (error) throw error;
+      
+      // Actualizar el estado de la aplicación
+      if (onOrderUpdate) {
+        onOrderUpdate(orderId, {
+          amountPaid: newAmountPaid,
+          balance: newBalance
+        });
+      }
+      
+      toast({
+        title: isPaid ? "Producto pagado" : "Producto marcado como no pagado",
+        description: "Se ha actualizado el estado de pago",
+        variant: "default"
+      });
+    } catch (error: any) {
+      console.error("Error al actualizar el pago del producto:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al actualizar el pago del producto",
+        variant: "destructive",
+      });
+      
+      // Revertir cambio local en caso de error
+      setProductPaidStatus(prev => ({
+        ...prev,
+        [productKey]: !isPaid
+      }));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleToggleAllProducts = (clientId: string, isPaid: boolean) => {
-    const clientProducts: { [key: string]: boolean } = {};
-    const clientOrders = ordersByClient[clientId]?.orders || [];
-    
-    clientOrders.forEach(order => {
-      order.items.forEach(item => {
-        const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-        clientProducts[key] = isPaid;
-      });
-    });
-    
-    setProductPaidStatus(prev => ({
-      ...prev,
-      ...clientProducts
-    }));
-    
-    if (isPaid) {
+  const handleToggleAllProducts = async (clientId: string, isPaid: boolean) => {
+    try {
+      setIsSaving(true);
+      const clientOrders = ordersByClient[clientId]?.orders || [];
+      const clientProducts: { [key: string]: boolean } = {};
+      
+      // Actualizar estado local primero para UI responsive
       clientOrders.forEach(order => {
-        handleTogglePaid(order.id, true);
+        order.items.forEach(item => {
+          const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
+          clientProducts[key] = isPaid;
+        });
       });
+      
+      setProductPaidStatus(prev => ({
+        ...prev,
+        ...clientProducts
+      }));
+      
+      // Actualizar cada pedido en la base de datos
+      for (const order of clientOrders) {
+        const { error } = await supabase
+          .from('orders')
+          .update({ 
+            amount_paid: isPaid ? order.total : 0,
+            balance: isPaid ? 0 : order.total
+          })
+          .eq('id', order.id);
+          
+        if (error) throw error;
+        
+        if (onOrderUpdate) {
+          onOrderUpdate(order.id, {
+            amountPaid: isPaid ? order.total : 0,
+            balance: isPaid ? 0 : order.total
+          });
+        }
+      }
+      
+      toast({
+        title: isPaid ? "Todos los productos pagados" : "Todos los productos marcados como no pagados",
+        description: `Se ha actualizado el estado de pago para todos los productos de ${ordersByClient[clientId]?.client}`,
+        variant: "default"
+      });
+    } catch (error: any) {
+      console.error("Error al actualizar pagos masivos:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al actualizar los pagos",
+        variant: "destructive",
+      });
+      
+      // Recargar para asegurar coherencia
+      if (onOrderUpdate) {
+        const clientOrders = ordersByClient[clientId]?.orders || [];
+        for (const order of clientOrders) {
+          const { data } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', order.id)
+            .single();
+            
+          if (data) {
+            onOrderUpdate(order.id, {
+              amountPaid: data.amount_paid,
+              balance: data.balance
+            });
+          }
+        }
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -175,6 +325,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       toast({
         title: "Pedido eliminado",
         description: "El pedido ha sido eliminado correctamente",
+        variant: "default"
       });
       
       if (onOrderUpdate) {
@@ -222,6 +373,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       toast({
         title: "Pedidos eliminados",
         description: `Todos los pedidos del cliente ${ordersByClient[clientToDelete]?.client} han sido eliminados`,
+        variant: "default"
       });
       
       if (onOrderUpdate) {
@@ -662,7 +814,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
               ref={(ref) => registerClientRef(clientId, ref)}
             >
               <div 
-                className="absolute inset-y-0 right-0 flex items-stretch h-14"
+                className="absolute inset-y-0 right-0 flex items-stretch h-full"
                 style={{ width: '80px' }}
               >
                 <button 
@@ -727,6 +879,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                           <Switch
                             checked={isPaid}
                             onCheckedChange={(checked) => handleToggleAllProducts(clientId, checked)}
+                            disabled={isSaving}
                             className="data-[state=checked]:bg-green-500 h-4 w-7"
                           />
                         </div>
@@ -800,7 +953,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                 </div>
                                 
                                 <div 
-                                  className={`flex justify-between items-center p-3 border-b bg-card shadow-sm transition-transform ${isEditing ? 'bg-muted/10' : ''}`}
+                                  className={`flex justify-between items-center p-3 bg-card shadow-sm transition-transform ${isEditing ? 'border border-primary/30 bg-primary/5' : 'border-b'}`}
                                   style={{ 
                                     transform: `translateX(${isEditing ? 0 : swipeX}px)`,
                                     borderRadius: '4px',
@@ -892,8 +1045,9 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                         <Switch
                                           checked={isPaid}
                                           onCheckedChange={(checked) => 
-                                            handleToggleProductPaid(key, product.orderId, checked)
+                                            handleToggleProductPaid(key, product.orderId, product.id || '', checked)
                                           }
+                                          disabled={isSaving}
                                           className="data-[state=checked]:bg-green-500 h-4 w-7"
                                         />
                                       </div>

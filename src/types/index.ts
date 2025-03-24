@@ -1,3 +1,4 @@
+
 export interface MessageItem {
   product: {
     id?: string;
@@ -11,6 +12,9 @@ export interface MessageItem {
   notes?: string;
   status?: 'duda' | 'confirmado';
   alternatives?: MessageAlternative[];
+  price?: number;
+  total?: number;
+  id?: string;
 }
 
 export interface MessageAlternative {
