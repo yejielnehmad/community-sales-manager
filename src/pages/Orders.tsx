@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -163,14 +164,14 @@ const Orders = () => {
 
   return (
     <AppLayout>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 mb-4">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 mb-3">
             <ClipboardList className="h-7 w-7 text-primary" />
             Pedidos
           </h1>
           
-          <div className="relative">
+          <div className="relative mb-4">
             <Input
               placeholder="Buscar por cliente o producto..."
               value={searchTerm}
