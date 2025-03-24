@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -62,7 +61,6 @@ export const ProductItem = ({
       }}
       ref={(ref) => registerRef(productKey, ref)}
     >
-      {/* Botones de acción que se muestran al deslizar */}
       <div 
         className="absolute inset-y-0 right-0 flex items-stretch h-full z-0 overflow-hidden"
         style={{ 
@@ -90,7 +88,6 @@ export const ProductItem = ({
         </div>
       </div>
       
-      {/* Contenido principal del producto - con fondo para cubrir botones */}
       <div 
         className={`flex justify-between items-center p-4 transition-transform bg-card 
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}`}
@@ -158,7 +155,7 @@ export const ProductItem = ({
                   Eliminar
                 </Button>
                 <Button 
-                  variant="primary" 
+                  variant="default" 
                   size="sm" 
                   className="h-8 rounded-full px-3"
                   onClick={() => onSaveProductChanges(productKey, product.orderId, product.id || '')}
