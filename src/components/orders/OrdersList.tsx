@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ClientOrderCard } from "./ClientOrderCard";
+import { ClientOrderCardNew } from "./ClientOrderCardNew";
 
 export const OrdersList = () => {
   const { state, itemState, actions } = useOrders();
@@ -84,12 +84,11 @@ export const OrdersList = () => {
         {Object.entries(filteredOrdersByClient)
           .filter(([clientId]) => clientHasProducts(clientId)) // Filtrar clientes sin productos
           .map(([clientId, { client, orders: clientOrders }]) => (
-            <ClientOrderCard
+            <ClientOrderCardNew
               key={clientId}
               clientId={clientId}
               clientName={client}
               orders={clientOrders}
-              clientSwipeX={clientSwipeStates[clientId] || 0}
               openClientId={openClientId}
               toggleClient={toggleClient}
               handleToggleAllProducts={handleToggleAllProducts}
