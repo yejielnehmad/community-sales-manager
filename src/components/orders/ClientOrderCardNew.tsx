@@ -136,6 +136,10 @@ export const ClientOrderCardNew = ({
       resetSwipe();
     }
   }, [openClientId, clientId, resetSwipe]);
+
+  // Determinar si se puede hacer swipe en la tarjeta principal
+  // Solo permitir swipe cuando la tarjeta está cerrada (no expandida)
+  const isSwipeEnabled = openClientId !== clientId;
   
   return (
     <div 
@@ -157,8 +161,8 @@ export const ClientOrderCardNew = ({
       
       {/* Contenido principal de la tarjeta del cliente */}
       <div 
-        {...{...getMouseProps(), ...getTouchProps()}}
-        className="border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm cursor-grab active:cursor-grabbing"
+        {...(isSwipeEnabled ? {...getMouseProps(), ...getTouchProps()} : {})}
+        className={`border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm ${isSwipeEnabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
         style={{ 
           transform: `translateX(${swipeX}px)`,
           transition: 'transform 0.3s ease-out',
