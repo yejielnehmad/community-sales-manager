@@ -10,7 +10,6 @@ import {
   Info,
   X
 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+// Clave para localStorage para evitar verificaciones repetidas
+const API_CHECK_STORAGE_KEY = "gemini_api_checked";
+
 export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
@@ -29,16 +31,25 @@ export const AIStatusBadge = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isManualCheck, setIsManualCheck] = useState(false);
   const statusRef = useRef(status);
+  const checkPerformedRef = useRef(false);
 
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
 
-  const checkConnection = async () => {
+  const checkConnection = async (forceCheck = false) => {
+    // Si ya se ha verificado y no es una verificación forzada, usamos el estado guardado
+    if (checkPerformedRef.current && !forceCheck) {
+      console.log("Omitiendo verificación de API, ya se realizó previamente");
+      return;
+    }
+    
+    // Si no hay API key configurada
     if (!GOOGLE_API_KEY) {
       setStatus("error");
       setMessage("API Key de Google Gemini no configurada");
       setDetailedInfo("No se ha configurado una API Key para Google Gemini. Por favor, configura una clave válida.");
+      checkPerformedRef.current = true;
       return;
     }
 
@@ -75,6 +86,7 @@ export const AIStatusBadge = () => {
         setStatus("error");
         setMessage(`Error HTTP: ${response.status} ${response.statusText}`);
         setDetailedInfo(`Error en la respuesta del servidor: ${response.status} ${response.statusText}\n${errorText}`);
+        checkPerformedRef.current = true;
         return;
       }
 
@@ -102,28 +114,69 @@ export const AIStatusBadge = () => {
         setDetailedInfo(`Respuesta inesperada de la API. Respuesta completa:\n${JSON.stringify(data, null, 2)}`);
         console.log("Respuesta completa:", JSON.stringify(data, null, 2));
       }
+      
+      // Marcar que la verificación se ha realizado
+      checkPerformedRef.current = true;
+      
+      // Guardar el estado en localStorage para persistir entre páginas
+      try {
+        localStorage.setItem(API_CHECK_STORAGE_KEY, JSON.stringify({
+          status,
+          message,
+          detailedInfo,
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.warn("No se pudo guardar el estado en localStorage:", e);
+      }
+      
     } catch (error: any) {
       console.error("Error al verificar conexión con Gemini:", error);
       setStatus("error");
       setMessage(`Error al conectar con Gemini API: ${error.name === 'TimeoutError' ? 'Timeout' : error.message}`);
       setDetailedInfo(`Error durante la verificación de la conexión:\n${error.name} - ${error.message}\n${error.stack || ''}`);
+      checkPerformedRef.current = true;
     }
   };
 
-  // Verificar la conexión solo al cargar la página
+  // Verificar la conexión solo al cargar el componente por primera vez
   useEffect(() => {
+    // Intentar recuperar el estado guardado en localStorage
+    try {
+      const savedCheck = localStorage.getItem(API_CHECK_STORAGE_KEY);
+      if (savedCheck) {
+        const parsedCheck = JSON.parse(savedCheck);
+        const checkTime = new Date(parsedCheck.timestamp);
+        const now = new Date();
+        const hoursSinceLastCheck = (now.getTime() - checkTime.getTime()) / (1000 * 60 * 60);
+        
+        // Si la verificación tiene menos de 1 hora, usamos el estado guardado
+        if (hoursSinceLastCheck < 1) {
+          console.log("Usando estado de API guardado, verificación reciente");
+          setStatus(parsedCheck.status);
+          setMessage(parsedCheck.message);
+          setDetailedInfo(parsedCheck.detailedInfo);
+          checkPerformedRef.current = true;
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Error al recuperar estado guardado:", e);
+    }
+    
     // Solo verificamos inicialmente y no reintentamos automáticamente
     checkConnection();
   }, []);
 
   const handleOpenDialog = () => {
-    // Si se hace clic en la insignia, verificamos de nuevo y abrimos el diálogo
+    // Si se hace clic en la insignia, verificamos solo si es una verificación manual
+    setIsDialogOpen(true);
+    
     if (!isManualCheck) {
       setIsManualCheck(true);
-      checkConnection();
+      checkConnection(true); // Forzar verificación cuando el usuario hace clic
       setTimeout(() => setIsManualCheck(false), 5000); // Prevenir múltiples verificaciones rápidas
     }
-    setIsDialogOpen(true);
   };
 
   return (
