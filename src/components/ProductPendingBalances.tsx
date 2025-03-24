@@ -1,6 +1,5 @@
 
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { ChevronRight, Users, Package } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
@@ -141,35 +140,33 @@ export const ProductPendingBalances = () => {
             const iconColor = getIconColor(product.name);
             
             return (
-              <Card 
+              <div 
                 key={product.id} 
-                className="relative overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer border border-blue-300 w-full"
+                className="relative overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer border border-blue-300 rounded-lg p-4 dark:border-blue-800"
                 onClick={() => handleProductClick(product.id)}
               >
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <div className={`bg-primary/10 p-1 rounded-full ${iconColor}`}>
-                        <ProductIcon className="h-4 w-4" />
-                      </div>
-                      <h3 className="font-medium text-sm line-clamp-1" title={product.name}>
-                        {product.name}
-                      </h3>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className={`bg-primary/10 p-1 rounded-full ${iconColor}`}>
+                      <ProductIcon className="h-4 w-4" />
                     </div>
-                    <div className="flex items-center gap-4">
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                        <Users className="h-3 w-3 text-blue-500" />
-                        <span className="text-xs font-medium">{product.clientCount}</span>
-                      </Badge>
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                        <Package className="h-3 w-3 text-blue-500" />
-                        <span className="text-xs font-medium">{product.pendingAmount}</span>
-                      </Badge>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
+                    <h3 className="font-medium text-sm line-clamp-1" title={product.name}>
+                      {product.name}
+                    </h3>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center gap-4">
+                    <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
+                      <Users className="h-3 w-3 text-blue-500" />
+                      <span className="text-xs font-medium">{product.clientCount}</span>
+                    </Badge>
+                    <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
+                      <Package className="h-3 w-3 text-blue-500" />
+                      <span className="text-xs font-medium">{product.pendingAmount}</span>
+                    </Badge>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
             );
           })}
           

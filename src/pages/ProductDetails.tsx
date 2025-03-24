@@ -4,9 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Package, DollarSign } from "lucide-react";
+import { ArrowLeft, Package, DollarSign, CheckCircle, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getProductIcon } from "@/services/productIconService";
+import { Input } from "@/components/ui/input";
 
 interface ProductDetailParams {
   productId: string;
@@ -26,13 +27,27 @@ const ProductDetails = () => {
   const navigate = useNavigate();
   const [productName, setProductName] = useState('');
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
+  const [filteredDetails, setFilteredDetails] = useState<OrderDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (productId) {
       fetchProductDetails();
     }
   }, [productId]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredDetails(orderDetails);
+    } else {
+      const filtered = orderDetails.filter(detail => 
+        detail.clientName.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredDetails(filtered);
+    }
+  }, [searchQuery, orderDetails]);
 
   const fetchProductDetails = async () => {
     setIsLoading(true);
@@ -94,6 +109,7 @@ const ProductDetails = () => {
           });
 
           setOrderDetails(details);
+          setFilteredDetails(details);
         }
       }
     } catch (error) {
@@ -124,9 +140,15 @@ const ProductDetails = () => {
       if (updateError) throw updateError;
 
       // Update local state
-      setOrderDetails(prev => prev.map(detail => 
-        detail.orderId === orderId ? { ...detail, isPaid } : detail
-      ));
+      setOrderDetails(prev => {
+        const updated = prev.map(detail => 
+          detail.orderId === orderId ? { ...detail, isPaid } : detail
+        );
+        setFilteredDetails(updated.filter(detail => 
+          detail.clientName.toLowerCase().includes(searchQuery.toLowerCase())
+        ));
+        return updated;
+      });
     } catch (error) {
       console.error('Error updating payment status:', error);
     }
@@ -164,29 +186,58 @@ const ProductDetails = () => {
             </div>
             <h1 className="text-2xl font-bold">{productName}</h1>
           </div>
+          <div className="ml-auto">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="rounded-full"
+              onClick={() => setSearchOpen(!searchOpen)}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+
+        {searchOpen && (
+          <div className="animate-in fade-in slide-in-from-top duration-300">
+            <Input
+              placeholder="Buscar cliente..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
+            />
+          </div>
+        )}
 
         <div>
           <h2 className="text-xl font-semibold mb-4">Pedidos de este producto</h2>
           
           {isLoading ? (
             <div className="text-center py-8">Cargando...</div>
-          ) : orderDetails.length > 0 ? (
+          ) : filteredDetails.length > 0 ? (
             <div className="space-y-3">
-              {orderDetails.map(detail => (
-                <div key={detail.id} className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all">
+              {filteredDetails.map(detail => (
+                <div key={detail.id} className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all dark:border-gray-700 dark:bg-gray-800">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">{detail.clientName}</span>
+                    <span className="font-medium flex items-center gap-2">
+                      {detail.clientName}
+                      {detail.isPaid && (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      )}
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
                         <Package className="h-3 w-3" />
                         <span>{detail.quantity}</span>
                       </Badge>
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
                         <DollarSign className="h-3 w-3" />
                         <span>{detail.balance}</span>
                       </Badge>
-                      <div className="relative inline-flex h-4 w-8 cursor-pointer rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" onClick={() => handlePaymentToggle(detail.orderId, !detail.isPaid)}>
+                      <div 
+                        className="relative inline-flex h-4 w-8 cursor-pointer rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:bg-gray-700" 
+                        onClick={() => handlePaymentToggle(detail.orderId, !detail.isPaid)}
+                      >
                         <span
                           className={`${
                             detail.isPaid ? 'translate-x-4 bg-primary' : 'translate-x-0 bg-gray-400'
@@ -200,7 +251,7 @@ const ProductDetails = () => {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No hay pedidos para este producto
+              {searchQuery ? "No se encontraron clientes" : "No hay pedidos para este producto"}
             </div>
           )}
         </div>

@@ -10,12 +10,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Messages from "./pages/Messages";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import ProductDetails from "./pages/ProductDetails";
+import { ThemeProvider } from "@/components/theme-provider";
 
 // Versión actual de la aplicación
-export const APP_VERSION = "1.5.2";
+export const APP_VERSION = "1.6.0";
 
 const App = () => (
-  <>
+  <ThemeProvider defaultTheme="light" storageKey="app-theme">
     <TooltipProvider>
       <SidebarProvider>
         <BrowserRouter>
@@ -33,7 +34,7 @@ const App = () => (
         </BrowserRouter>
       </SidebarProvider>
     </TooltipProvider>
-  </>
+  </ThemeProvider>
 );
 
 export default App;
