@@ -1,10 +1,11 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ShoppingBag, ChevronRight, Users, Package } from "lucide-react";
+import { ChevronRight, Users, Package } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { getProductIcon } from "@/services/productIconService";
 
 interface ProductBalance {
   id: string;
@@ -96,7 +97,15 @@ export const ProductPendingBalances = () => {
         }
       });
 
-      setProductBalances(updatedBalances);
+      // Filtrar productos sin pedidos
+      const filteredBalances: { [key: string]: ProductBalance } = {};
+      Object.entries(updatedBalances).forEach(([productId, product]) => {
+        if (product.pendingAmount > 0) {
+          filteredBalances[productId] = product;
+        }
+      });
+
+      setProductBalances(filteredBalances);
     } catch (error: any) {
       console.error("Error fetching product balances:", error);
     } finally {
@@ -108,6 +117,17 @@ export const ProductPendingBalances = () => {
     navigate(`/product-details/${productId}`);
   };
 
+  const getIconColor = (productName: string) => {
+    // Asignar colores basados en el nombre del producto
+    const colors = ['text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-pink-500', 'text-amber-500', 'text-teal-500'];
+    let hash = 0;
+    for (let i = 0; i < productName.length; i++) {
+      hash = productName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  };
+
   return (
     <div>
       {isLoading ? (
@@ -115,42 +135,47 @@ export const ProductPendingBalances = () => {
           Cargando...
         </div>
       ) : (
-        <div className="space-y-4">
-          {Object.values(productBalances).map((product) => (
-            <Card 
-              key={product.id} 
-              className="relative overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer border border-blue-300 w-full"
-              onClick={() => handleProductClick(product.id)}
-            >
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-primary/10 p-1 rounded-full">
-                      <ShoppingBag className="h-4 w-4 text-primary" />
+        <div className="space-y-5">
+          {Object.values(productBalances).map((product) => {
+            const ProductIcon = getProductIcon(product.name);
+            const iconColor = getIconColor(product.name);
+            
+            return (
+              <Card 
+                key={product.id} 
+                className="relative overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer border border-blue-300 w-full"
+                onClick={() => handleProductClick(product.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <div className={`bg-primary/10 p-1 rounded-full ${iconColor}`}>
+                        <ProductIcon className="h-4 w-4" />
+                      </div>
+                      <h3 className="font-medium text-sm line-clamp-1" title={product.name}>
+                        {product.name}
+                      </h3>
                     </div>
-                    <h3 className="font-medium text-sm line-clamp-1" title={product.name}>
-                      {product.name}
-                    </h3>
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                        <Users className="h-3 w-3 text-blue-500" />
+                        <span className="text-xs font-medium">{product.clientCount}</span>
+                      </Badge>
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                        <Package className="h-3 w-3 text-blue-500" />
+                        <span className="text-xs font-medium">{product.pendingAmount}</span>
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-medium">{product.clientCount}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Package className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-medium">{product.pendingAmount}</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
           
           {Object.keys(productBalances).length === 0 && (
             <div className="text-center p-8 bg-muted/20 rounded-lg">
-              <p>No hay productos registrados</p>
+              <p>No hay productos con pedidos pendientes</p>
             </div>
           )}
         </div>

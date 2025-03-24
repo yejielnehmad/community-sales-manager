@@ -2,12 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingBag, ArrowLeft, Package, DollarSign } from "lucide-react";
+import { ArrowLeft, Package, DollarSign } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getProductIcon } from "@/services/productIconService";
 
 interface ProductDetailParams {
   productId: string;
@@ -133,6 +132,21 @@ const ProductDetails = () => {
     }
   };
 
+  const ProductIcon = getProductIcon(productName);
+
+  const getIconColor = (productName: string) => {
+    // Asignar colores basados en el nombre del producto
+    const colors = ['text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-pink-500', 'text-amber-500', 'text-teal-500'];
+    let hash = 0;
+    for (let i = 0; i < productName.length; i++) {
+      hash = productName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  };
+
+  const iconColor = getIconColor(productName);
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -145,50 +159,51 @@ const ProductDetails = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="bg-primary/10 p-2 rounded-full">
-              <ShoppingBag className="h-5 w-5 text-primary" />
+            <div className={`bg-primary/10 p-2 rounded-full ${iconColor}`}>
+              <ProductIcon className="h-5 w-5" />
             </div>
             <h1 className="text-2xl font-bold">{productName}</h1>
           </div>
         </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="text-xl font-semibold mb-4">Pedidos de este producto</h2>
-            
-            {isLoading ? (
-              <div className="text-center py-8">Cargando...</div>
-            ) : orderDetails.length > 0 ? (
-              <div className="space-y-3">
-                {orderDetails.map(detail => (
-                  <Card key={detail.id} className="p-4 border border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{detail.clientName}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                          <Package className="h-3 w-3" />
-                          <span>{detail.quantity}</span>
-                        </Badge>
-                        <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                          <DollarSign className="h-3 w-3" />
-                          <span>{detail.balance}</span>
-                        </Badge>
-                        <Switch 
-                          checked={detail.isPaid}
-                          onCheckedChange={(checked) => handlePaymentToggle(detail.orderId, checked)}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Pedidos de este producto</h2>
+          
+          {isLoading ? (
+            <div className="text-center py-8">Cargando...</div>
+          ) : orderDetails.length > 0 ? (
+            <div className="space-y-3">
+              {orderDetails.map(detail => (
+                <div key={detail.id} className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{detail.clientName}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                        <Package className="h-3 w-3" />
+                        <span>{detail.quantity}</span>
+                      </Badge>
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                        <DollarSign className="h-3 w-3" />
+                        <span>{detail.balance}</span>
+                      </Badge>
+                      <div className="relative inline-flex h-4 w-8 cursor-pointer rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" onClick={() => handlePaymentToggle(detail.orderId, !detail.isPaid)}>
+                        <span
+                          className={`${
+                            detail.isPaid ? 'translate-x-4 bg-primary' : 'translate-x-0 bg-gray-400'
+                          } pointer-events-none inline-block h-4 w-4 transform rounded-full shadow-lg transition duration-200 ease-in-out`}
                         />
                       </div>
                     </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay pedidos para este producto
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No hay pedidos para este producto
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
