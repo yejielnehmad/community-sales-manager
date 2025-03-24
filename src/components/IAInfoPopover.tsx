@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Popover,
@@ -23,7 +24,7 @@ import {
   BarChart3,
   Lightbulb
 } from 'lucide-react';
-import { APP_VERSION } from "@/App";
+import { APP_VERSION } from "@/lib/app-config";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
