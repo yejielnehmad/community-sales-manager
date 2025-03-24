@@ -52,7 +52,7 @@ export const ProductItemNew = ({
   const currentQuantity = productQuantities[productKey] || product.quantity;
   
   // Usar nuestro custom hook para el swipe
-  const { swipeX, resetSwipe, getMouseProps } = useSwipe({
+  const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
     maxSwipe: -140,
     onSwipeEnd: (completed) => {
       if (!completed) {
@@ -93,7 +93,7 @@ export const ProductItemNew = ({
     <div 
       key={productKey} 
       data-product-key={productKey}
-      className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-90' : 'opacity-100'}`}
+      className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
         minHeight: isEditing ? '120px' : '74px',
         borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
@@ -129,10 +129,10 @@ export const ProductItemNew = ({
       </div>
       
       <div 
-        {...(!isPaid ? getMouseProps() : {})}
+        {...(!isPaid ? {...getMouseProps(), ...getTouchProps()} : {})}
         className={`flex justify-between items-center p-4 transition-transform bg-card ${!isPaid && 'cursor-grab active:cursor-grabbing'}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
-                  ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
+                  ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
           transform: `translateX(${isEditing ? 0 : swipeX}px)`,
           transition: 'transform 0.3s ease-out',

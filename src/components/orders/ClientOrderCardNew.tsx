@@ -52,7 +52,7 @@ export const ClientOrderCardNew = ({
   const [isPaidAnimating, setIsPaidAnimating] = useState(false);
   
   // Usar nuestro custom hook para el swipe
-  const { swipeX, resetSwipe, getMouseProps } = useSwipe({
+  const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
     maxSwipe: -70,
     onSwipeEnd: (completed) => {
       if (!completed) {
@@ -157,7 +157,7 @@ export const ClientOrderCardNew = ({
       
       {/* Contenido principal de la tarjeta del cliente */}
       <div 
-        {...getMouseProps()}
+        {...{...getMouseProps(), ...getTouchProps()}}
         className="border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm cursor-grab active:cursor-grabbing"
         style={{ 
           transform: `translateX(${swipeX}px)`,
