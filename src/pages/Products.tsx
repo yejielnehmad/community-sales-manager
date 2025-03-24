@@ -35,7 +35,6 @@ const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [deleteDependencies, setDeleteDependencies] = useState<{count: number, items: any[]}>({count: 0, items: []});
-  const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchProducts = async () => {
@@ -231,17 +230,19 @@ const Products = () => {
       if (deleteError) throw deleteError;
       
       // Crear nuevas variantes
-      const variants = formData.variants.map(variant => ({
-        product_id: selectedProduct.id,
-        name: variant.name,
-        price: variant.price
-      }));
-      
-      const { error: variantsError } = await supabase
-        .from('product_variants')
-        .insert(variants);
+      if (formData.variants.length > 0) {
+        const variants = formData.variants.map(variant => ({
+          product_id: selectedProduct.id,
+          name: variant.name,
+          price: variant.price
+        }));
         
-      if (variantsError) throw variantsError;
+        const { error: variantsError } = await supabase
+          .from('product_variants')
+          .insert(variants);
+          
+        if (variantsError) throw variantsError;
+      }
 
       toast({
         title: "Producto actualizado",
@@ -322,48 +323,28 @@ const Products = () => {
     }
   };
 
-  const toggleSearch = () => {
-    setShowSearch(!showSearch);
-    if (showSearch) {
-      setSearchTerm("");
-    }
-  };
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-primary">Productos</h1>
-            <p className="text-muted-foreground">Gestiona los productos disponibles para la venta</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {showSearch && (
-              <div className="relative">
-                <Input
-                  placeholder="Buscar producto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-[220px] pr-8 rounded-full"
-                />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            )}
-            <Button 
-              size="icon"
-              variant="outline"
-              className="rounded-full"
-              onClick={toggleSearch}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-primary mb-3">Productos</h1>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="relative flex-1">
+              <Input
+                placeholder="Buscar producto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pr-8 rounded-lg"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             <Button onClick={() => handleOpenForm()} className="flex items-center gap-1">
               <Plus className="h-4 w-4" />
               Nuevo

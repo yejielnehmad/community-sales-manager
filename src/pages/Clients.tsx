@@ -26,7 +26,6 @@ const Clients = () => {
   const [openCollapsibles, setOpenCollapsibles] = useState<{[key: string]: boolean}>({});
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   
   const form = useForm<ClientFormValues>({
@@ -175,54 +174,34 @@ const Clients = () => {
     }));
   };
 
-  const toggleSearch = () => {
-    setShowSearch(!showSearch);
-    if (showSearch) {
-      setSearchTerm("");
-    }
-  };
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
-            <p className="text-muted-foreground">Gestiona tus clientes</p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {showSearch && (
-              <div className="relative">
-                <Input
-                  placeholder="Buscar cliente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-[220px] pr-8 rounded-full"
-                />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-3">Clientes</h1>
+          <div className="relative mb-4">
+            <Input
+              placeholder="Buscar cliente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pr-8 rounded-lg"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
-            <Button 
-              size="icon"
-              variant="outline"
-              className="rounded-full"
-              onClick={toggleSearch}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button onClick={openAddClientDialog} className="rounded-lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Agregar
-            </Button>
           </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <Button onClick={openAddClientDialog} className="rounded-lg">
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar
+          </Button>
         </div>
         
         <div className="space-y-2">
