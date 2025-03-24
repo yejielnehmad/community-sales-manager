@@ -1,4 +1,3 @@
-
 export interface MessageItem {
   product: {
     id?: string;
@@ -20,7 +19,7 @@ export interface MessageAlternative {
 }
 
 export interface MessageClient {
-  id: string;  // Aquí cambio id de opcional a requerido
+  id: string;
   name: string;
   matchConfidence?: 'alto' | 'medio' | 'bajo';
 }
@@ -40,6 +39,7 @@ export interface Order {
   total: number;
   amountPaid: number;
   balance: number;
+  deleted?: boolean;
 }
 
 export interface OrderCard {
@@ -58,8 +58,8 @@ export interface Client {
   email?: string;
   address?: string;
   notes?: string;
-  totalOrders?: number;  // Agregando la propiedad totalOrders
-  balance?: number;      // Agregando la propiedad balance
+  totalOrders?: number;
+  balance?: number;
 }
 
 export interface Product {

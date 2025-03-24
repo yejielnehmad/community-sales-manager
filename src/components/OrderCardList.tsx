@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Order } from "@/types";
 import { Switch } from "@/components/ui/switch";
@@ -58,7 +57,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const productItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const clientItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
 
-  // Agrupar pedidos por cliente
   const ordersByClient: { [clientId: string]: { client: string, orders: Order[] } } = {};
   
   orders.forEach(order => {
@@ -179,9 +177,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: "El pedido ha sido eliminado correctamente",
       });
       
-      // Actualizar la lista de pedidos en lugar de recargar la página
       if (onOrderUpdate) {
-        // Notificar que el pedido ha sido eliminado (se eliminará de la lista en el componente padre)
         onOrderUpdate(orderToDelete, { deleted: true });
       }
       
@@ -205,7 +201,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       const clientOrders = ordersByClient[clientToDelete]?.orders || [];
       const orderIds = clientOrders.map(order => order.id);
       
-      // Eliminar order_items primero
       for (const orderId of orderIds) {
         const { error: itemsError } = await supabase
           .from('order_items')
@@ -215,7 +210,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         if (itemsError) throw itemsError;
       }
       
-      // Ahora eliminar las órdenes
       for (const orderId of orderIds) {
         const { error: orderError } = await supabase
           .from('orders')
@@ -230,9 +224,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: `Todos los pedidos del cliente ${ordersByClient[clientToDelete]?.client} han sido eliminados`,
       });
       
-      // Actualizar la lista de pedidos en lugar de recargar la página
       if (onOrderUpdate) {
-        // Notificar que todos los pedidos del cliente han sido eliminados
         orderIds.forEach(orderId => {
           onOrderUpdate(orderId, { deleted: true });
         });
@@ -259,10 +251,9 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     
     let swipePosition = Math.min(0, deltaX);
     
-    // Si el deslizamiento es significativo, mostrar completamente los botones
     const threshold = -20;
     if (swipePosition < threshold) {
-      swipePosition = -120; // Ancho total de los botones
+      swipePosition = -120;
     }
     
     setSwipeStates(prev => ({
@@ -276,10 +267,9 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     
     let swipePosition = Math.min(0, deltaX);
     
-    // Si el deslizamiento es significativo, mostrar completamente el botón de eliminar
     const threshold = -20;
     if (swipePosition < threshold) {
-      swipePosition = -80; // Ancho del botón de eliminar
+      swipePosition = -80;
     }
     
     setClientSwipeStates(prev => ({
@@ -293,13 +283,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     
     const threshold = -20;
     
-    // Si el deslizamiento actual es menor que el umbral, mostrar completamente los botones
-    const finalPosition = currentSwipe < threshold ? -120 : 0;
-    
-    setSwipeStates(prev => ({
-      ...prev,
-      [productKey]: finalPosition
-    }));
+    if (currentSwipe < threshold) {
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: -120
+      }));
+    }
   };
 
   const completeClientSwipeAnimation = (clientId: string) => {
@@ -307,17 +296,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     
     const threshold = -20;
     
-    // Si el deslizamiento actual es menor que el umbral, mostrar completamente el botón de eliminar
-    const finalPosition = currentSwipe < threshold ? -80 : 0;
-    
-    setClientSwipeStates(prev => ({
-      ...prev,
-      [clientId]: finalPosition
-    }));
+    if (currentSwipe < threshold) {
+      setClientSwipeStates(prev => ({
+        ...prev,
+        [clientId]: -80
+      }));
+    }
   };
 
   const handleEditProduct = (productKey: string, currentQuantity: number) => {
-    // Cerrar el deslizamiento antes de mostrar la interfaz de edición
     setSwipeStates(prev => ({
       ...prev,
       [productKey]: 0
@@ -343,7 +330,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     setIsSaving(true);
     
     try {
-      // Buscar el ítem para calcular el nuevo total basado en el precio y la cantidad
       const { data: itemData, error: itemError } = await supabase
         .from('order_items')
         .select('price')
@@ -355,7 +341,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       const price = itemData?.price || 0;
       const total = price * newQuantity;
       
-      // Actualizar el ítem con la nueva cantidad y total
       const { error } = await supabase
         .from('order_items')
         .update({ 
@@ -366,16 +351,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (error) throw error;
       
-      // Actualizar el total del pedido
       await updateOrderTotal(orderId);
       
       toast({
         title: "Producto actualizado",
         description: `Cantidad actualizada a ${newQuantity}`,
-        variant: "success"
+        variant: "default"
       });
       
-      // Buscar los datos actualizados del pedido
       const { data: updatedOrderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
@@ -384,7 +367,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (orderError) throw orderError;
       
-      // Buscar los items actualizados del pedido
       const { data: updatedItems, error: itemsError } = await supabase
         .from('order_items')
         .select('*')
@@ -392,7 +374,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (itemsError) throw itemsError;
       
-      // Actualizar la UI con los datos actualizados sin recargar la página
       if (onOrderUpdate && updatedOrderData) {
         onOrderUpdate(orderId, {
           total: updatedOrderData.total,
@@ -417,7 +398,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
 
   const updateOrderTotal = async (orderId: string) => {
     try {
-      // Obtener todos los ítems del pedido
       const { data: items, error: itemsError } = await supabase
         .from('order_items')
         .select('total')
@@ -425,10 +405,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       if (itemsError) throw itemsError;
       
-      // Calcular el nuevo total sumando todos los ítems
       const newTotal = items?.reduce((sum, item) => sum + (item.total || 0), 0) || 0;
       
-      // Obtener el pedido actual para verificar amount_paid
       const { data: currentOrder, error: orderError } = await supabase
         .from('orders')
         .select('amount_paid')
@@ -438,10 +416,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       if (orderError) throw orderError;
       
       const amountPaid = currentOrder?.amount_paid || 0;
-      // Calcular el nuevo balance
       const newBalance = Math.max(0, newTotal - amountPaid);
       
-      // Actualizar el pedido con el nuevo total y balance
       const { error: updateError } = await supabase
         .from('orders')
         .update({ 
@@ -461,7 +437,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const deleteProduct = async (productKey: string, orderId: string, itemId: string) => {
     setIsSaving(true);
     try {
-      // Eliminar el ítem
       const { error } = await supabase
         .from('order_items')
         .delete()
@@ -469,16 +444,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (error) throw error;
       
-      // Actualizar el total del pedido
       await updateOrderTotal(orderId);
       
       toast({
         title: "Producto eliminado",
         description: "El producto ha sido eliminado del pedido",
-        variant: "success"
+        variant: "default"
       });
       
-      // Buscar los datos actualizados del pedido
       const { data: updatedOrderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
@@ -487,7 +460,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (orderError) throw orderError;
       
-      // Buscar los items actualizados del pedido
       const { data: updatedItems, error: itemsError } = await supabase
         .from('order_items')
         .select('*')
@@ -495,7 +467,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (itemsError) throw itemsError;
       
-      // Actualizar la UI con los datos actualizados sin recargar la página
       if (onOrderUpdate && updatedOrderData) {
         onOrderUpdate(orderId, {
           total: updatedOrderData.total,
@@ -586,7 +557,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     };
     
     const handleTouchMove = (e: TouchEvent) => {
-      // Manejo de deslizamiento para productos
       if (touchActive && touchStartXRef.current !== null) {
         const target = e.target as HTMLElement;
         const productItem = target.closest('[data-product-key]') as HTMLElement;
@@ -601,7 +571,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         }
       }
       
-      // Manejo de deslizamiento para clientes
       if (clientTouchActive && clientTouchStartXRef.current !== null) {
         const target = e.target as HTMLElement;
         const clientItem = target.closest('[data-client-id]') as HTMLElement;
@@ -618,7 +587,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     };
     
     const handleTouchEnd = (e: TouchEvent) => {
-      // Finalización del deslizamiento para productos
       if (touchActive) {
         const target = e.target as HTMLElement;
         const productItem = target.closest('[data-product-key]') as HTMLElement;
@@ -634,7 +602,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         setTouchActive(false);
       }
       
-      // Finalización del deslizamiento para clientes
       if (clientTouchActive) {
         const target = e.target as HTMLElement;
         const clientItem = target.closest('[data-client-id]') as HTMLElement;
@@ -694,7 +661,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
               data-client-id={clientId}
               ref={(ref) => registerClientRef(clientId, ref)}
             >
-              {/* Botón de eliminar cliente (detrás del header) */}
               <div 
                 className="absolute inset-y-0 right-0 flex items-stretch h-14"
                 style={{ width: '80px' }}
@@ -809,7 +775,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                 className="relative overflow-hidden rounded-md mb-1"
                                 ref={(ref) => registerProductRef(key, ref)}
                               >
-                                {/* Botones de acción (detrás del producto) */}
                                 <div 
                                   className="absolute inset-y-0 right-0 flex items-stretch h-full"
                                   style={{ width: '120px' }}
@@ -964,7 +929,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         </div>
       )}
       
-      {/* Diálogo para eliminar un producto de un pedido */}
       <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -986,7 +950,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Diálogo para eliminar todos los pedidos de un cliente */}
       <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
