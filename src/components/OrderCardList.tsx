@@ -15,7 +15,8 @@ import {
   Minus,
   Plus,
   Trash,
-  Edit
+  Edit,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const [clientSwipeStates, setClientSwipeStates] = useState<{ [key: string]: number }>({});
   const [touchActive, setTouchActive] = useState<boolean>(false);
   const [clientTouchActive, setClientTouchActive] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const touchStartXRef = useRef<number | null>(null);
   const clientTouchStartXRef = useRef<number | null>(null);
@@ -176,7 +178,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: "El pedido ha sido eliminado correctamente",
       });
       
-      setOrderToDelete(null);
+      // Recargar la página para mostrar los cambios
+      window.location.reload();
       
     } catch (error: any) {
       toast({
@@ -186,6 +189,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       });
     } finally {
       setIsDeleting(false);
+      setOrderToDelete(null);
     }
   };
 
@@ -222,11 +226,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: `Todos los pedidos del cliente ${ordersByClient[clientToDelete]?.client} han sido eliminados`,
       });
       
-      setClientToDelete(null);
-      setClientSwipeStates(prev => ({
-        ...prev,
-        [clientToDelete]: 0
-      }));
+      // Recargar la página para mostrar los cambios
+      window.location.reload();
       
     } catch (error: any) {
       toast({
@@ -236,6 +237,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       });
     } finally {
       setIsDeleting(false);
+      setClientToDelete(null);
+      setClientSwipeStates(prev => ({
+        ...prev,
+        [clientToDelete]: 0
+      }));
     }
   };
 
@@ -319,37 +325,107 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const saveProductChanges = async (productKey: string, orderId: string, itemId: string) => {
     const newQuantity = productQuantities[productKey] || 1;
     
+    setIsSaving(true);
+    
     try {
+      // Buscar el ítem para calcular el nuevo total basado en el precio y la cantidad
+      const { data: itemData, error: itemError } = await supabase
+        .from('order_items')
+        .select('price')
+        .eq('id', itemId)
+        .single();
+      
+      if (itemError) throw itemError;
+      
+      const price = itemData?.price || 0;
+      const total = price * newQuantity;
+      
+      // Actualizar el ítem con la nueva cantidad y total
       const { error } = await supabase
         .from('order_items')
-        .update({ quantity: newQuantity })
+        .update({ 
+          quantity: newQuantity,
+          total: total
+        })
         .eq('id', itemId);
         
       if (error) throw error;
+      
+      // Actualizar el total del pedido
+      await updateOrderTotal(orderId);
       
       toast({
         title: "Producto actualizado",
         description: `Cantidad actualizada a ${newQuantity}`
       });
       
-      setEditingProduct(null);
-      
-      setSwipeStates(prev => ({
-        ...prev,
-        [productKey]: 0
-      }));
+      // Recargar la página para mostrar los cambios
+      window.location.reload();
       
     } catch (error: any) {
+      console.error("Error al actualizar el producto:", error);
       toast({
         title: "Error",
         description: error.message || "Error al actualizar el producto",
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
+      setEditingProduct(null);
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: 0
+      }));
+    }
+  };
+
+  const updateOrderTotal = async (orderId: string) => {
+    try {
+      // Obtener todos los ítems del pedido
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('total')
+        .eq('order_id', orderId);
+      
+      if (itemsError) throw itemsError;
+      
+      // Calcular el nuevo total sumando todos los ítems
+      const newTotal = items?.reduce((sum, item) => sum + (item.total || 0), 0) || 0;
+      
+      // Obtener el pedido actual para verificar amount_paid
+      const { data: currentOrder, error: orderError } = await supabase
+        .from('orders')
+        .select('amount_paid')
+        .eq('id', orderId)
+        .single();
+      
+      if (orderError) throw orderError;
+      
+      const amountPaid = currentOrder?.amount_paid || 0;
+      // Calcular el nuevo balance
+      const newBalance = Math.max(0, newTotal - amountPaid);
+      
+      // Actualizar el pedido con el nuevo total y balance
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ 
+          total: newTotal,
+          balance: newBalance
+        })
+        .eq('id', orderId);
+        
+      if (updateError) throw updateError;
+      
+    } catch (error) {
+      console.error("Error al actualizar el total del pedido:", error);
+      throw error;
     }
   };
 
   const deleteProduct = async (productKey: string, orderId: string, itemId: string) => {
+    setIsSaving(true);
     try {
+      // Eliminar el ítem
       const { error } = await supabase
         .from('order_items')
         .delete()
@@ -357,22 +433,30 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (error) throw error;
       
+      // Actualizar el total del pedido
+      await updateOrderTotal(orderId);
+      
       toast({
         title: "Producto eliminado",
         description: "El producto ha sido eliminado del pedido"
       });
       
-      setSwipeStates(prev => ({
-        ...prev,
-        [productKey]: 0
-      }));
+      // Recargar la página para mostrar los cambios
+      window.location.reload();
       
     } catch (error: any) {
+      console.error("Error al eliminar el producto:", error);
       toast({
         title: "Error",
         description: error.message || "Error al eliminar el producto",
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: 0
+      }));
     }
   };
 
@@ -673,6 +757,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                     <button 
                                       className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
                                       onClick={() => handleEditProduct(key, product.quantity)}
+                                      disabled={isSaving}
                                     >
                                       <Edit className="h-5 w-5" />
                                     </button>
@@ -681,6 +766,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                     <button 
                                       className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
                                       onClick={() => deleteProduct(key, product.orderId, product.id || '')}
+                                      disabled={isSaving}
                                     >
                                       <Trash className="h-5 w-5" />
                                     </button>
@@ -711,6 +797,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                           size="icon" 
                                           className="h-8 w-8 rounded-full"
                                           onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) - 1)}
+                                          disabled={isSaving}
                                         >
                                           <Minus className="h-3 w-3" />
                                         </Button>
@@ -719,12 +806,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                           value={productQuantities[key] || product.quantity}
                                           onChange={(e) => handleQuantityChange(key, parseInt(e.target.value) || 1)}
                                           className="w-12 h-8 mx-1 text-center p-0"
+                                          disabled={isSaving}
                                         />
                                         <Button 
                                           variant="outline" 
                                           size="icon" 
                                           className="h-8 w-8 rounded-full"
                                           onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) + 1)}
+                                          disabled={isSaving}
                                         >
                                           <Plus className="h-3 w-3" />
                                         </Button>
@@ -734,8 +823,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                         size="sm" 
                                         className="h-8 text-xs ml-2 px-4"
                                         onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
+                                        disabled={isSaving}
                                       >
-                                        Guardar
+                                        {isSaving ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : 'Guardar'}
                                       </Button>
                                     </div>
                                   ) : (

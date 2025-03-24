@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useEffect, useState } from "react";
 import { Order } from "@/types";
@@ -5,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { ClipboardList, Loader2, Search, X } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderFromDB {
   id: string;
@@ -23,6 +25,7 @@ const Orders = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [clientMap, setClientMap] = useState<{ [key: string]: { name: string } }>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchOrders();
@@ -136,7 +139,11 @@ const Orders = () => {
       }
     } catch (error: any) {
       console.error("Error al cargar pedidos:", error);
-      alert(error.message);
+      toast({
+        title: "Error al cargar los pedidos",
+        description: error.message || "Ha ocurrido un error al cargar los pedidos. Intente nuevamente.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
