@@ -1,28 +1,8 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Order } from "@/types";
-import { Switch } from "@/components/ui/switch";
-import { 
-  Collapsible, 
-  CollapsibleContent, 
-  CollapsibleTrigger 
-} from "@/components/ui/collapsible";
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  DollarSign,
-  ShoppingCart,
-  Minus,
-  Plus,
-  Trash,
-  Edit,
-  Loader2,
-  Check,
-  X
-} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
+import { ClientOrderCard } from "./ClientOrderCard";
 
 interface OrderCardListProps {
   orders: Order[];
@@ -59,6 +39,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const productItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const clientItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
 
+  // Organizar pedidos por cliente
   const ordersByClient: { [clientId: string]: { client: string, orders: Order[] } } = {};
   
   orders.forEach(order => {
@@ -87,7 +68,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     setProductPaidStatus(initialPaidStatus);
   }, [orders]);
 
-  const toggleClient = (clientId: string) => {
+  const toggleClient = useCallback((clientId: string) => {
     if (openClientId && openClientId !== clientId) {
       setOpenClientId(null);
       setTimeout(() => {
@@ -96,58 +77,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     } else {
       setOpenClientId(openClientId === clientId ? null : clientId);
     }
-  };
-
-  const handleTogglePaid = async (orderId: string, isPaid: boolean) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
-    
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          amount_paid: isPaid ? order.total : 0,
-          balance: isPaid ? 0 : order.total
-        })
-        .eq('id', orderId);
-      
-      if (error) throw error;
-      
-      // Actualizar el estado de los productos en este pedido
-      const updatedProductStatus: { [key: string]: boolean } = {};
-      order.items.forEach(item => {
-        const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-        updatedProductStatus[key] = isPaid;
-      });
-      
-      setProductPaidStatus(prev => ({
-        ...prev,
-        ...updatedProductStatus
-      }));
-      
-      if (onOrderUpdate) {
-        onOrderUpdate(orderId, {
-          amountPaid: isPaid ? order.total : 0,
-          balance: isPaid ? 0 : order.total
-        });
-      }
-      
-      if (isPaid) {
-        toast({
-          title: "Pago completado",
-          description: `Pedido marcado como pagado completamente`,
-          variant: "default"
-        });
-      }
-    } catch (error: any) {
-      console.error("Error al actualizar el pago:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar el pago",
-        variant: "destructive",
-      });
-    }
-  };
+  }, [openClientId]);
 
   const handleToggleProductPaid = async (productKey: string, orderId: string, itemId: string, isPaid: boolean) => {
     try {
@@ -399,14 +329,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
-  const handleProductSwipe = (productKey: string, deltaX: number) => {
+  // Gestión de deslizamientos táctiles
+  const handleProductSwipe = useCallback((productKey: string, deltaX: number) => {
     if (!touchActive) return;
     
     // Limitando el movimiento a -70px como máximo
     let swipePosition = Math.max(-70, Math.min(0, deltaX));
     
-    // Umbral de activación reducido
-    const threshold = -10;
+    // Umbral de activación optimizado
+    const threshold = -20;
     if (swipePosition < threshold) {
       swipePosition = -70;
     }
@@ -415,16 +346,16 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       ...prev,
       [productKey]: swipePosition
     }));
-  };
+  }, [touchActive]);
 
-  const handleClientSwipe = (clientId: string, deltaX: number) => {
+  const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
     if (!clientTouchActive) return;
     
     // Limitando el movimiento a -55px como máximo
     let swipePosition = Math.max(-55, Math.min(0, deltaX));
     
-    // Umbral de activación reducido
-    const threshold = -10;
+    // Umbral de activación optimizado
+    const threshold = -20;
     if (swipePosition < threshold) {
       swipePosition = -55;
     }
@@ -433,12 +364,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       ...prev,
       [clientId]: swipePosition
     }));
-  };
+  }, [clientTouchActive]);
 
-  const completeSwipeAnimation = (productKey: string) => {
+  const completeSwipeAnimation = useCallback((productKey: string) => {
     const currentSwipe = swipeStates[productKey] || 0;
     
-    const threshold = -10;
+    const threshold = -20;
     
     if (currentSwipe < threshold) {
       setSwipeStates(prev => ({
@@ -452,12 +383,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         [productKey]: 0
       }));
     }
-  };
+  }, [swipeStates]);
 
-  const completeClientSwipeAnimation = (clientId: string) => {
+  const completeClientSwipeAnimation = useCallback((clientId: string) => {
     const currentSwipe = clientSwipeStates[clientId] || 0;
     
-    const threshold = -10;
+    const threshold = -20;
     
     if (currentSwipe < threshold) {
       setClientSwipeStates(prev => ({
@@ -471,7 +402,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         [clientId]: 0
       }));
     }
-  };
+  }, [clientSwipeStates]);
 
   const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
     // No permitir editar productos pagados
@@ -546,7 +477,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         .from('orders')
         .select('*')
         .eq('id', orderId)
-        .single();
+        .maybeSingle();
         
       if (orderError) throw orderError;
       
@@ -602,7 +533,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         .from('orders')
         .select('amount_paid')
         .eq('id', orderId)
-        .single();
+        .maybeSingle();
       
       if (orderError) throw orderError;
       
@@ -647,7 +578,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         .from('orders')
         .select('*')
         .eq('id', orderId)
-        .single();
+        .maybeSingle();
         
       if (orderError) throw orderError;
       
@@ -683,7 +614,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
-  const closeAllSwipes = (exceptKey?: string) => {
+  const closeAllSwipes = useCallback((exceptKey?: string) => {
     setSwipeStates(prev => {
       const newState = { ...prev };
       Object.keys(newState).forEach(key => {
@@ -703,18 +634,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       });
       return newState;
     });
-  };
-
-  const getTotalClientBalance = (clientOrders: Order[]) => {
-    const total = clientOrders.reduce((sum, order) => sum + order.total, 0);
-    const paid = clientOrders.reduce((sum, order) => sum + order.amountPaid, 0);
-    return { total, paid, balance: total - paid };
-  };
-
-  const isClientFullyPaid = (clientOrders: Order[]) => {
-    const { total, paid } = getTotalClientBalance(clientOrders);
-    return paid >= total * 0.99;
-  };
+  }, []);
 
   const registerProductRef = (key: string, ref: HTMLDivElement | null) => {
     productItemRefs.current[key] = ref;
@@ -733,6 +653,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     return clientData.orders.some(order => order.items && order.items.length > 0);
   };
 
+  // Gestión de eventos táctiles
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
@@ -855,7 +776,19 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       document.removeEventListener('touchend', handleTouchEnd);
       document.removeEventListener('click', handleDocumentClick);
     };
-  }, [touchActive, clientTouchActive, swipeStates, clientSwipeStates, editingProduct, productPaidStatus]);
+  }, [
+    touchActive, 
+    clientTouchActive, 
+    swipeStates, 
+    clientSwipeStates, 
+    editingProduct, 
+    productPaidStatus, 
+    closeAllSwipes, 
+    handleProductSwipe, 
+    handleClientSwipe, 
+    completeSwipeAnimation, 
+    completeClientSwipeAnimation
+  ]);
 
   return (
     <div className="space-y-4">
@@ -866,305 +799,31 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       <div className="space-y-3">
         {Object.entries(ordersByClient)
           .filter(([clientId]) => clientHasProducts(clientId)) // Filtrar clientes sin productos
-          .map(([clientId, { client, orders: clientOrders }]) => {
-            const { total, balance } = getTotalClientBalance(clientOrders);
-            const isPaid = isClientFullyPaid(clientOrders);
-            const clientSwipeX = clientSwipeStates[clientId] || 0;
-            
-            return (
-              <div 
-                key={clientId} 
-                className="relative rounded-xl overflow-hidden"
-                data-client-id={clientId}
-                ref={(ref) => registerClientRef(clientId, ref)}
-              >
-                {/* Botón de acción en el background con altura completa */}
-                <div 
-                  className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden rounded-r-xl"
-                  style={{ width: '55px' }}
-                >
-                  <button 
-                    className="client-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
-                    onClick={() => setClientToDelete(clientId)}
-                  >
-                    <Trash className="h-5 w-5" />
-                  </button>
-                </div>
-                
-                {/* Contenido principal de la tarjeta del cliente */}
-                <div 
-                  className="border overflow-hidden transition-all duration-200 rounded-xl z-10 bg-background relative"
-                  style={{ 
-                    transform: `translateX(${clientSwipeX}px)`,
-                    transition: 'transform 0.3s ease-out',
-                    zIndex: clientSwipeX === 0 ? 10 : 5
-                  }}
-                >
-                  <Collapsible 
-                    open={openClientId === clientId} 
-                    onOpenChange={() => toggleClient(clientId)}
-                  >
-                    <CollapsibleTrigger className="w-full text-left">
-                      <div className="p-4 flex justify-between items-center bg-card hover:bg-muted/10">
-                        <div className="flex items-center gap-2">
-                          <div className="font-medium text-lg">
-                            {client}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <div className="text-right flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            <div className="font-medium">
-                              <span className={`${balance > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                                ${balance > 0 ? balance.toFixed(2) : '0.00'}
-                              </span>
-                              <span className="text-xs text-muted-foreground ml-1">
-                                /${total.toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="h-7 w-7 rounded-full flex items-center justify-center bg-muted/20">
-                            {openClientId === clientId ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleTrigger>
-                    
-                    <CollapsibleContent>
-                      <div className="bg-card/25 p-4">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="font-medium text-sm flex items-center gap-2">
-                            <ShoppingCart className="h-3.5 w-3.5 text-primary" />
-                            Productos
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">Marcar todo como pagado</span>
-                            <Switch
-                              checked={isPaid}
-                              onCheckedChange={(checked) => handleToggleAllProducts(clientId, checked)}
-                              disabled={isSaving}
-                              className="data-[state=checked]:bg-green-500 h-4 w-7"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="bg-background rounded-lg divide-y divide-gray-100">
-                          {(() => {
-                            const productGroups: {[key: string]: {
-                              id?: string,
-                              name: string, 
-                              variant?: string, 
-                              quantity: number,
-                              price: number,
-                              total: number,
-                              orderId: string
-                            }} = {};
-                            
-                            clientOrders.forEach(order => {
-                              order.items.forEach(item => {
-                                const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-                                if (!productGroups[key]) {
-                                  productGroups[key] = {
-                                    id: item.id,
-                                    name: item.name || 'Producto',
-                                    variant: item.variant,
-                                    quantity: 0,
-                                    price: item.price || 0,
-                                    total: 0,
-                                    orderId: order.id
-                                  };
-                                }
-                                productGroups[key].quantity += (item.quantity || 1);
-                                productGroups[key].total = productGroups[key].price * productGroups[key].quantity;
-                              });
-                            });
-                            
-                            return Object.entries(productGroups).map(([key, product], index) => {
-                              const isPaid = productPaidStatus[key] || false;
-                              const isEditing = editingProduct === key;
-                              const swipeX = swipeStates[key] || 0;
-                              
-                              return (
-                                <div 
-                                  key={key} 
-                                  data-product-key={key}
-                                  className={`relative overflow-hidden ${index !== 0 ? 'border-t border-gray-100' : ''}`}
-                                  style={{ 
-                                    minHeight: isEditing ? '120px' : '74px',
-                                    borderRadius: index === 0 ? '0.5rem 0.5rem 0 0' : index === Object.keys(productGroups).length - 1 ? '0 0 0.5rem 0.5rem' : '0'
-                                  }}
-                                  ref={(ref) => registerProductRef(key, ref)}
-                                >
-                                  {/* Botones de acción que se muestran al deslizar */}
-                                  <div 
-                                    className="absolute inset-y-0 right-0 flex items-stretch h-full z-0 overflow-hidden"
-                                    style={{ 
-                                      width: '70px',
-                                      borderRadius: index === Object.keys(productGroups).length - 1 ? '0 0 0.5rem 0' : '0'
-                                    }}
-                                  >
-                                    <div className="flex-1 flex items-stretch h-full">
-                                      <button 
-                                        className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
-                                        onClick={() => handleEditProduct(key, product.quantity, isPaid)}
-                                        disabled={isSaving || isPaid}
-                                      >
-                                        <Edit className="h-5 w-5" />
-                                      </button>
-                                    </div>
-                                    <div className="flex-1 flex items-stretch h-full">
-                                      <button 
-                                        className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
-                                        onClick={() => deleteProduct(key, product.orderId, product.id || '')}
-                                        disabled={isSaving}
-                                      >
-                                        <Trash className="h-5 w-5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Contenido principal del producto - con fondo para cubrir botones */}
-                                  <div 
-                                    className={`flex justify-between items-center p-4 transition-transform bg-card 
-                                              ${isEditing ? 'border-primary/30 bg-primary/5' : ''}`}
-                                    style={{ 
-                                      transform: `translateX(${isEditing ? 0 : swipeX}px)`,
-                                      transition: 'transform 0.3s ease-out',
-                                      height: '100%',
-                                      position: 'relative',
-                                      zIndex: swipeX === 0 && !isEditing ? 10 : 5,
-                                      borderRadius: index === 0 ? '0.5rem 0.5rem 0 0' : index === Object.keys(productGroups).length - 1 ? '0 0 0.5rem 0.5rem' : '0'
-                                    }}
-                                  >
-                                    {isEditing ? (
-                                      <div className="flex-1 flex flex-col gap-3 w-full">
-                                        <div className="flex-1">
-                                          <div className="font-medium text-sm">{product.name}</div>
-                                          {product.variant && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {product.variant}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center justify-between edit-controls">
-                                          <div className="flex items-center">
-                                            <Button 
-                                              variant="outline" 
-                                              size="icon" 
-                                              className="h-8 w-8 rounded-full"
-                                              onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) - 1)}
-                                              disabled={isSaving || (productQuantities[key] || product.quantity) <= 1}
-                                            >
-                                              <Minus className="h-3 w-3" />
-                                            </Button>
-                                            <Input
-                                              type="number"
-                                              value={productQuantities[key] || product.quantity}
-                                              onChange={(e) => handleQuantityChange(key, parseInt(e.target.value) || 1)}
-                                              className="w-12 h-8 mx-1 text-center p-0"
-                                              disabled={isSaving}
-                                            />
-                                            <Button 
-                                              variant="outline" 
-                                              size="icon" 
-                                              className="h-8 w-8 rounded-full"
-                                              onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) + 1)}
-                                              disabled={isSaving}
-                                            >
-                                              <Plus className="h-3 w-3" />
-                                            </Button>
-                                          </div>
-                                          <div className="flex gap-2 edit-controls">
-                                            <Button 
-                                              variant="outline" 
-                                              size="icon" 
-                                              className="h-8 w-8 rounded-full"
-                                              onClick={() => {
-                                                setEditingProduct(null);
-                                                setSwipeStates(prev => ({
-                                                  ...prev,
-                                                  [key]: 0
-                                                }));
-                                              }}
-                                              disabled={isSaving}
-                                              title="Cancelar"
-                                            >
-                                              <X className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                            <Button 
-                                              variant="outline" 
-                                              size="icon" 
-                                              className="h-8 w-8 rounded-full"
-                                              onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
-                                              disabled={isSaving}
-                                              title="Guardar"
-                                            >
-                                              {isSaving ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <Check className="h-4 w-4 text-green-500" />
-                                              )}
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <div className="flex-1">
-                                          <div className="font-medium text-sm">{product.name}</div>
-                                          {product.variant && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {product.variant}
-                                            </div>
-                                          )}
-                                          <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                                            <div>
-                                              {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
-                                            </div>
-                                            <div className="font-medium text-foreground">
-                                              ${product.total.toFixed(2)}
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 ml-2">
-                                          <Switch
-                                            checked={isPaid}
-                                            onCheckedChange={(checked) => 
-                                              handleToggleProductPaid(key, product.orderId, product.id || '', checked)
-                                            }
-                                            disabled={isSaving}
-                                            className="data-[state=checked]:bg-green-500 h-4 w-7"
-                                          />
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                        
-                        <div className="mt-3 flex justify-end items-center">
-                          <div className="text-sm font-medium">
-                            Total:
-                            <span className="ml-1">
-                              ${total.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
-              </div>
-            );
-          })}
+          .map(([clientId, { client, orders: clientOrders }]) => (
+            <ClientOrderCard
+              key={clientId}
+              clientId={clientId}
+              clientName={client}
+              orders={clientOrders}
+              clientSwipeX={clientSwipeStates[clientId] || 0}
+              openClientId={openClientId}
+              toggleClient={toggleClient}
+              handleToggleAllProducts={handleToggleAllProducts}
+              productPaidStatus={productPaidStatus}
+              swipeStates={swipeStates}
+              editingProduct={editingProduct}
+              productQuantities={productQuantities}
+              isSaving={isSaving}
+              handleToggleProductPaid={handleToggleProductPaid}
+              handleEditProduct={handleEditProduct}
+              handleQuantityChange={handleQuantityChange}
+              saveProductChanges={saveProductChanges}
+              deleteProduct={deleteProduct}
+              registerProductRef={registerProductRef}
+              registerClientRef={registerClientRef}
+              setClientToDelete={setClientToDelete}
+            />
+          ))}
       </div>
       
       {Object.keys(ordersByClient).filter(clientId => clientHasProducts(clientId)).length === 0 && (

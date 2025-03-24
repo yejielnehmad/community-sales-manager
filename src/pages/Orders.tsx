@@ -7,6 +7,7 @@ import { ClipboardList, Loader2, Search, X } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface OrderFromDB {
   id: string;
@@ -165,6 +166,10 @@ const Orders = () => {
     });
   };
 
+  const handleRefresh = () => {
+    fetchOrders();
+  };
+
   const filteredOrders = searchTerm
     ? orders.filter(order => 
         order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -184,22 +189,33 @@ const Orders = () => {
             Pedidos
           </h1>
           
-          <div className="relative mb-4">
-            <Input
-              placeholder="Buscar por cliente o producto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-8 rounded-full"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex gap-2 mb-4">
+            <div className="relative flex-1">
+              <Input
+                placeholder="Buscar por cliente o producto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-8 rounded-full"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleRefresh}
+              className="rounded-full"
+              title="Actualizar pedidos"
+            >
+              <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </div>
 
