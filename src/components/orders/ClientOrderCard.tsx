@@ -126,7 +126,7 @@ export const ClientOrderCard = ({
     <div 
       className="relative rounded-xl overflow-hidden mb-3 shadow-sm hover:shadow-md transition-shadow"
       data-client-id={clientId}
-      ref={(ref) => actions.registerClientRef && actions.registerClientRef(clientId, ref)}
+      ref={(ref) => actions.registerClientRef(clientId, ref)}
     >
       {/* Botón de acción en el background con altura completa */}
       <div 

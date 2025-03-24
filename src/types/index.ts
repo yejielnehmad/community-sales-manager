@@ -125,6 +125,8 @@ export interface OrderItemState {
   clientToDelete: string | null;
   isSaving: boolean;
   isDeleting: boolean;
+  productItemRefs: { [key: string]: HTMLDivElement | null };
+  clientItemRefs: { [key: string]: HTMLDivElement | null };
 }
 
 export interface OrdersContextProps {
@@ -149,7 +151,7 @@ export interface OrdersContextProps {
     completeSwipeAnimation: (productKey: string) => void;
     completeClientSwipeAnimation: (clientId: string) => void;
     closeAllSwipes: (exceptKey?: string) => void;
-    registerProductRef?: (key: string, ref: HTMLDivElement | null) => void;
-    registerClientRef?: (key: string, ref: HTMLDivElement | null) => void;
+    registerProductRef: (key: string, ref: HTMLDivElement | null) => void;
+    registerClientRef: (key: string, ref: HTMLDivElement | null) => void;
   };
 }
