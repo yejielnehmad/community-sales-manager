@@ -1,9 +1,9 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { ClipboardList, Loader2, Search, X } from "lucide-react";
+import { ClipboardList, Loader2, Search, X, Ban } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -24,16 +24,20 @@ interface OrderFromDB {
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [clientMap, setClientMap] = useState<{ [key: string]: { name: string } }>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    setIsLoading(true);
+  const fetchOrders = useCallback(async (refresh = false) => {
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+    setError(null);
+    
     try {
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
@@ -44,7 +48,7 @@ const Orders = () => {
         throw ordersError;
       }
 
-      if (ordersData) {
+      if (ordersData && ordersData.length > 0) {
         const clientIds = [...new Set(ordersData.map(order => order.client_id))];
         const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
@@ -66,10 +70,12 @@ const Orders = () => {
         }
 
         const productIds = orderItemsData?.map(item => item.product_id) || [];
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('id, name')
-          .in('id', productIds);
+        const { data: productsData, error: productsError } = productIds.length > 0 
+          ? await supabase
+              .from('products')
+              .select('id, name')
+              .in('id', productIds)
+          : { data: [], error: null };
           
         if (productsError) {
           throw productsError;
@@ -137,9 +143,13 @@ const Orders = () => {
           
           setOrders(transformedOrders);
         }
+      } else {
+        // Si no hay órdenes, establecer un array vacío
+        setOrders([]);
       }
     } catch (error: any) {
       console.error("Error al cargar pedidos:", error);
+      setError(error.message || "Error al cargar pedidos");
       toast({
         title: "Error al cargar los pedidos",
         description: error.message || "Ha ocurrido un error al cargar los pedidos. Intente nuevamente.",
@@ -147,8 +157,13 @@ const Orders = () => {
       });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleOrderUpdate = (orderId: string, updates: Partial<Order>) => {
     setOrders(prevOrders => {
@@ -167,7 +182,11 @@ const Orders = () => {
   };
 
   const handleRefresh = () => {
-    fetchOrders();
+    fetchOrders(true);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
   };
 
   const filteredOrders = searchTerm
@@ -196,12 +215,14 @@ const Orders = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-8 rounded-full"
+                aria-label="Buscar"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               {searchTerm && (
                 <button 
-                  onClick={() => setSearchTerm("")}
+                  onClick={clearSearch}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpiar búsqueda"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -213,16 +234,32 @@ const Orders = () => {
               onClick={handleRefresh}
               className="rounded-full"
               title="Actualizar pedidos"
+              disabled={isRefreshing}
+              aria-label="Actualizar"
             >
-              <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <Loader2 className={`h-4 w-4 ${isRefreshing || isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
         <div>
           {isLoading ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+              <p className="text-muted-foreground text-sm">Cargando pedidos...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-lg">
+              <Ban className="h-8 w-8 text-destructive mb-2" />
+              <p className="text-muted-foreground text-sm">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={handleRefresh}
+              >
+                Reintentar
+              </Button>
             </div>
           ) : (
             <OrderCardList orders={filteredOrders} onOrderUpdate={handleOrderUpdate} />

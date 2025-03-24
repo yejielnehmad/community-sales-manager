@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash } from "lucide-react";
 import { Order } from "@/types";
 import { Switch } from "@/components/ui/switch";
 import { ProductItem } from "./ProductItem";
+import { Badge } from "@/components/ui/badge";
 
 interface ClientOrderCardProps {
   clientId: string;
@@ -59,9 +60,12 @@ export const ClientOrderCard = ({
   const paid = orders.reduce((sum, order) => sum + order.amountPaid, 0);
   const balance = total - paid;
   
+  // Calcular el porcentaje de pago (para la barra de progreso visual)
+  const paymentPercentage = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+  
   // Organizar productos por pedido
-  const getClientProducts = () => {
-    const productGroups: {[key: string]: {
+  const productGroups = useMemo(() => {
+    const groups: {[key: string]: {
       id?: string,
       name: string, 
       variant?: string, 
@@ -74,8 +78,8 @@ export const ClientOrderCard = ({
     orders.forEach(order => {
       order.items.forEach(item => {
         const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-        if (!productGroups[key]) {
-          productGroups[key] = {
+        if (!groups[key]) {
+          groups[key] = {
             id: item.id,
             name: item.name || 'Producto',
             variant: item.variant,
@@ -85,52 +89,56 @@ export const ClientOrderCard = ({
             orderId: order.id
           };
         }
-        productGroups[key].quantity += (item.quantity || 1);
-        productGroups[key].total = productGroups[key].price * productGroups[key].quantity;
+        groups[key].quantity += (item.quantity || 1);
+        groups[key].total = groups[key].price * groups[key].quantity;
       });
     });
     
-    return productGroups;
-  };
-
-  const productGroups = getClientProducts();
+    return groups;
+  }, [orders]);
+  
+  // Verificar si hay productos
+  const hasProducts = Object.keys(productGroups).length > 0;
   
   // Verificar si todos los productos están pagados
-  const areAllProductsPaid = () => {
+  const areAllProductsPaid = useMemo(() => {
     const products = Object.keys(productGroups);
     if (products.length === 0) return false;
     
     return products.every(key => productPaidStatus[key] === true);
-  };
+  }, [productGroups, productPaidStatus]);
   
   // Estado calculado para saber si todos los productos están pagados
-  const isPaid = areAllProductsPaid() || (paid >= total * 0.99);
+  const isPaid = areAllProductsPaid || (paid >= total * 0.99);
   
   // Manejar el cambio del switch principal con animación
   const handleMainSwitchChange = (checked: boolean) => {
-    setIsPaidAnimating(true);
-    handleToggleAllProducts(clientId, checked);
-    
-    // Desactivar la animación después de 500ms
-    setTimeout(() => {
-      setIsPaidAnimating(false);
-    }, 500);
+    if (hasProducts) {
+      setIsPaidAnimating(true);
+      handleToggleAllProducts(clientId, checked);
+      
+      // Desactivar la animación después de 500ms
+      setTimeout(() => {
+        setIsPaidAnimating(false);
+      }, 500);
+    }
   };
   
   return (
     <div 
-      className="relative rounded-xl overflow-hidden mb-3"
+      className="relative rounded-xl overflow-hidden mb-3 shadow-sm hover:shadow-md transition-shadow"
       data-client-id={clientId}
       ref={(ref) => registerClientRef(clientId, ref)}
     >
       {/* Botón de acción en el background con altura completa */}
       <div 
         className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden rounded-r-xl"
-        style={{ width: '55px' }}
+        style={{ width: '55px', zIndex: 1 }}
       >
         <button 
           className="client-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
           onClick={() => setClientToDelete(clientId)}
+          aria-label="Eliminar cliente"
         >
           <Trash className="h-5 w-5" />
         </button>
@@ -138,7 +146,7 @@ export const ClientOrderCard = ({
       
       {/* Contenido principal de la tarjeta del cliente */}
       <div 
-        className="border overflow-hidden transition-all duration-200 rounded-xl z-10 bg-background relative shadow-sm"
+        className="border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm"
         style={{ 
           transform: `translateX(${clientSwipeX}px)`,
           transition: 'transform 0.3s ease-out',
@@ -154,6 +162,11 @@ export const ClientOrderCard = ({
               <div className="flex items-center gap-2">
                 <div className="font-medium text-lg">
                   {clientName}
+                  {isPaid && (
+                    <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+                      Pagado
+                    </Badge>
+                  )}
                 </div>
               </div>
               
@@ -178,6 +191,14 @@ export const ClientOrderCard = ({
                 </div>
               </div>
             </div>
+            
+            {/* Barra de progreso de pago */}
+            <div className="h-1 w-full bg-gray-100">
+              <div 
+                className="h-1 bg-green-500 transition-all duration-500"
+                style={{ width: `${paymentPercentage}%` }}
+              />
+            </div>
           </CollapsibleTrigger>
           
           <CollapsibleContent>
@@ -192,39 +213,46 @@ export const ClientOrderCard = ({
                   <Switch
                     checked={isPaid}
                     onCheckedChange={handleMainSwitchChange}
-                    disabled={isSaving}
-                    className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isPaidAnimating ? 'animate-pulse' : ''}`}
+                    disabled={isSaving || !hasProducts}
+                    className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isPaidAnimating ? 'animate-pulse' : ''} ${!hasProducts ? 'opacity-50' : ''}`}
+                    aria-label={isPaid ? "Marcar todo como no pagado" : "Marcar todo como pagado"}
                   />
                 </div>
               </div>
               
-              <div className="bg-background rounded-lg divide-y divide-gray-100">
-                {Object.entries(productGroups).map(([key, product], index) => {
-                  const isPaid = productPaidStatus[key] || false;
-                  const swipeX = swipeStates[key] || 0;
-                  
-                  return (
-                    <ProductItem
-                      key={key}
-                      productKey={key}
-                      product={product}
-                      isPaid={isPaid}
-                      isLastItem={index === Object.keys(productGroups).length - 1}
-                      isFirstItem={index === 0}
-                      swipeX={swipeX}
-                      isSaving={isSaving}
-                      editingProduct={editingProduct}
-                      productQuantities={productQuantities}
-                      onDeleteProduct={deleteProduct}
-                      onEditProduct={handleEditProduct}
-                      onSaveProductChanges={saveProductChanges}
-                      onQuantityChange={handleQuantityChange}
-                      onToggleProductPaid={handleToggleProductPaid}
-                      registerRef={registerProductRef}
-                    />
-                  );
-                })}
-              </div>
+              {hasProducts ? (
+                <div className="bg-background rounded-lg divide-y divide-gray-100">
+                  {Object.entries(productGroups).map(([key, product], index) => {
+                    const isPaid = productPaidStatus[key] || false;
+                    const swipeX = swipeStates[key] || 0;
+                    
+                    return (
+                      <ProductItem
+                        key={key}
+                        productKey={key}
+                        product={product}
+                        isPaid={isPaid}
+                        isLastItem={index === Object.keys(productGroups).length - 1}
+                        isFirstItem={index === 0}
+                        swipeX={swipeX}
+                        isSaving={isSaving}
+                        editingProduct={editingProduct}
+                        productQuantities={productQuantities}
+                        onDeleteProduct={deleteProduct}
+                        onEditProduct={handleEditProduct}
+                        onSaveProductChanges={saveProductChanges}
+                        onQuantityChange={handleQuantityChange}
+                        onToggleProductPaid={handleToggleProductPaid}
+                        registerRef={registerProductRef}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-background rounded-lg p-4 text-center text-muted-foreground text-sm">
+                  No hay productos registrados para este cliente
+                </div>
+              )}
               
               <div className="mt-3 flex justify-end items-center">
                 <div className="text-sm font-medium">

@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,7 @@ export const ProductItem = ({
 }: ProductItemProps) => {
   const isEditing = editingProduct === productKey;
   const [isAnimating, setIsAnimating] = useState(false);
+  const currentQuantity = productQuantities[productKey] || product.quantity;
   
   // Manejar el cambio del switch con animación
   const handleSwitchChange = (checked: boolean) => {
@@ -62,12 +63,22 @@ export const ProductItem = ({
       setIsAnimating(false);
     }, 500);
   };
+
+  // Restaurar el scroll cuando se abre el editor
+  useEffect(() => {
+    if (isEditing) {
+      window.scrollTo({
+        top: window.scrollY,
+        behavior: 'smooth'
+      });
+    }
+  }, [isEditing]);
   
   return (
     <div 
       key={productKey} 
       data-product-key={productKey}
-      className="relative overflow-hidden"
+      className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-90' : 'opacity-100'}`}
       style={{ 
         minHeight: isEditing ? '120px' : '74px',
         borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
@@ -75,10 +86,11 @@ export const ProductItem = ({
       ref={(ref) => registerRef(productKey, ref)}
     >
       <div 
-        className="absolute inset-y-0 right-0 flex items-stretch h-full z-0 overflow-hidden"
+        className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
         style={{ 
           width: '70px',
-          borderRadius: isLastItem ? '0 0 0.5rem 0' : '0'
+          borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
+          zIndex: 1
         }}
       >
         <div className="flex-1 flex items-stretch h-full">
@@ -86,6 +98,7 @@ export const ProductItem = ({
             className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
             onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
             disabled={isSaving || isPaid}
+            aria-label="Editar producto"
           >
             <Edit className="h-5 w-5" />
           </button>
@@ -95,6 +108,7 @@ export const ProductItem = ({
             className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
             onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
             disabled={isSaving}
+            aria-label="Eliminar producto"
           >
             <Trash className="h-5 w-5" />
           </button>
@@ -110,7 +124,7 @@ export const ProductItem = ({
           transition: 'transform 0.3s ease-out',
           height: '100%',
           position: 'relative',
-          zIndex: swipeX === 0 && !isEditing ? 10 : 5,
+          zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
           borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
         }}
       >
@@ -135,24 +149,28 @@ export const ProductItem = ({
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 rounded-full"
-                  onClick={() => onQuantityChange(productKey, (productQuantities[productKey] || product.quantity) - 1)}
-                  disabled={isSaving || (productQuantities[productKey] || product.quantity) <= 1}
+                  onClick={() => onQuantityChange(productKey, currentQuantity - 1)}
+                  disabled={isSaving || currentQuantity <= 1}
+                  aria-label="Reducir cantidad"
                 >
                   <X className="h-3 w-3" />
                 </Button>
                 <Input
                   type="number"
-                  value={productQuantities[productKey] || product.quantity}
+                  value={currentQuantity}
                   onChange={(e) => onQuantityChange(productKey, parseInt(e.target.value) || 1)}
                   className="w-12 h-8 mx-1 text-center p-0"
                   disabled={isSaving}
+                  aria-label="Cantidad"
+                  min="1"
                 />
                 <Button 
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 rounded-full"
-                  onClick={() => onQuantityChange(productKey, (productQuantities[productKey] || product.quantity) + 1)}
+                  onClick={() => onQuantityChange(productKey, currentQuantity + 1)}
                   disabled={isSaving}
+                  aria-label="Aumentar cantidad"
                 >
                   <Check className="h-3 w-3" />
                 </Button>
@@ -216,6 +234,7 @@ export const ProductItem = ({
                 onCheckedChange={handleSwitchChange}
                 disabled={isSaving}
                 className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
+                aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
               />
             </div>
           </>
