@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Order } from "@/types";
 import { Switch } from "@/components/ui/switch";
 import { 
@@ -10,13 +9,11 @@ import {
 import { 
   ChevronDown, 
   ChevronUp, 
-  Edit,
-  Trash,
-  Loader2,
   DollarSign,
   ShoppingCart,
   Minus,
-  Plus
+  Plus,
+  Trash
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +43,10 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [productQuantities, setProductQuantities] = useState<{ [key: string]: number }>({});
   const [swipeStates, setSwipeStates] = useState<{ [key: string]: number }>({});
+  const [touchActive, setTouchActive] = useState<boolean>(false);
   const { toast } = useToast();
+  const touchStartXRef = useRef<number | null>(null);
+  const productItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
 
   // Agrupar pedidos por cliente
   const ordersByClient: { [clientId: string]: { client: string, orders: Order[] } } = {};
@@ -62,16 +62,21 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   });
 
   const toggleClient = (clientId: string) => {
-    setOpenClientId(openClientId === clientId ? null : clientId);
+    if (openClientId && openClientId !== clientId) {
+      setOpenClientId(null);
+      setTimeout(() => {
+        setOpenClientId(clientId);
+      }, 50);
+    } else {
+      setOpenClientId(openClientId === clientId ? null : clientId);
+    }
   };
 
   const handleTogglePaid = async (orderId: string, isPaid: boolean) => {
-    // Encontrar el pedido correspondiente
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
     
     try {
-      // Actualizar en la base de datos
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -82,7 +87,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       if (error) throw error;
       
-      // Si hay un callback para actualizar la UI
       if (onOrderUpdate) {
         onOrderUpdate(orderId, {
           amountPaid: isPaid ? order.total : 0,
@@ -90,7 +94,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         });
       }
       
-      // Mostrar toast si el pago está completo
       if (isPaid) {
         toast({
           title: "Pago completado",
@@ -113,7 +116,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       [productKey]: isPaid
     }));
     
-    // Aquí se podría implementar la lógica para actualizar el pago parcial
     toast({
       title: isPaid ? "Producto pagado" : "Producto marcado como no pagado",
       description: "Se ha actualizado el estado de pago del producto"
@@ -136,7 +138,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       ...clientProducts
     }));
     
-    // Actualizar los pedidos si están todos pagados
     if (isPaid) {
       clientOrders.forEach(order => {
         handleTogglePaid(order.id, true);
@@ -149,7 +150,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     
     setIsDeleting(true);
     try {
-      // Primero eliminar los items del pedido
       const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
@@ -157,7 +157,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       if (itemsError) throw itemsError;
       
-      // Luego eliminar el pedido
       const { error: orderError } = await supabase
         .from('orders')
         .delete()
@@ -165,13 +164,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (orderError) throw orderError;
       
-      // Actualizar la lista de pedidos y mostrar confirmación
       toast({
         title: "Pedido eliminado",
         description: "El pedido ha sido eliminado correctamente",
       });
       
-      // Cerrar el diálogo
       setOrderToDelete(null);
       
     } catch (error: any) {
@@ -185,10 +182,32 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
-  const handleProductSwipe = (productKey: string, value: number) => {
+  const handleProductSwipe = (productKey: string, deltaX: number) => {
+    if (!touchActive) return;
+    
+    let swipePosition = Math.min(0, deltaX);
+    
+    const threshold = -40;
+    if (swipePosition < threshold) {
+      swipePosition = -120;
+    }
+    
     setSwipeStates(prev => ({
       ...prev,
-      [productKey]: Math.max(-100, Math.min(0, value))
+      [productKey]: swipePosition
+    }));
+  };
+
+  const completeSwipeAnimation = (productKey: string) => {
+    const currentSwipe = swipeStates[productKey] || 0;
+    
+    const threshold = -20;
+    
+    const finalPosition = currentSwipe < threshold ? -120 : 0;
+    
+    setSwipeStates(prev => ({
+      ...prev,
+      [productKey]: finalPosition
     }));
   };
 
@@ -207,23 +226,40 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     });
   };
 
-  const saveProductChanges = (productKey: string, orderId: string) => {
-    // Aquí implementarías la lógica para guardar los cambios en la base de datos
-    toast({
-      title: "Producto actualizado",
-      description: `Cantidad actualizada a ${productQuantities[productKey]}`
-    });
-    setEditingProduct(null);
-    // Resetear el estado de deslizamiento
-    setSwipeStates(prev => ({
-      ...prev,
-      [productKey]: 0
-    }));
+  const saveProductChanges = async (productKey: string, orderId: string, itemId: string) => {
+    const newQuantity = productQuantities[productKey] || 1;
+    
+    try {
+      const { error } = await supabase
+        .from('order_items')
+        .update({ quantity: newQuantity })
+        .eq('id', itemId);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Producto actualizado",
+        description: `Cantidad actualizada a ${newQuantity}`
+      });
+      
+      setEditingProduct(null);
+      
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: 0
+      }));
+      
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al actualizar el producto",
+        variant: "destructive",
+      });
+    }
   };
 
   const deleteProduct = async (productKey: string, orderId: string, itemId: string) => {
     try {
-      // Eliminar el item del pedido
       const { error } = await supabase
         .from('order_items')
         .delete()
@@ -236,7 +272,10 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: "El producto ha sido eliminado del pedido"
       });
       
-      // Aquí deberías actualizar la UI para reflejar el cambio
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: 0
+      }));
       
     } catch (error: any) {
       toast({
@@ -247,6 +286,18 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
+  const closeAllSwipes = (exceptKey?: string) => {
+    setSwipeStates(prev => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach(key => {
+        if (key !== exceptKey) {
+          newState[key] = 0;
+        }
+      });
+      return newState;
+    });
+  };
+
   const getTotalClientBalance = (clientOrders: Order[]) => {
     const total = clientOrders.reduce((sum, order) => sum + order.total, 0);
     const paid = clientOrders.reduce((sum, order) => sum + order.amountPaid, 0);
@@ -255,61 +306,84 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
 
   const isClientFullyPaid = (clientOrders: Order[]) => {
     const { total, paid } = getTotalClientBalance(clientOrders);
-    return paid >= total * 0.99; // consideramos pagado si es 99% o más (por redondeos)
+    return paid >= total * 0.99;
   };
 
-  // Efecto para detectar eventos táctiles y de ratón
+  const registerProductRef = (key: string, ref: HTMLDivElement | null) => {
+    productItemRefs.current[key] = ref;
+  };
+
   useEffect(() => {
-    let dragStartX: number;
-    let currentProductKey: string | null = null;
-    
     const handleTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
-      const productItem = target.closest('[data-product-key]');
+      const productItem = target.closest('[data-product-key]') as HTMLElement;
+      
       if (productItem) {
-        dragStartX = e.touches[0].clientX;
-        currentProductKey = productItem.getAttribute('data-product-key');
+        const productKey = productItem.getAttribute('data-product-key');
+        if (productKey) {
+          touchStartXRef.current = e.touches[0].clientX;
+          setTouchActive(true);
+          
+          closeAllSwipes(productKey);
+        }
       }
     };
     
     const handleTouchMove = (e: TouchEvent) => {
-      if (currentProductKey) {
-        const deltaX = e.touches[0].clientX - dragStartX;
-        handleProductSwipe(currentProductKey, deltaX);
-      }
-    };
-    
-    const handleTouchEnd = () => {
-      if (currentProductKey) {
-        const currentSwipe = swipeStates[currentProductKey] || 0;
-        
-        // Si se deslizó lo suficiente, mantenerlo abierto, de lo contrario cerrar
-        if (currentSwipe < -40) {
-          setSwipeStates(prev => ({
-            ...prev,
-            [currentProductKey!]: -100
-          }));
-        } else {
-          setSwipeStates(prev => ({
-            ...prev,
-            [currentProductKey!]: 0
-          }));
+      if (!touchActive || touchStartXRef.current === null) return;
+      
+      const target = e.target as HTMLElement;
+      const productItem = target.closest('[data-product-key]') as HTMLElement;
+      
+      if (productItem) {
+        const productKey = productItem.getAttribute('data-product-key');
+        if (productKey) {
+          const currentX = e.touches[0].clientX;
+          const deltaX = currentX - touchStartXRef.current;
+          handleProductSwipe(productKey, deltaX);
         }
-        
-        currentProductKey = null;
       }
     };
     
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchActive) return;
+      
+      const target = e.target as HTMLElement;
+      const productItem = target.closest('[data-product-key]') as HTMLElement;
+      
+      if (productItem) {
+        const productKey = productItem.getAttribute('data-product-key');
+        if (productKey) {
+          completeSwipeAnimation(productKey);
+        }
+      }
+      
+      touchStartXRef.current = null;
+      setTouchActive(false);
+    };
+    
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const isActionButton = target.closest('.product-action-button');
+      const productItem = target.closest('[data-product-key]');
+      
+      if (!isActionButton && !productItem) {
+        closeAllSwipes();
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('click', handleDocumentClick);
     
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('click', handleDocumentClick);
     };
-  }, [swipeStates]);
+  }, [touchActive, swipeStates]);
 
   return (
     <div className="space-y-4">
@@ -364,7 +438,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                 
                 <CollapsibleContent>
                   <div className="bg-card/25 p-4">
-                    {/* Sección de productos con switch general */}
                     <div className="flex justify-between items-center mb-3">
                       <div className="font-medium text-sm flex items-center gap-2">
                         <ShoppingCart className="h-3.5 w-3.5 text-primary" />
@@ -381,9 +454,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                     </div>
                     
                     <div className="space-y-1 bg-background rounded-lg p-2">
-                      {/* Combinamos todos los productos de todos los pedidos */}
                       {(() => {
-                        // Agrupar productos por nombre y variante
                         const productGroups: {[key: string]: {
                           id?: string,
                           name: string, 
@@ -422,28 +493,40 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                             <div 
                               key={key} 
                               data-product-key={key}
-                              className="relative overflow-hidden rounded-sm"
+                              className="relative overflow-hidden rounded-md mb-1"
+                              ref={(ref) => registerProductRef(key, ref)}
                             >
-                              {/* Acciones de edición en el fondo */}
-                              <div className="absolute inset-y-0 right-0 flex items-center bg-primary text-primary-foreground">
-                                <button 
-                                  className="h-full px-4 bg-primary text-primary-foreground flex items-center justify-center"
-                                  onClick={() => handleEditProduct(key, product.quantity)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                                <button 
-                                  className="h-full px-4 bg-destructive text-destructive-foreground flex items-center justify-center"
-                                  onClick={() => deleteProduct(key, product.orderId, product.id || '')}
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </button>
+                              <div 
+                                className="absolute inset-y-0 right-0 flex items-stretch h-full"
+                                style={{ width: '120px' }}
+                              >
+                                <div className="flex-1 flex items-stretch">
+                                  <button 
+                                    className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
+                                    onClick={() => handleEditProduct(key, product.quantity)}
+                                  >
+                                    <div className="flex flex-col items-center">
+                                      <Minus className="h-4 w-4 mb-1" />
+                                      <Plus className="h-4 w-4" />
+                                    </div>
+                                  </button>
+                                </div>
+                                <div className="flex-1 flex items-stretch">
+                                  <button 
+                                    className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
+                                    onClick={() => deleteProduct(key, product.orderId, product.id || '')}
+                                  >
+                                    <Trash className="h-5 w-5" />
+                                  </button>
+                                </div>
                               </div>
                               
-                              {/* Contenido del producto */}
                               <div 
-                                className="flex justify-between items-center p-2 border-b bg-card transition-transform duration-150 ease-out"
-                                style={{ transform: `translateX(${swipeX}px)` }}
+                                className={`flex justify-between items-center p-3 border-b bg-card shadow-sm transition-transform duration-200 ${isEditing ? 'bg-muted/10' : ''}`}
+                                style={{ 
+                                  transform: `translateX(${swipeX}px)`,
+                                  borderRadius: '4px'
+                                }}
                               >
                                 {isEditing ? (
                                   <div className="flex-1 flex items-center gap-2">
@@ -483,7 +566,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                       variant="default" 
                                       size="sm" 
                                       className="h-6 text-xs ml-2"
-                                      onClick={() => saveProductChanges(key, product.orderId)}
+                                      onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
                                     >
                                       Guardar
                                     </Button>
@@ -497,11 +580,16 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                           {product.variant}
                                         </div>
                                       )}
-                                      <div className="text-xs text-muted-foreground">
-                                        {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'} - ${product.total.toFixed(2)}
+                                      <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                                        <div>
+                                          {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
+                                        </div>
+                                        <div className="font-medium text-foreground">
+                                          ${product.total.toFixed(2)}
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 ml-2">
                                       <Switch
                                         checked={isPaid}
                                         onCheckedChange={(checked) => 
@@ -541,7 +629,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         </div>
       )}
       
-      {/* Diálogo de confirmación para eliminar pedido */}
       <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -557,7 +644,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Eliminar'}
+              {isDeleting ? <span className="animate-pulse">Eliminando...</span> : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
