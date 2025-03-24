@@ -56,11 +56,9 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     const initialPaidStatus: { [key: string]: boolean } = {};
     
     orders.forEach(order => {
-      const isPaid = order.amountPaid >= order.total * 0.99;
-      
       order.items.forEach(item => {
         const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-        initialPaidStatus[key] = isPaid;
+        initialPaidStatus[key] = item.is_paid === true;
       });
     });
     
@@ -132,7 +130,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       if (error) throw error;
       
       // También debemos actualizar el estado del item específico en la tabla order_items
-      // para que el dashboard pueda mostrar el estado correcto
       const { error: itemError } = await supabase
         .from('order_items')
         .update({
@@ -359,81 +356,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       }));
     }
   };
-
-  // Gestión de deslizamientos táctiles
-  const handleProductSwipe = useCallback((productKey: string, deltaX: number) => {
-    if (!touchActive) return;
-    
-    // Limitando el movimiento a -70px como máximo
-    let swipePosition = Math.max(-70, Math.min(0, deltaX));
-    
-    // Umbral de activación optimizado
-    const threshold = -20;
-    if (swipePosition < threshold) {
-      swipePosition = -70;
-    }
-    
-    setSwipeStates(prev => ({
-      ...prev,
-      [productKey]: swipePosition
-    }));
-  }, [touchActive]);
-
-  const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
-    if (!clientTouchActive) return;
-    
-    // Limitando el movimiento a -55px como máximo
-    let swipePosition = Math.max(-55, Math.min(0, deltaX));
-    
-    // Umbral de activación optimizado
-    const threshold = -20;
-    if (swipePosition < threshold) {
-      swipePosition = -55;
-    }
-    
-    setClientSwipeStates(prev => ({
-      ...prev,
-      [clientId]: swipePosition
-    }));
-  }, [clientTouchActive]);
-
-  const completeSwipeAnimation = useCallback((productKey: string) => {
-    const currentSwipe = swipeStates[productKey] || 0;
-    
-    const threshold = -20;
-    
-    if (currentSwipe < threshold) {
-      setSwipeStates(prev => ({
-        ...prev,
-        [productKey]: -70
-      }));
-    } else {
-      // Asegurarse de que la tarjeta vuelva a su posición original
-      setSwipeStates(prev => ({
-        ...prev,
-        [productKey]: 0
-      }));
-    }
-  }, [swipeStates]);
-
-  const completeClientSwipeAnimation = useCallback((clientId: string) => {
-    const currentSwipe = clientSwipeStates[clientId] || 0;
-    
-    const threshold = -20;
-    
-    if (currentSwipe < threshold) {
-      setClientSwipeStates(prev => ({
-        ...prev,
-        [clientId]: -55
-      }));
-    } else {
-      // Asegurarse de que la tarjeta vuelva a su posición original
-      setClientSwipeStates(prev => ({
-        ...prev,
-        [clientId]: 0
-      }));
-    }
-  }, [clientSwipeStates]);
 
   const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
     // No permitir editar productos pagados
@@ -676,7 +598,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     clientItemRefs.current[key] = ref;
   };
 
-  // Verificar si un cliente tiene productos en sus pedidos
   const clientHasProducts = (clientId: string) => {
     const clientData = ordersByClient[clientId];
     if (!clientData) return false;
@@ -685,7 +606,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     return clientData.orders.some(order => order.items && order.items.length > 0);
   };
 
-  // Gestión de eventos táctiles
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement;

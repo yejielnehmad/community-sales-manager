@@ -96,16 +96,13 @@ const ProductDetails = () => {
           const details: OrderDetail[] = orderItems.map(item => {
             const order = orders.find(o => o.id === item.order_id);
             const client = clients?.find(c => c.id === order?.client_id);
-            // Usar el valor is_paid del item si existe, de lo contrario calcular basado en el monto pagado del pedido
-            const isPaid = item.is_paid !== undefined ? item.is_paid : 
-                           (order ? Number(order.amount_paid) >= Number(order.total) : false);
             
             return {
               id: item.id,
               orderId: item.order_id,
               clientName: client?.name || 'Cliente desconocido',
               quantity: Number(item.quantity),
-              isPaid: isPaid,
+              isPaid: item.is_paid === true,
               balance: order?.balance || 0
             };
           });

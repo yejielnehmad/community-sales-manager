@@ -15,6 +15,7 @@ export interface MessageItem {
   price?: number;
   total?: number;
   id?: string;
+  is_paid?: boolean;
 }
 
 export interface MessageAlternative {
