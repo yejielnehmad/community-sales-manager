@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash } from "lucide-react";
 import { Order } from "@/types";
@@ -51,12 +51,14 @@ export const ClientOrderCard = ({
   registerClientRef,
   setClientToDelete
 }: ClientOrderCardProps) => {
+  // Estado local para controlar la animación del switch principal
+  const [isPaidAnimating, setIsPaidAnimating] = useState(false);
+  
   // Calcular el balance del cliente
   const total = orders.reduce((sum, order) => sum + order.total, 0);
   const paid = orders.reduce((sum, order) => sum + order.amountPaid, 0);
   const balance = total - paid;
-  const isPaid = paid >= total * 0.99;
-
+  
   // Organizar productos por pedido
   const getClientProducts = () => {
     const productGroups: {[key: string]: {
@@ -92,6 +94,28 @@ export const ClientOrderCard = ({
   };
 
   const productGroups = getClientProducts();
+  
+  // Verificar si todos los productos están pagados
+  const areAllProductsPaid = () => {
+    const products = Object.keys(productGroups);
+    if (products.length === 0) return false;
+    
+    return products.every(key => productPaidStatus[key] === true);
+  };
+  
+  // Estado calculado para saber si todos los productos están pagados
+  const isPaid = areAllProductsPaid() || (paid >= total * 0.99);
+  
+  // Manejar el cambio del switch principal con animación
+  const handleMainSwitchChange = (checked: boolean) => {
+    setIsPaidAnimating(true);
+    handleToggleAllProducts(clientId, checked);
+    
+    // Desactivar la animación después de 500ms
+    setTimeout(() => {
+      setIsPaidAnimating(false);
+    }, 500);
+  };
   
   return (
     <div 
@@ -167,9 +191,9 @@ export const ClientOrderCard = ({
                   <span className="text-xs text-muted-foreground">Marcar todo como pagado</span>
                   <Switch
                     checked={isPaid}
-                    onCheckedChange={(checked) => handleToggleAllProducts(clientId, checked)}
+                    onCheckedChange={handleMainSwitchChange}
                     disabled={isSaving}
-                    className="data-[state=checked]:bg-green-500 h-4 w-7"
+                    className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isPaidAnimating ? 'animate-pulse' : ''}`}
                   />
                 </div>
               </div>

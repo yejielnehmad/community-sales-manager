@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,18 @@ export const ProductItem = ({
   registerRef
 }: ProductItemProps) => {
   const isEditing = editingProduct === productKey;
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Manejar el cambio del switch con animación
+  const handleSwitchChange = (checked: boolean) => {
+    setIsAnimating(true);
+    onToggleProductPaid(productKey, product.orderId, product.id || '', checked);
+    
+    // Desactivar la animación después de 500ms
+    setTimeout(() => {
+      setIsAnimating(false);
+    }, 500);
+  };
   
   return (
     <div 
@@ -90,7 +103,8 @@ export const ProductItem = ({
       
       <div 
         className={`flex justify-between items-center p-4 transition-transform bg-card 
-                  ${isEditing ? 'border-primary/30 bg-primary/5' : ''}`}
+                  ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
+                  ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
         style={{ 
           transform: `translateX(${isEditing ? 0 : swipeX}px)`,
           transition: 'transform 0.3s ease-out',
@@ -175,14 +189,14 @@ export const ProductItem = ({
           <>
             <div className="flex-1">
               <div className="font-medium text-sm flex items-center gap-2">
-                <div className="bg-primary/10 p-1 rounded-full">
-                  <Package className="h-3 w-3 text-primary" />
+                <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
+                  <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
                 </div>
                 {product.name}
               </div>
               {product.variant && (
                 <div className="text-xs text-muted-foreground mt-1">
-                  <Badge variant="outline" className="font-normal">
+                  <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
                     {product.variant}
                   </Badge>
                 </div>
@@ -191,7 +205,7 @@ export const ProductItem = ({
                 <div>
                   {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
                 </div>
-                <div className="font-medium text-foreground">
+                <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
                   ${product.total.toFixed(2)}
                 </div>
               </div>
@@ -199,11 +213,9 @@ export const ProductItem = ({
             <div className="flex items-center gap-3 ml-2">
               <Switch
                 checked={isPaid}
-                onCheckedChange={(checked) => 
-                  onToggleProductPaid(productKey, product.orderId, product.id || '', checked)
-                }
+                onCheckedChange={handleSwitchChange}
                 disabled={isSaving}
-                className="data-[state=checked]:bg-green-500 h-4 w-7"
+                className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
               />
             </div>
           </>
