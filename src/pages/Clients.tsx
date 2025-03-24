@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
@@ -9,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { supabase } from "@/lib/supabase";
 import { Client } from "@/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, User, ChevronDown, ChevronUp, Edit, Trash, Loader2, Phone } from "lucide-react";
+import { Plus, User, ChevronDown, ChevronUp, Edit, Trash, Loader2, Phone, Search, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ClientFormValues = {
@@ -19,6 +18,7 @@ type ClientFormValues = {
 
 const Clients = () => {
   const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -26,6 +26,8 @@ const Clients = () => {
   const [openCollapsibles, setOpenCollapsibles] = useState<{[key: string]: boolean}>({});
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   
   const form = useForm<ClientFormValues>({
     defaultValues: {
@@ -59,6 +61,7 @@ const Clients = () => {
       }));
       
       setClients(formattedClients);
+      setFilteredClients(formattedClients);
     } catch (error) {
       console.error('Error al cargar clientes:', error);
       alert('Error al cargar los clientes');
@@ -70,6 +73,18 @@ const Clients = () => {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      const filtered = clients.filter(client => 
+        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client.phone && client.phone.includes(searchTerm))
+      );
+      setFilteredClients(filtered);
+    } else {
+      setFilteredClients(clients);
+    }
+  }, [searchTerm, clients]);
 
   const handleCreateClient = async (values: ClientFormValues) => {
     setIsSaving(true);
@@ -160,6 +175,13 @@ const Clients = () => {
     }));
   };
 
+  const toggleSearch = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchTerm("");
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-4">
@@ -169,10 +191,38 @@ const Clients = () => {
             <p className="text-muted-foreground">Gestiona tus clientes</p>
           </div>
           
-          <Button onClick={openAddClientDialog} className="rounded-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Cliente
-          </Button>
+          <div className="flex items-center gap-2">
+            {showSearch && (
+              <div className="relative">
+                <Input
+                  placeholder="Buscar cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-[220px] pr-8 rounded-full"
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
+            <Button 
+              size="icon"
+              variant="outline"
+              className="rounded-full"
+              onClick={toggleSearch}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button onClick={openAddClientDialog} className="rounded-lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Agregar
+            </Button>
+          </div>
         </div>
         
         <div className="space-y-2">
@@ -180,8 +230,8 @@ const Clients = () => {
             <div className="flex justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : clients.length > 0 ? (
-            clients.map(client => (
+          ) : filteredClients.length > 0 ? (
+            filteredClients.map(client => (
               <Collapsible
                 key={client.id}
                 open={openCollapsibles[client.id]}
@@ -246,7 +296,11 @@ const Clients = () => {
             ))
           ) : (
             <div className="text-center p-8 bg-muted/20 rounded-lg">
-              <p>No hay clientes registrados</p>
+              {searchTerm ? (
+                <p>No se encontraron clientes que coincidan con "{searchTerm}"</p>
+              ) : (
+                <p>No hay clientes registrados</p>
+              )}
             </div>
           )}
         </div>

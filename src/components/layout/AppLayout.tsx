@@ -1,21 +1,8 @@
+
 import { Sidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileAppLayout } from "@/components/layout/MobileAppLayout";
-import { APP_VERSION } from "@/App";
 import { IAInfoPopover } from "@/components/IAInfoPopover";
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose
-} from "@/components/ui/dialog";
-import { InfoIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 export interface AppLayoutProps {
   children: React.ReactNode;
@@ -23,7 +10,6 @@ export interface AppLayoutProps {
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const isMobile = useIsMobile();
-  const [showVersionInfo, setShowVersionInfo] = useState(false);
 
   if (isMobile) {
     return <MobileAppLayout>{children}</MobileAppLayout>;
@@ -33,115 +19,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     <div className="h-screen flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <div className="p-4 h-14 border-b flex items-center justify-between">
-          <div className="text-sm font-medium flex items-center gap-2">
-            <Dialog open={showVersionInfo} onOpenChange={setShowVersionInfo}>
-              <DialogTrigger asChild>
-                <button 
-                  className="text-primary hover:underline cursor-pointer flex items-center"
-                  aria-label="Ver información de versión"
-                >
-                  Versión <span className="ml-1 font-bold">{APP_VERSION}</span>
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Novedades de la versión {APP_VERSION}</DialogTitle>
-                  <DialogDescription>
-                    Descubre todas las mejoras y actualizaciones recientes.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div className="border-l-4 border-primary pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.8</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Mejora de accesibilidad en dispositivos móviles</li>
-                      <li>Solución a problemas de interacción en pantallas táctiles</li>
-                      <li>Optimización de diálogos informativos</li>
-                      <li>Corrección de errores de visualización</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.7</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Corrección de error en el asistente de IA</li>
-                      <li>Mejora en la integración con la base de datos</li>
-                      <li>Optimización del rendimiento del asistente</li>
-                      <li>Estabilización de la aplicación</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.6</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Mejora en el acceso a las capacidades de IA desde el ícono del indicador</li>
-                      <li>Eliminación de mensajes predefinidos en favor de generación por IA</li>
-                      <li>Asistente de IA con acceso completo a datos de la aplicación</li>
-                      <li>Panel detallado de información de la IA</li>
-                      <li>Corrección de visualización de información de versiones</li>
-                      <li>Mejoras en la interfaz de usuario</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.5</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Mejoras en interfaz de usuario de productos</li>
-                      <li>Nueva funcionalidad para eliminar pedidos</li>
-                      <li>Barra de progreso animada al procesar mensajes</li>
-                      <li>Información detallada sobre capacidades de IA</li>
-                      <li>Mejor integración con API de Google Gemini</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.4</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Corrección de errores de estabilidad</li>
-                      <li>Mejoras en la visualización de datos</li>
-                      <li>Optimización de rendimiento general</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.3</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Corrección de errores de estabilidad y rendimiento</li>
-                      <li>Información detallada sobre capacidades de IA</li>
-                      <li>Mejora en visualización de productos</li>
-                      <li>Eliminación de pedidos</li>
-                      <li>Optimización de la experiencia de usuario</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.2</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Generación de iconos para productos</li>
-                      <li>Mejoras en el análisis de mensajes</li>
-                      <li>Ejemplos de pedidos basados en datos reales</li>
-                      <li>Barra de progreso para análisis de mensajes</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="border-l-4 border-muted pl-4 py-2">
-                    <h3 className="font-medium">Versión 1.0.1</h3>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-                      <li>Lanzamiento inicial de la aplicación</li>
-                      <li>Funcionalidades básicas de gestión</li>
-                      <li>Integración con IA para procesamiento de mensajes</li>
-                    </ul>
-                  </div>
-                </div>
-                <DialogFooter className="mt-4">
-                  <DialogClose asChild>
-                    <Button variant="outline">Cerrar</Button>
-                  </DialogClose>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+        <div className="p-4 h-14 border-b flex items-center justify-end">
           <IAInfoPopover />
         </div>
         <div className="flex-1 p-6 overflow-auto">{children}</div>

@@ -1,12 +1,10 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { Link } from "react-router-dom";
-import { Wand, ClipboardList, Loader2, User, Search, X } from "lucide-react";
+import { ClipboardList, Loader2, User, Search, X } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
 import { Input } from "@/components/ui/input";
 
@@ -36,7 +34,6 @@ const Orders = () => {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      // Obtener pedidos con sus items
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
@@ -46,7 +43,6 @@ const Orders = () => {
         throw ordersError;
       }
 
-      // Fetch client names for each order
       if (ordersData) {
         const clientIds = [...new Set(ordersData.map(order => order.client_id))];
         const { data: clientsData, error: clientsError } = await supabase
@@ -58,7 +54,6 @@ const Orders = () => {
           throw clientsError;
         }
 
-        // Get order items
         const orderIds = ordersData.map(order => order.id);
         const { data: orderItemsData, error: orderItemsError } = await supabase
           .from('order_items')
@@ -69,7 +64,6 @@ const Orders = () => {
           throw orderItemsError;
         }
 
-        // También obtenemos los productos para mostrar nombres en lugar de IDs
         const productIds = orderItemsData?.map(item => item.product_id) || [];
         const { data: productsData, error: productsError } = await supabase
           .from('products')
@@ -80,7 +74,6 @@ const Orders = () => {
           throw productsError;
         }
         
-        // Y las variantes
         const variantIds = orderItemsData?.filter(item => item.variant_id).map(item => item.variant_id) || [];
         let variantsData = [];
         
@@ -97,7 +90,6 @@ const Orders = () => {
           variantsData = variants || [];
         }
 
-        // Crear mapas para productos y variantes
         const productMap: { [key: string]: string } = {};
         productsData?.forEach(product => {
           productMap[product.id] = product.name;
@@ -108,7 +100,6 @@ const Orders = () => {
           variantMap[variant.id] = variant.name;
         });
 
-        // Create map of order items by order ID
         const orderItemsMap: { [key: string]: any[] } = {};
         if (orderItemsData) {
           orderItemsData.forEach(item => {
@@ -116,7 +107,6 @@ const Orders = () => {
               orderItemsMap[item.order_id] = [];
             }
             
-            // Enriquecer los items con nombres de productos y variantes
             orderItemsMap[item.order_id].push({
               ...item,
               name: productMap[item.product_id] || `Producto`,
@@ -132,7 +122,6 @@ const Orders = () => {
           });
           setClientMap(clientMap);
           
-          // Transformar los datos al formato requerido por la interfaz Order
           const transformedOrders: Order[] = ordersData.map((order: OrderFromDB) => ({
             id: order.id,
             clientId: order.client_id,
@@ -171,7 +160,6 @@ const Orders = () => {
     }
   };
 
-  // Filtrar órdenes basado en el término de búsqueda
   const filteredOrders = searchTerm
     ? orders.filter(order => 
         order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -191,62 +179,39 @@ const Orders = () => {
               <ClipboardList className="h-7 w-7 text-primary" />
               Pedidos
             </h1>
-            <p className="text-muted-foreground">Administra los pedidos de tus clientes</p>
           </div>
           <div className="flex items-center gap-2">
+            {showSearch && (
+              <div className="relative">
+                <Input
+                  placeholder="Buscar por cliente o producto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-[250px] pr-8 rounded-full"
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
             <Button
+              size="icon"
               variant="outline"
-              size="sm"
+              className="rounded-full"
               onClick={toggleSearch}
-              className="flex items-center gap-1"
             >
               <Search className="h-4 w-4" />
-              {showSearch ? "Ocultar" : "Buscar"}
-            </Button>
-            <Button asChild className="flex items-center gap-2">
-              <Link to="/magic-order">
-                <Wand className="h-4 w-4" />
-                <span>Mensaje Mágico</span>
-              </Link>
             </Button>
           </div>
         </div>
 
-        {showSearch && (
-          <div className="relative">
-            <Input
-              placeholder="Buscar por cliente o producto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10"
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                onClick={() => setSearchTerm("")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-
         <Card className="rounded-xl shadow-sm overflow-hidden">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              Pedidos por Cliente
-            </CardTitle>
-            <CardDescription>
-              {searchTerm 
-                ? `Resultados de búsqueda para "${searchTerm}"`
-                : "Pedidos agrupados por cliente. Haz clic en una tarjeta para ver detalles."
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-4">
             {isLoading ? (
               <div className="flex justify-center p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

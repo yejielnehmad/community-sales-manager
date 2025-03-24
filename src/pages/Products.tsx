@@ -14,9 +14,10 @@ import {
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Loader2, AlertTriangle, Search, X } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { Product, ProductCard } from "@/components/ProductCard";
+import { Input } from "@/components/ui/input";
 
 interface ProductFormData {
   name: string;
@@ -26,6 +27,7 @@ interface ProductFormData {
 
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -33,6 +35,8 @@ const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [deleteDependencies, setDeleteDependencies] = useState<{count: number, items: any[]}>({count: 0, items: []});
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -62,6 +66,7 @@ const Products = () => {
       );
 
       setProducts(productsWithVariants);
+      setFilteredProducts(productsWithVariants);
     } catch (error) {
       console.error("Error fetching products:", error);
       toast({
@@ -77,6 +82,21 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      const filtered = products.filter(product => 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.variants.some(variant => 
+          variant.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+      setFilteredProducts(filtered);
+    } else {
+      setFilteredProducts(products);
+    }
+  }, [searchTerm, products]);
 
   const handleOpenForm = (product?: Product) => {
     setSelectedProduct(product || null);
@@ -302,6 +322,13 @@ const Products = () => {
     }
   };
 
+  const toggleSearch = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchTerm("");
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -310,19 +337,47 @@ const Products = () => {
             <h1 className="text-3xl font-bold tracking-tight text-primary">Productos</h1>
             <p className="text-muted-foreground">Gestiona los productos disponibles para la venta</p>
           </div>
-          <Button onClick={() => handleOpenForm()} className="flex items-center gap-1">
-            <Plus className="h-4 w-4" />
-            Nuevo
-          </Button>
+          <div className="flex items-center gap-2">
+            {showSearch && (
+              <div className="relative">
+                <Input
+                  placeholder="Buscar producto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-[220px] pr-8 rounded-full"
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
+            <Button 
+              size="icon"
+              variant="outline"
+              className="rounded-full"
+              onClick={toggleSearch}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => handleOpenForm()} className="flex items-center gap-1">
+              <Plus className="h-4 w-4" />
+              Nuevo
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : products.length > 0 ? (
+        ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <ProductCard 
                 key={product.id} 
                 product={product} 
@@ -333,7 +388,11 @@ const Products = () => {
           </div>
         ) : (
           <div className="text-center py-12 border rounded-lg bg-muted/30">
-            <p className="text-muted-foreground">No hay productos registrados</p>
+            {searchTerm ? (
+              <p className="text-muted-foreground">No se encontraron productos que coincidan con "{searchTerm}"</p>
+            ) : (
+              <p className="text-muted-foreground">No hay productos registrados</p>
+            )}
             <Button 
               variant="outline" 
               className="mt-4"
