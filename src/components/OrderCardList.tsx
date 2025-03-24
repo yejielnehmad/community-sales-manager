@@ -441,6 +441,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         ...prev,
         [productKey]: -120
       }));
+    } else {
+      // Asegurarse de que la tarjeta vuelva a su posición original
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: 0
+      }));
     }
   };
 
@@ -453,6 +459,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       setClientSwipeStates(prev => ({
         ...prev,
         [clientId]: -80
+      }));
+    } else {
+      // Asegurarse de que la tarjeta vuelva a su posición original
+      setClientSwipeStates(prev => ({
+        ...prev,
+        [clientId]: 0
       }));
     }
   };
@@ -814,11 +826,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
           return (
             <div 
               key={clientId} 
-              className="relative rounded-xl"
-              style={{ overflow: 'hidden' }}
+              className="relative rounded-xl overflow-hidden"
               data-client-id={clientId}
               ref={(ref) => registerClientRef(clientId, ref)}
             >
+              {/* Botón de acción en el background con altura completa */}
               <div 
                 className="absolute inset-y-0 right-0 flex items-stretch h-full"
                 style={{ width: '80px' }}
@@ -831,12 +843,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                 </button>
               </div>
               
+              {/* Contenido principal de la tarjeta del cliente */}
               <div 
-                className="border overflow-hidden transition-all duration-200 rounded-xl"
+                className="border overflow-hidden transition-all duration-200 rounded-xl z-10 bg-background relative"
                 style={{ 
                   transform: `translateX(${clientSwipeX}px)`,
                   transition: 'transform 0.3s ease-out',
-                  height: '100%'
                 }}
               >
                 <Collapsible 
@@ -932,11 +944,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                               <div 
                                 key={key} 
                                 data-product-key={key}
-                                className="relative rounded-md mb-2"
-                                style={{ overflow: 'hidden' }}
+                                className="relative rounded-md mb-2 overflow-hidden"
+                                style={{ minHeight: isEditing ? '110px' : '70px' }}
                                 ref={(ref) => registerProductRef(key, ref)}
                               >
-                                {/* Botones de acción que se muestran al deslizar */}
+                                {/* Botones de acción que se muestran al deslizar - ahora con altura completa */}
                                 <div 
                                   className="absolute inset-y-0 right-0 flex items-stretch h-full"
                                   style={{ width: '120px' }}
@@ -961,19 +973,20 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                   </div>
                                 </div>
                                 
-                                {/* Contenido principal del producto */}
+                                {/* Contenido principal del producto - con fondo para cubrir botones */}
                                 <div 
-                                  className={`flex justify-between items-center p-3 bg-card shadow-sm transition-transform ${isEditing ? 'border border-primary/30 bg-primary/5' : 'border'}`}
+                                  className={`flex justify-between items-center p-3 transition-transform bg-card border shadow-sm ${isEditing ? 'border border-primary/30 bg-primary/5' : ''}`}
                                   style={{ 
                                     transform: `translateX(${isEditing ? 0 : swipeX}px)`,
                                     borderRadius: '4px',
                                     transition: 'transform 0.3s ease-out',
                                     height: '100%',
-                                    zIndex: 1
+                                    position: 'relative',
+                                    zIndex: 5
                                   }}
                                 >
                                   {isEditing ? (
-                                    <div className="flex-1 flex items-center gap-2">
+                                    <div className="flex-1 flex flex-col gap-3">
                                       <div className="flex-1">
                                         <div className="font-medium text-sm">{product.name}</div>
                                         {product.variant && (
@@ -982,56 +995,60 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                           </div>
                                         )}
                                       </div>
-                                      <div className="flex items-center">
-                                        <Button 
-                                          variant="outline" 
-                                          size="icon" 
-                                          className="h-8 w-8 rounded-full"
-                                          onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) - 1)}
-                                          disabled={isSaving || (productQuantities[key] || product.quantity) <= 1}
-                                        >
-                                          <Minus className="h-3 w-3" />
-                                        </Button>
-                                        <Input
-                                          type="number"
-                                          value={productQuantities[key] || product.quantity}
-                                          onChange={(e) => handleQuantityChange(key, parseInt(e.target.value) || 1)}
-                                          className="w-12 h-8 mx-1 text-center p-0"
-                                          disabled={isSaving}
-                                        />
-                                        <Button 
-                                          variant="outline" 
-                                          size="icon" 
-                                          className="h-8 w-8 rounded-full"
-                                          onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) + 1)}
-                                          disabled={isSaving}
-                                        >
-                                          <Plus className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                      <div className="flex gap-1">
-                                        <Button 
-                                          variant="outline" 
-                                          size="icon" 
-                                          className="h-8 w-8 rounded-full"
-                                          onClick={() => setEditingProduct(null)}
-                                          disabled={isSaving}
-                                        >
-                                          <X className="h-4 w-4 text-red-500" />
-                                        </Button>
-                                        <Button 
-                                          variant="outline" 
-                                          size="icon" 
-                                          className="h-8 w-8 rounded-full"
-                                          onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
-                                          disabled={isSaving}
-                                        >
-                                          {isSaving ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (
-                                            <Check className="h-4 w-4 text-green-500" />
-                                          )}
-                                        </Button>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                          <Button 
+                                            variant="outline" 
+                                            size="icon" 
+                                            className="h-8 w-8 rounded-full"
+                                            onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) - 1)}
+                                            disabled={isSaving || (productQuantities[key] || product.quantity) <= 1}
+                                          >
+                                            <Minus className="h-3 w-3" />
+                                          </Button>
+                                          <Input
+                                            type="number"
+                                            value={productQuantities[key] || product.quantity}
+                                            onChange={(e) => handleQuantityChange(key, parseInt(e.target.value) || 1)}
+                                            className="w-12 h-8 mx-1 text-center p-0"
+                                            disabled={isSaving}
+                                          />
+                                          <Button 
+                                            variant="outline" 
+                                            size="icon" 
+                                            className="h-8 w-8 rounded-full"
+                                            onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) + 1)}
+                                            disabled={isSaving}
+                                          >
+                                            <Plus className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Button 
+                                            variant="outline" 
+                                            size="icon" 
+                                            className="h-8 w-8 rounded-full"
+                                            onClick={() => setEditingProduct(null)}
+                                            disabled={isSaving}
+                                            title="Cancelar"
+                                          >
+                                            <X className="h-4 w-4 text-red-500" />
+                                          </Button>
+                                          <Button 
+                                            variant="outline" 
+                                            size="icon" 
+                                            className="h-8 w-8 rounded-full"
+                                            onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
+                                            disabled={isSaving}
+                                            title="Guardar"
+                                          >
+                                            {isSaving ? (
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                              <Check className="h-4 w-4 text-green-500" />
+                                            )}
+                                          </Button>
+                                        </div>
                                       </div>
                                     </div>
                                   ) : (
