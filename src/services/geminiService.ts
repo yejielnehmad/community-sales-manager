@@ -230,6 +230,7 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
     }
 
     try {
+      // Intentar analizar el JSON
       const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
       console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
       
@@ -243,6 +244,22 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
       return parsedResult;
     } catch (parseError: any) {
       console.error("Error al analizar JSON:", parseError, "Texto recibido:", jsonText);
+      
+      // Intento de recuperación: usar una expresión regular para extraer la parte JSON válida
+      try {
+        // Buscar corchetes de apertura y cierre de array para extraer el JSON
+        const jsonMatch = jsonText.match(/\[\s*\{.*\}\s*\]/s);
+        if (jsonMatch) {
+          const extractedJson = jsonMatch[0];
+          console.log("Intentando recuperar JSON:", extractedJson.substring(0, 100) + "...");
+          const recoveredResult = JSON.parse(extractedJson) as MessageAnalysis[];
+          console.log("Recuperación exitosa. Pedidos identificados:", recoveredResult.length);
+          return recoveredResult;
+        }
+      } catch (recoveryError) {
+        console.error("Error en recuperación de JSON:", recoveryError);
+      }
+      
       throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
         apiResponse: jsonText
       });

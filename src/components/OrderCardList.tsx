@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,12 +62,10 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   };
 
   const handleTogglePaid = async (orderId: string, isPaid: boolean) => {
-    // Encontrar el pedido correspondiente
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
     
     try {
-      // Actualizar en la base de datos
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -79,7 +76,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       if (error) throw error;
       
-      // Si hay un callback para actualizar la UI
       if (onOrderUpdate) {
         onOrderUpdate(orderId, {
           amountPaid: isPaid ? order.total : 0,
@@ -87,7 +83,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         });
       }
       
-      // Mostrar toast si el pago está completo
       if (isPaid) {
         toast({
           title: "Pago completado",
@@ -109,7 +104,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     
     setIsDeleting(true);
     try {
-      // Primero eliminar los items del pedido
       const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
@@ -117,7 +111,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       if (itemsError) throw itemsError;
       
-      // Luego eliminar el pedido
       const { error: orderError } = await supabase
         .from('orders')
         .delete()
@@ -125,13 +118,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (orderError) throw orderError;
       
-      // Actualizar la lista de pedidos y mostrar confirmación
       toast({
         title: "Pedido eliminado",
         description: "El pedido ha sido eliminado correctamente",
       });
       
-      // Cerrar el diálogo
       setOrderToDelete(null);
       
     } catch (error: any) {
@@ -145,7 +136,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
-  // Agrupar pedidos por cliente
   const ordersByClient: { [clientId: string]: { client: string, orders: Order[] } } = {};
   
   orders.forEach(order => {
@@ -177,10 +167,9 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
 
   const isClientFullyPaid = (clientOrders: Order[]) => {
     const { total, paid } = getTotalClientBalance(clientOrders);
-    return paid >= total * 0.99; // consideramos pagado si es 99% o más (por redondeos)
+    return paid >= total * 0.99;
   };
 
-  // Filtrado de clientes por término de búsqueda
   const filteredClients = Object.entries(ordersByClient).filter(([_, { client }]) => 
     client.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -193,12 +182,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         </div>
         <Button 
           variant="outline" 
-          size="sm"
-          className="flex items-center gap-1"
+          size="icon"
+          className="rounded-full"
           onClick={() => setShowSearch(!showSearch)}
         >
           <Search className="h-4 w-4" />
-          {showSearch ? "Ocultar búsqueda" : "Buscar cliente"}
         </Button>
       </div>
       
@@ -362,7 +350,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         </div>
       )}
       
-      {/* Diálogo de confirmación para eliminar pedido */}
       <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
