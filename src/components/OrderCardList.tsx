@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Order } from "@/types";
+import { Order, OrderItem } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -38,7 +38,22 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const productItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const clientItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
 
-  // Organizar pedidos por cliente
+  const mapApiItemsToOrderItems = (apiItems: any[]): OrderItem[] => {
+    return apiItems.map(item => {
+      return {
+        id: item.id,
+        product_id: item.product_id,
+        name: item.name || "Producto",
+        variant: item.variant || "",
+        variant_id: item.variant_id || "",
+        quantity: item.quantity,
+        price: item.price,
+        total: item.total,
+        is_paid: item.is_paid
+      };
+    });
+  };
+
   const ordersByClient: { [clientId: string]: { client: string, orders: Order[] } } = {};
   
   orders.forEach(order => {
@@ -51,7 +66,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     ordersByClient[order.clientId].orders.push(order);
   });
 
-  // Inicializar el estado de pago de productos basado en órdenes
   useEffect(() => {
     const initialPaidStatus: { [key: string]: boolean } = {};
     
@@ -65,9 +79,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     setProductPaidStatus(initialPaidStatus);
   }, [orders]);
 
-  // Función para manejar el deslizamiento de productos
   const handleProductSwipe = useCallback((productKey: string, deltaX: number) => {
-    // Limitar el deslizamiento entre 0 y -140 (70px por cada botón)
     const newSwipeX = Math.max(-140, Math.min(0, deltaX));
     
     setSwipeStates(prev => ({
@@ -76,9 +88,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }));
   }, []);
 
-  // Función para manejar el deslizamiento de clientes
   const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
-    // Limitar el deslizamiento entre 0 y -70 (tamaño del botón de eliminar)
     const newSwipeX = Math.max(-70, Math.min(0, deltaX));
     
     setClientSwipeStates(prev => ({
@@ -87,18 +97,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }));
   }, []);
 
-  // Finalizar la animación del deslizamiento del producto
   const completeSwipeAnimation = useCallback((productKey: string) => {
     const currentSwipe = swipeStates[productKey] || 0;
     
-    // Si el deslizamiento es más de la mitad (-70), completar el deslizamiento
     if (currentSwipe < -70) {
       setSwipeStates(prev => ({
         ...prev,
         [productKey]: -140
       }));
     } 
-    // Si está entre 0 y la mitad, volver a 0
     else if (currentSwipe > -70 && currentSwipe < 0) {
       setSwipeStates(prev => ({
         ...prev,
@@ -107,18 +114,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   }, [swipeStates]);
 
-  // Finalizar la animación del deslizamiento del cliente
   const completeClientSwipeAnimation = useCallback((clientId: string) => {
     const currentSwipe = clientSwipeStates[clientId] || 0;
     
-    // Si el deslizamiento es más de la mitad (-35), completar el deslizamiento
     if (currentSwipe < -35) {
       setClientSwipeStates(prev => ({
         ...prev,
         [clientId]: -70
       }));
     } 
-    // Si está entre 0 y la mitad, volver a 0
     else if (currentSwipe > -35 && currentSwipe < 0) {
       setClientSwipeStates(prev => ({
         ...prev,
@@ -142,19 +146,16 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     try {
       setIsSaving(true);
       
-      // Primero actualizamos el estado local inmediatamente para UI responsiva
       setProductPaidStatus(prev => ({
         ...prev,
         [productKey]: isPaid
       }));
       
-      // Encontrar todos los productos para esta orden
       const order = orders.find(o => o.id === orderId);
       if (!order) {
         throw new Error("Pedido no encontrado");
       }
       
-      // Obtener el precio del producto que estamos cambiando
       const item = order.items.find(item => item.id === itemId);
       if (!item) {
         throw new Error("Producto no encontrado");
@@ -162,25 +163,21 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       const productTotal = item.price * item.quantity;
       
-      // Calcular el nuevo monto pagado basado en todos los productos marcados como pagados
       let newAmountPaid = 0;
       order.items.forEach(orderItem => {
-        const itemKey = `${orderItem.name || 'Producto'}_${orderItem.variant || ''}_${order.id}`;
-        // Si es el ítem actual, usar el nuevo estado; de lo contrario, usar el estado existente
-        const isItemPaid = itemKey === productKey 
+        const key = `${orderItem.name || 'Producto'}_${orderItem.variant || ''}_${order.id}`;
+        const isItemPaid = key === productKey 
           ? isPaid 
-          : (productPaidStatus[itemKey] || false);
+          : (productPaidStatus[key] || false);
         
         if (isItemPaid) {
           newAmountPaid += orderItem.price * orderItem.quantity;
         }
       });
       
-      // Redondear para evitar problemas de precisión
       newAmountPaid = Math.round(newAmountPaid * 100) / 100;
       const newBalance = Math.max(0, order.total - newAmountPaid);
       
-      // Actualizar en la base de datos
       const { error } = await supabase
         .from('orders')
         .update({
@@ -191,7 +188,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (error) throw error;
       
-      // También debemos actualizar el estado del item específico en la tabla order_items
       const { error: itemError } = await supabase
         .from('order_items')
         .update({
@@ -201,10 +197,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
       if (itemError) {
         console.error("Error al actualizar estado de pago del item:", itemError);
-        // No lanzar error aquí para no interrumpir el flujo principal
       }
       
-      // Actualizar el estado de la aplicación
       if (onOrderUpdate) {
         onOrderUpdate(orderId, {
           amountPaid: newAmountPaid,
@@ -225,7 +219,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         variant: "destructive",
       });
       
-      // Revertir cambio local en caso de error
       setProductPaidStatus(prev => ({
         ...prev,
         [productKey]: !isPaid
@@ -241,7 +234,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       const clientOrders = ordersByClient[clientId]?.orders || [];
       const clientProducts: { [key: string]: boolean } = {};
       
-      // Actualizar estado local primero para UI responsive
       clientOrders.forEach(order => {
         order.items.forEach(item => {
           const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
@@ -254,19 +246,16 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         ...clientProducts
       }));
       
-      // Actualizar cada pedido en la base de datos
       for (const order of clientOrders) {
-        // Primero, actualizar cada item del pedido
         for (const item of order.items) {
           const { error: itemError } = await supabase
             .from('order_items')
             .update({ is_paid: isPaid })
-            .eq('id', item.id || ''); // Asegúrate de que item.id no sea undefined
+            .eq('id', item.id || '');
             
           if (itemError) throw itemError;
         }
         
-        // Luego, recalcular el amount_paid y balance del pedido
         const newAmountPaid = isPaid ? order.total : 0;
         const newBalance = isPaid ? 0 : order.total;
         
@@ -301,7 +290,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         variant: "destructive",
       });
       
-      // Recargar para asegurar coherencia
       if (onOrderUpdate) {
         const clientOrders = ordersByClient[clientId]?.orders || [];
         for (const order of clientOrders) {
@@ -420,7 +408,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   };
 
   const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
-    // No permitir editar productos pagados
     if (isPaid) {
       toast({
         title: "Producto pagado",
@@ -430,7 +417,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       return;
     }
 
-    // Cerrar cualquier otro swipe abierto
     setSwipeStates(prev => {
       const newState = { ...prev };
       Object.keys(newState).forEach(key => {
@@ -509,7 +495,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
           total: updatedOrderData.total,
           amountPaid: updatedOrderData.amount_paid,
           balance: updatedOrderData.balance,
-          items: updatedItems || []
+          items: mapApiItemsToOrderItems(updatedItems || [])
         });
       }
       
@@ -523,7 +509,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     } finally {
       setIsSaving(false);
       setEditingProduct(null);
-      // Asegurarse de que la tarjeta vuelva a su posición original
       setSwipeStates(prev => {
         const newState = { ...prev };
         Object.keys(newState).forEach(key => {
@@ -610,7 +595,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
           total: updatedOrderData.total,
           amountPaid: updatedOrderData.amount_paid,
           balance: updatedOrderData.balance,
-          items: updatedItems || []
+          items: mapApiItemsToOrderItems(updatedItems || [])
         });
       }
       
@@ -664,7 +649,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     const clientData = ordersByClient[clientId];
     if (!clientData) return false;
     
-    // Verificar si hay al menos un pedido con al menos un producto
     return clientData.orders.some(order => order.items && order.items.length > 0);
   };
 
@@ -674,19 +658,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       const productItem = target.closest('[data-product-key]') as HTMLElement;
       const clientItem = target.closest('[data-client-id]') as HTMLElement;
       
-      // Cerrar cualquier panel de edición abierto
       if (editingProduct && (!productItem || productItem.getAttribute('data-product-key') !== editingProduct)) {
         setEditingProduct(null);
       }
       
       if (productItem) {
         const productKey = productItem.getAttribute('data-product-key');
-        // Verificar si el producto está pagado antes de permitir el swipe
         if (productKey) {
-          // Verificar si el producto está pagado
           const isPaid = productPaidStatus[productKey] || false;
-          
-          // Si está pagado, no permitir el swipe
           if (!isPaid) {
             touchStartXRef.current = e.touches[0].clientX;
             setTouchActive(true);
@@ -772,7 +751,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       const clientItem = target.closest('[data-client-id]');
       const editControls = target.closest('.edit-controls');
       
-      // No cerrar si se está haciendo clic en los controles de edición
       if (!isActionButton && !productItem && !clientItem && !editControls) {
         closeAllSwipes();
         setEditingProduct(null);
@@ -812,7 +790,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       <div className="space-y-3">
         {Object.entries(ordersByClient)
-          .filter(([clientId]) => clientHasProducts(clientId)) // Filtrar clientes sin productos
+          .filter(([clientId]) => clientHasProducts(clientId))
           .map(([clientId, { client, orders: clientOrders }]) => (
             <ClientOrderCard
               key={clientId}
