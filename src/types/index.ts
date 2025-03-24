@@ -127,6 +127,8 @@ export interface OrderItemState {
   isDeleting: boolean;
   productItemRefs: { [key: string]: HTMLDivElement | null };
   clientItemRefs: { [key: string]: HTMLDivElement | null };
+  touchEnabled?: boolean;
+  lastInteraction?: number;
 }
 
 export interface OrdersContextProps {

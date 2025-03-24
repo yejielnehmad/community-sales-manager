@@ -74,6 +74,41 @@ export const ProductItem = ({
     }
   }, [isEditing]);
   
+  // Función para manejar el inicio del deslizamiento con mouse
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isPaid) return; // No permitir deslizar elementos pagados
+    
+    const startX = e.clientX;
+    let currentX = startX;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      currentX = moveEvent.clientX;
+      const deltaX = currentX - startX;
+      
+      // Solo permitir deslizamiento hacia la izquierda
+      if (deltaX <= 0) {
+        actions.handleProductSwipe(productKey, deltaX);
+      }
+    };
+    
+    const handleMouseUp = () => {
+      const deltaX = currentX - startX;
+      
+      if (deltaX < -20) { // Umbral pequeño para activar la animación
+        actions.completeSwipeAnimation(productKey);
+      } else {
+        // Si el deslizamiento es muy pequeño, regresar a la posición inicial
+        actions.handleProductSwipe(productKey, 0);
+      }
+      
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+  
   return (
     <div 
       key={productKey} 
@@ -81,7 +116,8 @@ export const ProductItem = ({
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-90' : 'opacity-100'}`}
       style={{ 
         minHeight: isEditing ? '120px' : '74px',
-        borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
+        borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
+        touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
       ref={(ref) => actions.registerProductRef(productKey, ref)}
     >
@@ -116,7 +152,7 @@ export const ProductItem = ({
       </div>
       
       <div 
-        className={`flex justify-between items-center p-4 transition-transform bg-card 
+        className={`flex justify-between items-center p-4 transition-transform bg-card cursor-grab active:cursor-grabbing
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
         style={{ 
@@ -127,6 +163,7 @@ export const ProductItem = ({
           zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
           borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
         }}
+        onMouseDown={isPaid ? undefined : handleMouseDown}
       >
         {isEditing ? (
           <div className="flex-1 flex flex-col gap-3 w-full">

@@ -122,6 +122,39 @@ export const ClientOrderCard = ({
     }
   };
   
+  // Función para manejar el inicio del deslizamiento con mouse
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const startX = e.clientX;
+    let currentX = startX;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      currentX = moveEvent.clientX;
+      const deltaX = currentX - startX;
+      
+      // Solo permitir deslizamiento hacia la izquierda
+      if (deltaX <= 0) {
+        actions.handleClientSwipe(clientId, deltaX);
+      }
+    };
+    
+    const handleMouseUp = () => {
+      const deltaX = currentX - startX;
+      
+      if (deltaX < -20) { // Umbral pequeño para activar la animación
+        actions.completeClientSwipeAnimation(clientId);
+      } else {
+        // Si el deslizamiento es muy pequeño, regresar a la posición inicial
+        actions.handleClientSwipe(clientId, 0);
+      }
+      
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+  
   return (
     <div 
       className="relative rounded-xl overflow-hidden mb-3 shadow-sm hover:shadow-md transition-shadow"
@@ -131,7 +164,7 @@ export const ClientOrderCard = ({
       {/* Botón de acción en el background con altura completa */}
       <div 
         className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden rounded-r-xl"
-        style={{ width: '55px', zIndex: 1 }}
+        style={{ width: '70px', zIndex: 1 }}
       >
         <button 
           className="client-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
@@ -144,12 +177,14 @@ export const ClientOrderCard = ({
       
       {/* Contenido principal de la tarjeta del cliente */}
       <div 
-        className="border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm"
+        className="border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm cursor-grab active:cursor-grabbing"
         style={{ 
           transform: `translateX(${clientSwipeX}px)`,
           transition: 'transform 0.3s ease-out',
-          zIndex: clientSwipeX === 0 ? 10 : 5
+          zIndex: clientSwipeX === 0 ? 10 : 5,
+          touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
         }}
+        onMouseDown={handleMouseDown}
       >
         <Collapsible 
           open={openClientId === clientId} 
@@ -246,19 +281,10 @@ export const ClientOrderCard = ({
                   })}
                 </div>
               ) : (
-                <div className="bg-background rounded-lg p-4 text-center text-muted-foreground text-sm">
-                  No hay productos registrados para este cliente
+                <div className="bg-background rounded-lg p-4 text-center text-muted-foreground">
+                  No hay productos en este pedido
                 </div>
               )}
-              
-              <div className="mt-3 flex justify-end items-center">
-                <div className="text-sm font-medium">
-                  Total:
-                  <span className="ml-1">
-                    ${total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
