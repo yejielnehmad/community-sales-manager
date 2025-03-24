@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -29,10 +28,13 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     editingProduct: null,
     productQuantities: {},
     openClientId: null,
+    _pendingOpenClientId: null,
     orderToDelete: null,
     clientToDelete: null,
     isSaving: false,
-    isDeleting: false
+    isDeleting: false,
+    productItemRefs: {},
+    clientItemRefs: {}
   });
   
   // Referencias para el manejo táctil
