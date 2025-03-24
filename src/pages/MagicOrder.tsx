@@ -13,8 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clipboard,
-  Trash2,
-  Search
+  Trash2
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -39,9 +38,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 
-export const MAGIC_ORDER_VERSION = "1.1.0";
+export const MAGIC_ORDER_VERSION = "1.0.9";
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -51,8 +49,6 @@ const MagicOrder = () => {
   const [showGenerator, setShowGenerator] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
   const simulateProgress = () => {
@@ -305,16 +301,6 @@ const MagicOrder = () => {
     });
   };
 
-  const filteredOrders = searchTerm
-    ? orders.filter(order => 
-        order.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.items.some(item => 
-          item.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (item.variant?.name && item.variant.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-      )
-    : orders;
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -326,39 +312,8 @@ const MagicOrder = () => {
             </h1>
             <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-              onClick={() => setShowSearch(!showSearch)}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-            <div className="text-xs text-muted-foreground">v{MAGIC_ORDER_VERSION}</div>
-          </div>
+          <div className="text-xs text-muted-foreground">v{MAGIC_ORDER_VERSION}</div>
         </div>
-
-        {showSearch && (
-          <div className="relative">
-            <Input
-              placeholder="Buscar por cliente o producto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10"
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                onClick={() => setSearchTerm("")}
-              >
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
 
         <Collapsible
           open={showGenerator}
@@ -451,7 +406,7 @@ const MagicOrder = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <MessageSquareText className="h-5 w-5 text-primary" />
-                Pedidos Preliminares {filteredOrders.length !== orders.length && `(${filteredOrders.length}/${orders.length})`}
+                Pedidos Preliminares Identificados
               </h2>
               <Button 
                 variant="outline" 
@@ -464,33 +419,26 @@ const MagicOrder = () => {
             <Separator />
             
             <div className="space-y-2">
-              {filteredOrders.map((order, index) => {
-                const originalIndex = orders.findIndex(o => 
-                  o.client.id === order.client.id && 
-                  o.items.length === order.items.length
-                );
-                
-                return (
-                  <div key={index} className="relative">
-                    <OrderCard 
-                      order={order}
-                      onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
-                      onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
-                      isPreliminary={true}
-                    />
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => handleDeleteOrder(originalIndex)}
-                      disabled={order.status === 'saved'}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Eliminar
-                    </Button>
-                  </div>
-                );
-              })}
+              {orders.map((order, index) => (
+                <div key={index} className="relative">
+                  <OrderCard 
+                    order={order}
+                    onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
+                    onSave={async (orderToSave) => handleSaveOrder(index, orderToSave)}
+                    isPreliminary={true}
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => handleDeleteOrder(index)}
+                    disabled={order.status === 'saved'}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Eliminar
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
         )}
