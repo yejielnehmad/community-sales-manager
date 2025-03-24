@@ -11,16 +11,13 @@ import {
   ChevronDown, 
   ChevronUp, 
   CheckCircle, 
-  XCircle, 
-  Clock, 
-  ShoppingCart,
   Edit,
   Trash,
   Loader2,
-  Search,
   Check,
   X,
-  DollarSign
+  DollarSign,
+  ShoppingCart
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -35,7 +32,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -48,8 +44,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const [openClients, setOpenClients] = useState<{ [key: string]: boolean }>({});
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
+  const [productPaidStatus, setProductPaidStatus] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
   const toggleClient = (clientId: string) => {
@@ -99,6 +94,19 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         variant: "destructive",
       });
     }
+  };
+
+  const handleToggleProductPaid = (productKey: string, orderId: string, isPaid: boolean) => {
+    setProductPaidStatus(prev => ({
+      ...prev,
+      [productKey]: isPaid
+    }));
+    
+    // Aquí se podría implementar la lógica para actualizar el pago parcial
+    toast({
+      title: isPaid ? "Producto pagado" : "Producto marcado como no pagado",
+      description: "Se ha actualizado el estado de pago del producto"
+    });
   };
 
   const handleDeleteOrder = async () => {
@@ -155,17 +163,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     ordersByClient[order.clientId].orders.push(order);
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-500 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Completado</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-red-500 flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelado</Badge>;
-      default:
-        return <Badge className="bg-yellow-500 flex items-center gap-1"><Clock className="h-3 w-3" /> Pendiente</Badge>;
-    }
-  };
-
   const getTotalClientBalance = (clientOrders: Order[]) => {
     const total = clientOrders.reduce((sum, order) => sum + order.total, 0);
     const paid = clientOrders.reduce((sum, order) => sum + order.amountPaid, 0);
@@ -177,51 +174,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     return paid >= total * 0.99; // consideramos pagado si es 99% o más (por redondeos)
   };
 
-  // Filtrado de clientes por término de búsqueda
-  const filteredClients = Object.entries(ordersByClient).filter(([_, { client }]) => 
-    client.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-2">
-        <div className="text-sm text-muted-foreground">
-          {filteredClients.length} {filteredClients.length === 1 ? 'cliente' : 'clientes'} con pedidos
-        </div>
-        <Button 
-          variant="outline" 
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => setShowSearch(!showSearch)}
-        >
-          <Search className="h-4 w-4" />
-          {showSearch ? "Ocultar búsqueda" : "Buscar cliente"}
-        </Button>
+      <div className="text-sm text-muted-foreground mb-2">
+        {Object.keys(ordersByClient).length} {Object.keys(ordersByClient).length === 1 ? 'cliente' : 'clientes'} con pedidos
       </div>
       
-      {showSearch && (
-        <div className="mb-4 relative">
-          <Input
-            placeholder="Buscar cliente por nombre..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pr-10"
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8"
-              onClick={() => setSearchTerm("")}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      )}
-      
       <div className="space-y-3">
-        {filteredClients.map(([clientId, { client, orders: clientOrders }]) => {
+        {Object.entries(ordersByClient).map(([clientId, { client, orders: clientOrders }]) => {
           const { total, balance } = getTotalClientBalance(clientOrders);
           const isPaid = isClientFullyPaid(clientOrders);
           
@@ -236,27 +196,32 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
               >
                 <CollapsibleTrigger className="w-full text-left">
                   <div className="p-4 flex justify-between items-center bg-card hover:bg-muted/10">
-                    <div className="flex items-center gap-3">
-                      <div className="font-medium text-lg flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium text-lg">
                         {client}
                         {isPaid && (
-                          <Check className="h-4 w-4 text-green-500 bg-green-100 rounded-full p-0.5" />
+                          <Check className="inline-flex ml-1.5 h-4 w-4 text-green-500 bg-green-100 rounded-full p-0.5" />
                         )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="text-right flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        <div className="font-bold text-lg">
-                          ${total.toFixed(2)}
+                        <div className="font-medium">
+                          <span className={`${balance > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                            ${balance > 0 ? balance.toFixed(2) : '0.00'}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-1">
+                            /${total.toFixed(2)}
+                          </span>
                         </div>
                       </div>
-                      <div className="h-8 w-8 rounded-full flex items-center justify-center bg-muted/20">
+                      <div className="h-7 w-7 rounded-full flex items-center justify-center bg-muted/20">
                         {openClients[clientId] ? (
-                          <ChevronUp className="h-5 w-5" />
+                          <ChevronUp className="h-4 w-4" />
                         ) : (
-                          <ChevronDown className="h-5 w-5" />
+                          <ChevronDown className="h-4 w-4" />
                         )}
                       </div>
                     </div>
@@ -264,78 +229,113 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                 </CollapsibleTrigger>
                 
                 <CollapsibleContent>
-                  <div className="bg-card/25 divide-y">
-                    {clientOrders.map((order, orderIndex) => (
-                      <div key={order.id} className="p-4">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-background">
-                              {new Date(order.date).toLocaleDateString()}
-                            </Badge>
-                            {getStatusBadge(order.status)}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-sm font-medium">
-                              ${order.total.toFixed(2)}
-                            </div>
-                            <Switch
-                              checked={order.amountPaid >= order.total * 0.99}
-                              onCheckedChange={(checked) => handleTogglePaid(order.id, checked)}
-                              className="data-[state=checked]:bg-green-500"
-                            />
-                          </div>
-                        </div>
+                  <div className="bg-card/25 p-4">
+                    {/* Sección de productos condensada */}
+                    <div className="font-medium text-sm flex items-center gap-2 mb-3">
+                      <ShoppingCart className="h-3.5 w-3.5 text-primary" />
+                      Productos
+                    </div>
+                    
+                    <div className="space-y-2 bg-background rounded-lg p-3">
+                      {/* Combinamos todos los productos de todos los pedidos */}
+                      {(() => {
+                        // Agrupar productos por nombre y variante
+                        const productGroups: {[key: string]: {
+                          name: string, 
+                          variant?: string, 
+                          quantity: number,
+                          orderId: string
+                        }} = {};
                         
-                        <div className="space-y-3 mt-4">
-                          <div className="font-medium text-sm flex items-center gap-2 mb-2">
-                            <ShoppingCart className="h-3.5 w-3.5 text-primary" />
-                            Productos
-                          </div>
+                        clientOrders.forEach(order => {
+                          order.items.forEach(item => {
+                            const key = `${item.name || 'Producto'}_${item.variant || ''}`;
+                            if (!productGroups[key]) {
+                              productGroups[key] = {
+                                name: item.name || 'Producto',
+                                variant: item.variant,
+                                quantity: 0,
+                                orderId: order.id
+                              };
+                            }
+                            productGroups[key].quantity += (item.quantity || 1);
+                          });
+                        });
+                        
+                        return Object.entries(productGroups).map(([key, product], index) => {
+                          const isPaid = productPaidStatus[key] || false;
                           
-                          <div className="space-y-2 bg-background rounded-lg p-3">
-                            {order.items.map((item, index) => {
-                              const productName = item.name || `Producto`;
-                              const quantity = item.quantity || 1;
-                              const variant = item.variant || '';
-                              
-                              return (
-                                <div key={index} className="flex justify-between items-center">
-                                  <div>
-                                    <div className="font-medium">{productName}</div>
-                                    {variant && (
-                                      <div className="text-xs text-muted-foreground">
-                                        Variante: {variant}
-                                      </div>
-                                    )}
+                          return (
+                            <div key={key} className="flex justify-between items-center py-1.5">
+                              <div className="flex-1">
+                                <div className="font-medium text-sm">{product.name}</div>
+                                {product.variant && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {product.variant}
                                   </div>
-                                  <div className="text-sm font-medium">
-                                    {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
-                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-xs font-medium">
+                                  {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
                                 </div>
-                              );
-                            })}
-                          </div>
-                          
-                          <div className="flex gap-2 mt-4 justify-end">
+                                <Switch
+                                  checked={isPaid}
+                                  onCheckedChange={(checked) => 
+                                    handleToggleProductPaid(key, product.orderId, checked)
+                                  }
+                                  className="data-[state=checked]:bg-green-500 h-4 w-7"
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    
+                    <div className="mt-4 flex justify-between items-center">
+                      <div className="flex gap-2">
+                        {clientOrders.map(order => (
+                          <div key={order.id} className="flex gap-1">
                             <Button 
-                              variant="destructive" 
+                              variant="ghost" 
                               size="icon"
-                              className="h-9 w-9"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => setOrderToDelete(order.id)}
                             >
                               <Trash className="h-4 w-4" />
                             </Button>
                             <Button 
-                              variant="default" 
-                              className="flex items-center gap-1"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
                             >
                               <Edit className="h-4 w-4" />
-                              Editar
                             </Button>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm text-muted-foreground">
+                          Total:
+                          <span className="ml-1 font-medium text-foreground">
+                            ${total.toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        <Switch
+                          checked={isPaid}
+                          onCheckedChange={(checked) => {
+                            // Marcar todos los pedidos como pagados/no pagados
+                            clientOrders.forEach(order => {
+                              handleTogglePaid(order.id, checked);
+                            });
+                          }}
+                          className="data-[state=checked]:bg-green-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -344,7 +344,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         })}
       </div>
       
-      {filteredClients.length === 0 && (
+      {Object.keys(ordersByClient).length === 0 && (
         <div className="text-center p-8 bg-muted/20 rounded-lg">
           <p>No hay pedidos que coincidan con la búsqueda</p>
         </div>

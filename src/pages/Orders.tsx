@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -24,7 +23,6 @@ const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clientMap, setClientMap] = useState<{ [key: string]: { name: string } }>({});
-  const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -153,13 +151,6 @@ const Orders = () => {
     ));
   };
 
-  const toggleSearch = () => {
-    setShowSearch(!showSearch);
-    if (showSearch) {
-      setSearchTerm("");
-    }
-  };
-
   const filteredOrders = searchTerm
     ? orders.filter(order => 
         order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,40 +164,28 @@ const Orders = () => {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <ClipboardList className="h-7 w-7 text-primary" />
-              Pedidos
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            {showSearch && (
-              <div className="relative">
-                <Input
-                  placeholder="Buscar por cliente o producto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-[250px] pr-8 rounded-full"
-                />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 mb-4">
+            <ClipboardList className="h-7 w-7 text-primary" />
+            Pedidos
+          </h1>
+          
+          <div className="relative">
+            <Input
+              placeholder="Buscar por cliente o producto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-8 rounded-full"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
-            <Button
-              size="icon"
-              variant="outline"
-              className="rounded-full"
-              onClick={toggleSearch}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
