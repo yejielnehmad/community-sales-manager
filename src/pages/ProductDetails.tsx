@@ -5,10 +5,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { DataTable } from "@/components/ui/data-table";
-import { ShoppingBag, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ShoppingBag, ArrowLeft, Package, DollarSign } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import type { ColumnDef } from "@tanstack/react-table";
 
 interface ProductDetailParams {
   productId: string;
@@ -20,6 +19,7 @@ interface OrderDetail {
   quantity: number;
   isPaid: boolean;
   orderId: string;
+  balance: number;
 }
 
 const ProductDetails = () => {
@@ -62,7 +62,7 @@ const ProductDetails = () => {
         // Fetch orders with client info
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
-          .select('id, client_id, amount_paid, total')
+          .select('id, client_id, amount_paid, total, balance')
           .in('id', orderIds);
 
         if (ordersError) throw ordersError;
@@ -89,7 +89,8 @@ const ProductDetails = () => {
               orderId: item.order_id,
               clientName: client?.name || 'Cliente desconocido',
               quantity: Number(item.quantity),
-              isPaid: isPaid
+              isPaid: isPaid,
+              balance: order?.balance || 0
             };
           });
 
@@ -132,30 +133,6 @@ const ProductDetails = () => {
     }
   };
 
-  const columns: ColumnDef<OrderDetail>[] = [
-    {
-      accessorKey: "clientName",
-      header: "Cliente",
-    },
-    {
-      accessorKey: "quantity",
-      header: "Cantidad",
-    },
-    {
-      id: "isPaid",
-      header: "Pagado",
-      cell: ({ row }) => {
-        const detail = row.original;
-        return (
-          <Switch 
-            checked={detail.isPaid}
-            onCheckedChange={(checked) => handlePaymentToggle(detail.orderId, checked)}
-          />
-        );
-      },
-    }
-  ];
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -182,7 +159,29 @@ const ProductDetails = () => {
             {isLoading ? (
               <div className="text-center py-8">Cargando...</div>
             ) : orderDetails.length > 0 ? (
-              <DataTable columns={columns} data={orderDetails} />
+              <div className="space-y-3">
+                {orderDetails.map(detail => (
+                  <Card key={detail.id} className="p-4 border border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">{detail.clientName}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                          <Package className="h-3 w-3" />
+                          <span>{detail.quantity}</span>
+                        </Badge>
+                        <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
+                          <DollarSign className="h-3 w-3" />
+                          <span>{detail.balance}</span>
+                        </Badge>
+                        <Switch 
+                          checked={detail.isPaid}
+                          onCheckedChange={(checked) => handlePaymentToggle(detail.orderId, checked)}
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No hay pedidos para este producto

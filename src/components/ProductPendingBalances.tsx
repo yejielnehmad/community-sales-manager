@@ -1,14 +1,16 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ShoppingBag, ChevronRight } from "lucide-react";
+import { ShoppingBag, ChevronRight, Users, Package } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductBalance {
   id: string;
   name: string;
   pendingAmount: number;
+  clientCount: number;
 }
 
 export const ProductPendingBalances = () => {
@@ -36,7 +38,8 @@ export const ProductPendingBalances = () => {
         initialBalances[product.id] = {
           id: product.id,
           name: product.name,
-          pendingAmount: 0
+          pendingAmount: 0,
+          clientCount: 0
         };
       });
       setProductBalances(initialBalances);
@@ -52,7 +55,7 @@ export const ProductPendingBalances = () => {
 
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('id, status')
+        .select('id, status, client_id')
         .neq('status', 'completed');
 
       if (ordersError) {
@@ -62,10 +65,34 @@ export const ProductPendingBalances = () => {
       const pendingOrderIds = orders?.map(order => order.id) || [];
       const pendingOrderItems = orderItems?.filter(item => pendingOrderIds.includes(item.order_id));
 
+      // Crear un objeto para rastrear clientes únicos por producto
+      const clientsByProduct: { [key: string]: Set<string> } = {};
+      
+      // Inicializar para todos los productos
+      products?.forEach(product => {
+        clientsByProduct[product.id] = new Set();
+      });
+      
+      // Recopilar clientes únicos por producto
+      pendingOrderItems?.forEach(item => {
+        const order = orders?.find(o => o.id === item.order_id);
+        if (order && order.client_id) {
+          const productId = item.product_id;
+          clientsByProduct[productId]?.add(order.client_id);
+        }
+      });
+
       const updatedBalances: { [key: string]: ProductBalance } = { ...initialBalances };
       pendingOrderItems?.forEach(item => {
         if (updatedBalances[item.product_id]) {
           updatedBalances[item.product_id].pendingAmount += item.quantity;
+        }
+      });
+      
+      // Actualizar el conteo de clientes
+      Object.keys(updatedBalances).forEach(productId => {
+        if (clientsByProduct[productId]) {
+          updatedBalances[productId].clientCount = clientsByProduct[productId].size;
         }
       });
 
@@ -88,17 +115,14 @@ export const ProductPendingBalances = () => {
           Cargando...
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {Object.values(productBalances).map((product) => (
             <Card 
               key={product.id} 
-              className="relative overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer border-l-4 w-full"
-              style={{
-                borderLeftColor: 'var(--primary)'
-              }}
+              className="relative overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer border border-blue-300 w-full"
               onClick={() => handleProductClick(product.id)}
             >
-              <CardContent className="p-3">
+              <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="bg-primary/10 p-1 rounded-full">
@@ -108,9 +132,14 @@ export const ProductPendingBalances = () => {
                       {product.name}
                     </h3>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-lg font-bold">
-                      {product.pendingAmount}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium">{product.clientCount}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Package className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium">{product.pendingAmount}</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>

@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -12,7 +11,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import ProductDetails from "./pages/ProductDetails";
 
 // Versión actual de la aplicación
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.5.1";
 
 const App = () => (
   <>
