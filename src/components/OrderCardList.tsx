@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -83,21 +82,25 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     try {
       setIsSaving(true);
       
-      // Encontrar todos los productos para esta orden
-      const order = orders.find(o => o.id === orderId);
-      if (!order) return;
-      
-      // Obtener el precio del producto que estamos cambiando
-      const item = order.items.find(item => item.id === itemId);
-      if (!item) return;
-      
-      const productTotal = item.price * item.quantity;
-      
-      // Actualizar el estado local primero
+      // Primero actualizamos el estado local inmediatamente para UI responsiva
       setProductPaidStatus(prev => ({
         ...prev,
         [productKey]: isPaid
       }));
+      
+      // Encontrar todos los productos para esta orden
+      const order = orders.find(o => o.id === orderId);
+      if (!order) {
+        throw new Error("Pedido no encontrado");
+      }
+      
+      // Obtener el precio del producto que estamos cambiando
+      const item = order.items.find(item => item.id === itemId);
+      if (!item) {
+        throw new Error("Producto no encontrado");
+      }
+      
+      const productTotal = item.price * item.quantity;
       
       // Calcular el nuevo monto pagado basado en todos los productos marcados como pagados
       let newAmountPaid = 0;
@@ -127,6 +130,20 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         .eq('id', orderId);
         
       if (error) throw error;
+      
+      // También debemos actualizar el estado del item específico en la tabla order_items
+      // para que el dashboard pueda mostrar el estado correcto
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .update({
+          is_paid: isPaid
+        })
+        .eq('id', itemId);
+        
+      if (itemError) {
+        console.error("Error al actualizar estado de pago del item:", itemError);
+        // No lanzar error aquí para no interrumpir el flujo principal
+      }
       
       // Actualizar el estado de la aplicación
       if (onOrderUpdate) {
@@ -180,11 +197,25 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       // Actualizar cada pedido en la base de datos
       for (const order of clientOrders) {
+        // Primero, actualizar cada item del pedido
+        for (const item of order.items) {
+          const { error: itemError } = await supabase
+            .from('order_items')
+            .update({ is_paid: isPaid })
+            .eq('id', item.id || ''); // Asegúrate de que item.id no sea undefined
+            
+          if (itemError) throw itemError;
+        }
+        
+        // Luego, recalcular el amount_paid y balance del pedido
+        const newAmountPaid = isPaid ? order.total : 0;
+        const newBalance = isPaid ? 0 : order.total;
+        
         const { error } = await supabase
           .from('orders')
           .update({ 
-            amount_paid: isPaid ? order.total : 0,
-            balance: isPaid ? 0 : order.total
+            amount_paid: newAmountPaid,
+            balance: newBalance
           })
           .eq('id', order.id);
           
@@ -192,8 +223,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         
         if (onOrderUpdate) {
           onOrderUpdate(order.id, {
-            amountPaid: isPaid ? order.total : 0,
-            balance: isPaid ? 0 : order.total
+            amountPaid: newAmountPaid,
+            balance: newBalance
           });
         }
       }
@@ -446,7 +477,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     try {
       const { data: itemData, error: itemError } = await supabase
         .from('order_items')
-        .select('price')
+        .select('price, is_paid')
         .eq('id', itemId)
         .single();
       
@@ -454,6 +485,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       const price = itemData?.price || 0;
       const total = price * newQuantity;
+      const isPaid = itemData?.is_paid || false;
       
       const { error } = await supabase
         .from('order_items')

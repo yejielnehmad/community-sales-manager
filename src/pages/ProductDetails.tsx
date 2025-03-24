@@ -65,7 +65,7 @@ const ProductDetails = () => {
       // Fetch order details for this product
       const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select('id, order_id, quantity')
+        .select('id, order_id, quantity, is_paid')
         .eq('product_id', productId);
 
       if (orderItemsError) throw orderItemsError;
@@ -96,7 +96,9 @@ const ProductDetails = () => {
           const details: OrderDetail[] = orderItems.map(item => {
             const order = orders.find(o => o.id === item.order_id);
             const client = clients?.find(c => c.id === order?.client_id);
-            const isPaid = order ? Number(order.amount_paid) >= Number(order.total) : false;
+            // Usar el valor is_paid del item si existe, de lo contrario calcular basado en el monto pagado del pedido
+            const isPaid = item.is_paid !== undefined ? item.is_paid : 
+                           (order ? Number(order.amount_paid) >= Number(order.total) : false);
             
             return {
               id: item.id,
@@ -119,30 +121,60 @@ const ProductDetails = () => {
     }
   };
 
-  const handlePaymentToggle = async (orderId: string, isPaid: boolean) => {
+  const handlePaymentToggle = async (orderId: string, itemId: string, isPaid: boolean) => {
     try {
-      // Get current order
+      // Actualizar el estado de pago del item
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .update({ is_paid: isPaid })
+        .eq('id', itemId);
+
+      if (itemError) throw itemError;
+
+      // Obtener todos los items de esta orden para recalcular el total pagado
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('price, quantity, is_paid')
+        .eq('order_id', orderId);
+
+      if (itemsError) throw itemsError;
+
+      // Obtener el pedido actual
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('total, amount_paid')
+        .select('total')
         .eq('id', orderId)
         .single();
 
       if (orderError) throw orderError;
 
-      const newAmountPaid = isPaid ? order.total : 0;
-      
+      // Calcular el nuevo monto pagado basado en todos los items pagados
+      let newAmountPaid = 0;
+      orderItems?.forEach(item => {
+        if (item.is_paid) {
+          newAmountPaid += (item.price || 0) * (item.quantity || 0);
+        }
+      });
+
+      // Redondear para evitar problemas de precisión
+      newAmountPaid = Math.round(newAmountPaid * 100) / 100;
+      const newBalance = Math.max(0, order.total - newAmountPaid);
+
+      // Actualizar el pedido con el nuevo monto pagado
       const { error: updateError } = await supabase
         .from('orders')
-        .update({ amount_paid: newAmountPaid })
+        .update({ 
+          amount_paid: newAmountPaid,
+          balance: newBalance
+        })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
 
-      // Update local state
+      // Actualizar estado local
       setOrderDetails(prev => {
         const updated = prev.map(detail => 
-          detail.orderId === orderId ? { ...detail, isPaid } : detail
+          detail.id === itemId ? { ...detail, isPaid } : detail
         );
         setFilteredDetails(updated.filter(detail => 
           detail.clientName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -236,7 +268,7 @@ const ProductDetails = () => {
                       </Badge>
                       <div 
                         className="relative inline-flex h-4 w-8 cursor-pointer rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:bg-gray-700" 
-                        onClick={() => handlePaymentToggle(detail.orderId, !detail.isPaid)}
+                        onClick={() => handlePaymentToggle(detail.orderId, detail.id, !detail.isPaid)}
                       >
                         <span
                           className={`${

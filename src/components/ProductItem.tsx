@@ -16,6 +16,7 @@ interface ProductItemProps {
     price: number;
     total: number;
     orderId: string;
+    is_paid?: boolean;
   };
   isPaid: boolean;
   isLastItem: boolean;
