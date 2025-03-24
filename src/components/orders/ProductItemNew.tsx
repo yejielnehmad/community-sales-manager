@@ -129,7 +129,7 @@ export const ProductItemNew = ({
       </div>
       
       <div 
-        {...(isPaid ? {} : getMouseProps())}
+        {...(!isPaid ? getMouseProps() : {})}
         className={`flex justify-between items-center p-4 transition-transform bg-card ${!isPaid && 'cursor-grab active:cursor-grabbing'}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}

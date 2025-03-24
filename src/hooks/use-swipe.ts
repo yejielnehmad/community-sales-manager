@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useRef } from 'react';
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
 
 interface SwipeOptions {
   threshold?: number;
@@ -68,18 +69,18 @@ export function useSwipe(options: SwipeOptions = {}) {
     currentXRef.current = null;
   }, []);
 
-  // Props para eventos de mouse
+  // Props para eventos de mouse con tipos correctos de React
   const getMouseProps = useCallback(() => ({
-    onMouseDown: (e: React.MouseEvent) => handleSwipeStart(e.clientX),
-    onMouseMove: (e: MouseEvent) => handleSwipeMove(e.clientX),
+    onMouseDown: (e: ReactMouseEvent) => handleSwipeStart(e.clientX),
+    onMouseMove: (e: ReactMouseEvent) => handleSwipeMove(e.clientX),
     onMouseUp: () => handleSwipeEnd(),
     onMouseLeave: () => handleSwipeEnd(),
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
 
-  // Props para eventos táctiles
+  // Props para eventos táctiles con tipos correctos de React
   const getTouchProps = useCallback(() => ({
-    onTouchStart: (e: React.TouchEvent) => handleSwipeStart(e.touches[0].clientX),
-    onTouchMove: (e: React.TouchEvent) => handleSwipeMove(e.touches[0].clientX),
+    onTouchStart: (e: ReactTouchEvent) => handleSwipeStart(e.touches[0].clientX),
+    onTouchMove: (e: ReactTouchEvent) => handleSwipeMove(e.touches[0].clientX),
     onTouchEnd: () => handleSwipeEnd(),
     onTouchCancel: () => handleSwipeEnd(),
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);

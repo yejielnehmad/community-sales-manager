@@ -237,7 +237,6 @@ export const ClientOrderCardNew = ({
                 <div className="bg-background rounded-lg divide-y divide-gray-100">
                   {Object.entries(productGroups).map(([key, product], index) => {
                     const isPaid = productPaidStatus[key] || false;
-                    const swipeX = swipeStates[key] || 0;
                     
                     return (
                       <ProductItemNew
@@ -247,7 +246,6 @@ export const ClientOrderCardNew = ({
                         isPaid={isPaid}
                         isLastItem={index === Object.keys(productGroups).length - 1}
                         isFirstItem={index === 0}
-                        swipeX={swipeX}
                         isSaving={isSaving}
                         editingProduct={editingProduct}
                         productQuantities={productQuantities}
