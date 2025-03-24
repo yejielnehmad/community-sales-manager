@@ -1,6 +1,4 @@
-
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";

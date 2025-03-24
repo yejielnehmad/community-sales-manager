@@ -284,7 +284,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         const currentSwipe = swipeStates[currentProductKey] || 0;
         
         // Si se deslizó lo suficiente, mantenerlo abierto, de lo contrario cerrar
-        if (currentSwipe < -50) {
+        if (currentSwipe < -40) {
           setSwipeStates(prev => ({
             ...prev,
             [currentProductKey!]: -100
@@ -422,18 +422,18 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                             <div 
                               key={key} 
                               data-product-key={key}
-                              className="relative overflow-hidden rounded-md"
+                              className="relative overflow-hidden rounded-sm"
                             >
                               {/* Acciones de edición en el fondo */}
                               <div className="absolute inset-y-0 right-0 flex items-center bg-primary text-primary-foreground">
                                 <button 
-                                  className="h-full px-4 bg-primary text-primary-foreground"
+                                  className="h-full px-4 bg-primary text-primary-foreground flex items-center justify-center"
                                   onClick={() => handleEditProduct(key, product.quantity)}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button 
-                                  className="h-full px-4 bg-destructive text-destructive-foreground"
+                                  className="h-full px-4 bg-destructive text-destructive-foreground flex items-center justify-center"
                                   onClick={() => deleteProduct(key, product.orderId, product.id || '')}
                                 >
                                   <Trash className="h-4 w-4" />
@@ -442,7 +442,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                               
                               {/* Contenido del producto */}
                               <div 
-                                className="flex justify-between items-center p-2 border-b bg-card transition-transform duration-200"
+                                className="flex justify-between items-center p-2 border-b bg-card transition-transform duration-150 ease-out"
                                 style={{ transform: `translateX(${swipeX}px)` }}
                               >
                                 {isEditing ? (
@@ -519,36 +519,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                       })()}
                     </div>
                     
-                    <div className="mt-3 flex justify-between items-center">
-                      <div className="flex gap-2">
-                        {clientOrders.map(order => (
-                          <div key={order.id} className="flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => setOrderToDelete(order.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <div className="text-sm font-medium">
-                          Total:
-                          <span className="ml-1">
-                            ${total.toFixed(2)}
-                          </span>
-                        </div>
+                    <div className="mt-3 flex justify-end items-center">
+                      <div className="text-sm font-medium">
+                        Total:
+                        <span className="ml-1">
+                          ${total.toFixed(2)}
+                        </span>
                       </div>
                     </div>
                   </div>
