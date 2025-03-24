@@ -12,8 +12,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import ProductDetails from "./pages/ProductDetails";
 import { ThemeProvider } from "@/components/theme-provider";
 
-// Versión actual de la aplicación
-export const APP_VERSION = "1.9.0";
+// Versión actual de la aplicación (oculta en la interfaz)
+export const APP_VERSION = "1.9.1";
 
 const App = () => (
   <ThemeProvider defaultTheme="light" storageKey="app-theme">
