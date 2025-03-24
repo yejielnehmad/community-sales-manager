@@ -13,7 +13,7 @@ import ProductDetails from "./pages/ProductDetails";
 import { ThemeProvider } from "@/components/theme-provider";
 
 // Versión actual de la aplicación (oculta en la interfaz)
-export const APP_VERSION = "1.0.1";
+export const APP_VERSION = "1.0.2";
 
 const App = () => (
   <ThemeProvider defaultTheme="light" storageKey="app-theme">

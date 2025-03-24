@@ -150,11 +150,19 @@ const Orders = () => {
   };
 
   const handleOrderUpdate = (orderId: string, updates: Partial<Order>) => {
-    setOrders(prevOrders => prevOrders.map(order => 
-      order.id === orderId 
-        ? { ...order, ...updates } 
-        : order
-    ));
+    setOrders(prevOrders => {
+      // Si el pedido ha sido eliminado, filtrarlo de la lista
+      if (updates.deleted) {
+        return prevOrders.filter(order => order.id !== orderId);
+      }
+      
+      // De lo contrario, actualizar los campos correspondientes
+      return prevOrders.map(order => 
+        order.id === orderId 
+          ? { ...order, ...updates } 
+          : order
+      );
+    });
   };
 
   const filteredOrders = searchTerm

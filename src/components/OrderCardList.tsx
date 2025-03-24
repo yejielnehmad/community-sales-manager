@@ -16,7 +16,8 @@ import {
   Plus,
   Trash,
   Edit,
-  Loader2
+  Loader2,
+  Check
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -178,8 +179,11 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: "El pedido ha sido eliminado correctamente",
       });
       
-      // Recargar la página para mostrar los cambios
-      window.location.reload();
+      // Actualizar la lista de pedidos en lugar de recargar la página
+      if (onOrderUpdate) {
+        // Notificar que el pedido ha sido eliminado (se eliminará de la lista en el componente padre)
+        onOrderUpdate(orderToDelete, { deleted: true });
+      }
       
     } catch (error: any) {
       toast({
@@ -226,8 +230,13 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
         description: `Todos los pedidos del cliente ${ordersByClient[clientToDelete]?.client} han sido eliminados`,
       });
       
-      // Recargar la página para mostrar los cambios
-      window.location.reload();
+      // Actualizar la lista de pedidos en lugar de recargar la página
+      if (onOrderUpdate) {
+        // Notificar que todos los pedidos del cliente han sido eliminados
+        orderIds.forEach(orderId => {
+          onOrderUpdate(orderId, { deleted: true });
+        });
+      }
       
     } catch (error: any) {
       toast({
@@ -308,6 +317,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   };
 
   const handleEditProduct = (productKey: string, currentQuantity: number) => {
+    // Cerrar el deslizamiento antes de mostrar la interfaz de edición
+    setSwipeStates(prev => ({
+      ...prev,
+      [productKey]: 0
+    }));
+    
     setEditingProduct(productKey);
     setProductQuantities({
       ...productQuantities,
@@ -356,11 +371,36 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       toast({
         title: "Producto actualizado",
-        description: `Cantidad actualizada a ${newQuantity}`
+        description: `Cantidad actualizada a ${newQuantity}`,
+        variant: "success"
       });
       
-      // Recargar la página para mostrar los cambios
-      window.location.reload();
+      // Buscar los datos actualizados del pedido
+      const { data: updatedOrderData, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+        
+      if (orderError) throw orderError;
+      
+      // Buscar los items actualizados del pedido
+      const { data: updatedItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId);
+        
+      if (itemsError) throw itemsError;
+      
+      // Actualizar la UI con los datos actualizados sin recargar la página
+      if (onOrderUpdate && updatedOrderData) {
+        onOrderUpdate(orderId, {
+          total: updatedOrderData.total,
+          amountPaid: updatedOrderData.amount_paid,
+          balance: updatedOrderData.balance,
+          items: updatedItems || []
+        });
+      }
       
     } catch (error: any) {
       console.error("Error al actualizar el producto:", error);
@@ -372,10 +412,6 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     } finally {
       setIsSaving(false);
       setEditingProduct(null);
-      setSwipeStates(prev => ({
-        ...prev,
-        [productKey]: 0
-      }));
     }
   };
 
@@ -438,11 +474,36 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
       
       toast({
         title: "Producto eliminado",
-        description: "El producto ha sido eliminado del pedido"
+        description: "El producto ha sido eliminado del pedido",
+        variant: "success"
       });
       
-      // Recargar la página para mostrar los cambios
-      window.location.reload();
+      // Buscar los datos actualizados del pedido
+      const { data: updatedOrderData, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+        
+      if (orderError) throw orderError;
+      
+      // Buscar los items actualizados del pedido
+      const { data: updatedItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId);
+        
+      if (itemsError) throw itemsError;
+      
+      // Actualizar la UI con los datos actualizados sin recargar la página
+      if (onOrderUpdate && updatedOrderData) {
+        onOrderUpdate(orderId, {
+          total: updatedOrderData.total,
+          amountPaid: updatedOrderData.amount_paid,
+          balance: updatedOrderData.balance,
+          items: updatedItems || []
+        });
+      }
       
     } catch (error: any) {
       console.error("Error al eliminar el producto:", error);
@@ -776,7 +837,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                 <div 
                                   className={`flex justify-between items-center p-3 border-b bg-card shadow-sm transition-transform ${isEditing ? 'bg-muted/10' : ''}`}
                                   style={{ 
-                                    transform: `translateX(${swipeX}px)`,
+                                    transform: `translateX(${isEditing ? 0 : swipeX}px)`,
                                     borderRadius: '4px',
                                     transition: 'transform 0.3s ease-out'
                                   }}
@@ -818,17 +879,31 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                           <Plus className="h-3 w-3" />
                                         </Button>
                                       </div>
-                                      <Button 
-                                        variant="default" 
-                                        size="sm" 
-                                        className="h-8 text-xs ml-2 px-4"
-                                        onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
-                                        disabled={isSaving}
-                                      >
-                                        {isSaving ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : 'Guardar'}
-                                      </Button>
+                                      <div className="flex gap-1">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          className="h-8 text-xs px-2"
+                                          onClick={() => setEditingProduct(null)}
+                                          disabled={isSaving}
+                                        >
+                                          Cancelar
+                                        </Button>
+                                        <Button 
+                                          variant="default" 
+                                          size="sm" 
+                                          className="h-8 text-xs px-3"
+                                          onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
+                                          disabled={isSaving}
+                                        >
+                                          {isSaving ? (
+                                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                          ) : (
+                                            <Check className="h-3 w-3 mr-1" />
+                                          )}
+                                          Guardar
+                                        </Button>
+                                      </div>
                                     </div>
                                   ) : (
                                     <>
