@@ -65,6 +65,68 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     setProductPaidStatus(initialPaidStatus);
   }, [orders]);
 
+  // Función para manejar el deslizamiento de productos
+  const handleProductSwipe = useCallback((productKey: string, deltaX: number) => {
+    // Limitar el deslizamiento entre 0 y -140 (70px por cada botón)
+    const newSwipeX = Math.max(-140, Math.min(0, deltaX));
+    
+    setSwipeStates(prev => ({
+      ...prev,
+      [productKey]: newSwipeX
+    }));
+  }, []);
+
+  // Función para manejar el deslizamiento de clientes
+  const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
+    // Limitar el deslizamiento entre 0 y -70 (tamaño del botón de eliminar)
+    const newSwipeX = Math.max(-70, Math.min(0, deltaX));
+    
+    setClientSwipeStates(prev => ({
+      ...prev,
+      [clientId]: newSwipeX
+    }));
+  }, []);
+
+  // Finalizar la animación del deslizamiento del producto
+  const completeSwipeAnimation = useCallback((productKey: string) => {
+    const currentSwipe = swipeStates[productKey] || 0;
+    
+    // Si el deslizamiento es más de la mitad (-70), completar el deslizamiento
+    if (currentSwipe < -70) {
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: -140
+      }));
+    } 
+    // Si está entre 0 y la mitad, volver a 0
+    else if (currentSwipe > -70 && currentSwipe < 0) {
+      setSwipeStates(prev => ({
+        ...prev,
+        [productKey]: 0
+      }));
+    }
+  }, [swipeStates]);
+
+  // Finalizar la animación del deslizamiento del cliente
+  const completeClientSwipeAnimation = useCallback((clientId: string) => {
+    const currentSwipe = clientSwipeStates[clientId] || 0;
+    
+    // Si el deslizamiento es más de la mitad (-35), completar el deslizamiento
+    if (currentSwipe < -35) {
+      setClientSwipeStates(prev => ({
+        ...prev,
+        [clientId]: -70
+      }));
+    } 
+    // Si está entre 0 y la mitad, volver a 0
+    else if (currentSwipe > -35 && currentSwipe < 0) {
+      setClientSwipeStates(prev => ({
+        ...prev,
+        [clientId]: 0
+      }));
+    }
+  }, [clientSwipeStates]);
+
   const toggleClient = useCallback((clientId: string) => {
     if (openClientId && openClientId !== clientId) {
       setOpenClientId(null);
