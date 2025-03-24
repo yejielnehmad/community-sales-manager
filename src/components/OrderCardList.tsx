@@ -17,7 +17,8 @@ import {
   Trash,
   Edit,
   Loader2,
-  Check
+  Check,
+  X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -457,10 +458,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   };
 
   const handleEditProduct = (productKey: string, currentQuantity: number) => {
-    setSwipeStates(prev => ({
-      ...prev,
-      [productKey]: 0
-    }));
+    // Cerrar cualquier otro swipe abierto
+    setSwipeStates(prev => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach(key => {
+        newState[key] = 0;
+      });
+      return newState;
+    });
     
     setEditingProduct(productKey);
     setProductQuantities({
@@ -809,7 +814,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
           return (
             <div 
               key={clientId} 
-              className="relative overflow-hidden transition-all duration-200 rounded-xl"
+              className="relative rounded-xl"
+              style={{ overflow: 'hidden' }}
               data-client-id={clientId}
               ref={(ref) => registerClientRef(clientId, ref)}
             >
@@ -829,7 +835,8 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                 className="border overflow-hidden transition-all duration-200 rounded-xl"
                 style={{ 
                   transform: `translateX(${clientSwipeX}px)`,
-                  transition: 'transform 0.3s ease-out'
+                  transition: 'transform 0.3s ease-out',
+                  height: '100%'
                 }}
               >
                 <Collapsible 
@@ -885,7 +892,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                         </div>
                       </div>
                       
-                      <div className="space-y-1 bg-background rounded-lg p-2">
+                      <div className="space-y-2 bg-background rounded-lg p-2">
                         {(() => {
                           const productGroups: {[key: string]: {
                             id?: string,
@@ -925,14 +932,16 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                               <div 
                                 key={key} 
                                 data-product-key={key}
-                                className="relative overflow-hidden rounded-md mb-1"
+                                className="relative rounded-md mb-2"
+                                style={{ overflow: 'hidden' }}
                                 ref={(ref) => registerProductRef(key, ref)}
                               >
+                                {/* Botones de acción que se muestran al deslizar */}
                                 <div 
                                   className="absolute inset-y-0 right-0 flex items-stretch h-full"
                                   style={{ width: '120px' }}
                                 >
-                                  <div className="flex-1 flex items-stretch">
+                                  <div className="flex-1 flex items-stretch h-full">
                                     <button 
                                       className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
                                       onClick={() => handleEditProduct(key, product.quantity)}
@@ -941,7 +950,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                       <Edit className="h-5 w-5" />
                                     </button>
                                   </div>
-                                  <div className="flex-1 flex items-stretch">
+                                  <div className="flex-1 flex items-stretch h-full">
                                     <button 
                                       className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
                                       onClick={() => deleteProduct(key, product.orderId, product.id || '')}
@@ -952,12 +961,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                   </div>
                                 </div>
                                 
+                                {/* Contenido principal del producto */}
                                 <div 
-                                  className={`flex justify-between items-center p-3 bg-card shadow-sm transition-transform ${isEditing ? 'border border-primary/30 bg-primary/5' : 'border-b'}`}
+                                  className={`flex justify-between items-center p-3 bg-card shadow-sm transition-transform ${isEditing ? 'border border-primary/30 bg-primary/5' : 'border'}`}
                                   style={{ 
                                     transform: `translateX(${isEditing ? 0 : swipeX}px)`,
                                     borderRadius: '4px',
-                                    transition: 'transform 0.3s ease-out'
+                                    transition: 'transform 0.3s ease-out',
+                                    height: '100%',
+                                    zIndex: 1
                                   }}
                                 >
                                   {isEditing ? (
@@ -976,7 +988,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                           size="icon" 
                                           className="h-8 w-8 rounded-full"
                                           onClick={() => handleQuantityChange(key, (productQuantities[key] || product.quantity) - 1)}
-                                          disabled={isSaving}
+                                          disabled={isSaving || (productQuantities[key] || product.quantity) <= 1}
                                         >
                                           <Minus className="h-3 w-3" />
                                         </Button>
@@ -999,27 +1011,26 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                       </div>
                                       <div className="flex gap-1">
                                         <Button 
-                                          variant="ghost" 
-                                          size="sm" 
-                                          className="h-8 text-xs px-2"
+                                          variant="outline" 
+                                          size="icon" 
+                                          className="h-8 w-8 rounded-full"
                                           onClick={() => setEditingProduct(null)}
                                           disabled={isSaving}
                                         >
-                                          Cancelar
+                                          <X className="h-4 w-4 text-red-500" />
                                         </Button>
                                         <Button 
-                                          variant="default" 
-                                          size="sm" 
-                                          className="h-8 text-xs px-3"
+                                          variant="outline" 
+                                          size="icon" 
+                                          className="h-8 w-8 rounded-full"
                                           onClick={() => saveProductChanges(key, product.orderId, product.id || '')}
                                           disabled={isSaving}
                                         >
                                           {isSaving ? (
-                                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                            <Loader2 className="h-4 w-4 animate-spin" />
                                           ) : (
-                                            <Check className="h-3 w-3 mr-1" />
+                                            <Check className="h-4 w-4 text-green-500" />
                                           )}
-                                          Guardar
                                         </Button>
                                       </div>
                                     </div>
