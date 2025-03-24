@@ -165,7 +165,6 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
             <p className="text-muted-foreground">Resumen de la venta comunitaria</p>
           </div>
-          <VersionInfo />
         </div>
 
         <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
