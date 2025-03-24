@@ -402,12 +402,13 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const handleProductSwipe = (productKey: string, deltaX: number) => {
     if (!touchActive) return;
     
-    let swipePosition = Math.min(0, deltaX);
+    // Limitando el movimiento a -70px como máximo
+    let swipePosition = Math.max(-70, Math.min(0, deltaX));
     
-    // Reducir la distancia máxima de deslizamiento a 100px en lugar de 120px
-    const threshold = -15;
+    // Umbral de activación reducido
+    const threshold = -10;
     if (swipePosition < threshold) {
-      swipePosition = -100;
+      swipePosition = -70;
     }
     
     setSwipeStates(prev => ({
@@ -419,12 +420,13 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const handleClientSwipe = (clientId: string, deltaX: number) => {
     if (!clientTouchActive) return;
     
-    let swipePosition = Math.min(0, deltaX);
+    // Limitando el movimiento a -55px como máximo
+    let swipePosition = Math.max(-55, Math.min(0, deltaX));
     
-    // Reducir la distancia máxima de deslizamiento a 70px en lugar de 80px
-    const threshold = -15;
+    // Umbral de activación reducido
+    const threshold = -10;
     if (swipePosition < threshold) {
-      swipePosition = -70;
+      swipePosition = -55;
     }
     
     setClientSwipeStates(prev => ({
@@ -436,12 +438,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const completeSwipeAnimation = (productKey: string) => {
     const currentSwipe = swipeStates[productKey] || 0;
     
-    const threshold = -15;
+    const threshold = -10;
     
     if (currentSwipe < threshold) {
       setSwipeStates(prev => ({
         ...prev,
-        [productKey]: -100
+        [productKey]: -70
       }));
     } else {
       // Asegurarse de que la tarjeta vuelva a su posición original
@@ -455,12 +457,12 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
   const completeClientSwipeAnimation = (clientId: string) => {
     const currentSwipe = clientSwipeStates[clientId] || 0;
     
-    const threshold = -15;
+    const threshold = -10;
     
     if (currentSwipe < threshold) {
       setClientSwipeStates(prev => ({
         ...prev,
-        [clientId]: -70
+        [clientId]: -55
       }));
     } else {
       // Asegurarse de que la tarjeta vuelva a su posición original
@@ -471,7 +473,17 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
     }
   };
 
-  const handleEditProduct = (productKey: string, currentQuantity: number) => {
+  const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
+    // No permitir editar productos pagados
+    if (isPaid) {
+      toast({
+        title: "Producto pagado",
+        description: "No se puede editar un producto que ya está pagado",
+        variant: "default"
+      });
+      return;
+    }
+
     // Cerrar cualquier otro swipe abierto
     setSwipeStates(prev => {
       const newState = { ...prev };
@@ -869,7 +881,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                 {/* Botón de acción en el background con altura completa */}
                 <div 
                   className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden rounded-r-xl"
-                  style={{ width: '70px' }}
+                  style={{ width: '55px' }}
                 >
                   <button 
                     className="client-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
@@ -981,19 +993,25 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                 <div 
                                   key={key} 
                                   data-product-key={key}
-                                  className="relative overflow-hidden"
-                                  style={{ minHeight: isEditing ? '120px' : '80px' }} // Aumentar altura mínima para más espacio
+                                  className={`relative overflow-hidden ${index !== 0 ? 'border-t border-gray-100' : ''}`}
+                                  style={{ 
+                                    minHeight: isEditing ? '120px' : '74px',
+                                    borderRadius: index === 0 ? '0.5rem 0.5rem 0 0' : index === Object.keys(productGroups).length - 1 ? '0 0 0.5rem 0.5rem' : '0'
+                                  }}
                                   ref={(ref) => registerProductRef(key, ref)}
                                 >
                                   {/* Botones de acción que se muestran al deslizar */}
                                   <div 
                                     className="absolute inset-y-0 right-0 flex items-stretch h-full z-0 overflow-hidden"
-                                    style={{ width: '100px' }}
+                                    style={{ 
+                                      width: '70px',
+                                      borderRadius: index === Object.keys(productGroups).length - 1 ? '0 0 0.5rem 0' : '0'
+                                    }}
                                   >
                                     <div className="flex-1 flex items-stretch h-full">
                                       <button 
                                         className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
-                                        onClick={() => handleEditProduct(key, product.quantity)}
+                                        onClick={() => handleEditProduct(key, product.quantity, isPaid)}
                                         disabled={isSaving || isPaid}
                                       >
                                         <Edit className="h-5 w-5" />
@@ -1012,13 +1030,15 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                                   
                                   {/* Contenido principal del producto - con fondo para cubrir botones */}
                                   <div 
-                                    className={`flex justify-between items-center p-4 transition-transform bg-card border-b ${isEditing ? 'border-primary/30 bg-primary/5' : 'border-transparent'}`}
+                                    className={`flex justify-between items-center p-4 transition-transform bg-card 
+                                              ${isEditing ? 'border-primary/30 bg-primary/5' : ''}`}
                                     style={{ 
                                       transform: `translateX(${isEditing ? 0 : swipeX}px)`,
                                       transition: 'transform 0.3s ease-out',
                                       height: '100%',
                                       position: 'relative',
-                                      zIndex: swipeX === 0 && !isEditing ? 10 : 5
+                                      zIndex: swipeX === 0 && !isEditing ? 10 : 5,
+                                      borderRadius: index === 0 ? '0.5rem 0.5rem 0 0' : index === Object.keys(productGroups).length - 1 ? '0 0 0.5rem 0.5rem' : '0'
                                     }}
                                   >
                                     {isEditing ? (
