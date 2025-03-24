@@ -1,10 +1,10 @@
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { Order } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { ClipboardList, Loader2, User, Search, X } from "lucide-react";
+import { ClipboardList, Loader2, Search, X } from "lucide-react";
 import { OrderCardList } from "@/components/OrderCardList";
 import { Input } from "@/components/ui/input";
 
@@ -210,17 +210,15 @@ const Orders = () => {
           </div>
         </div>
 
-        <Card className="rounded-xl shadow-sm overflow-hidden">
-          <CardContent className="p-4 pt-4">
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <OrderCardList orders={filteredOrders} onOrderUpdate={handleOrderUpdate} />
-            )}
-          </CardContent>
-        </Card>
+        <div>
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <OrderCardList orders={filteredOrders} onOrderUpdate={handleOrderUpdate} />
+          )}
+        </div>
       </div>
     </AppLayout>
   );

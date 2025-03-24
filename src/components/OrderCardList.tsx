@@ -1,7 +1,5 @@
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Order } from "@/types";
 import { Switch } from "@/components/ui/switch";
 import { 
@@ -15,21 +13,18 @@ import {
   CheckCircle, 
   XCircle, 
   Clock, 
-  User, 
-  Calendar,
-  DollarSign,
   ShoppingCart,
   Edit,
   Trash,
   Loader2,
   Search,
   Check,
-  X
+  X,
+  DollarSign
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +36,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 interface OrderCardListProps {
   orders: Order[];
@@ -229,35 +226,31 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
           const isPaid = isClientFullyPaid(clientOrders);
           
           return (
-            <Card 
+            <div 
               key={clientId} 
-              className="overflow-hidden transition-all duration-200 shadow-sm hover:shadow-md rounded-xl"
+              className="border overflow-hidden transition-all duration-200 rounded-xl"
             >
               <Collapsible 
                 open={openClients[clientId]} 
                 onOpenChange={() => toggleClient(clientId)}
               >
                 <CollapsibleTrigger className="w-full text-left">
-                  <div className="p-4 flex justify-between items-center">
+                  <div className="p-4 flex justify-between items-center bg-card hover:bg-muted/10">
                     <div className="flex items-center gap-3">
-                      <div className="font-medium text-lg">{client}</div>
-                      {isPaid && (
-                        <Badge className="bg-green-500 text-white">
-                          <Check className="h-3 w-3 mr-1" /> Pagado
-                        </Badge>
-                      )}
+                      <div className="font-medium text-lg flex items-center gap-1.5">
+                        {client}
+                        {isPaid && (
+                          <Check className="h-4 w-4 text-green-500 bg-green-100 rounded-full p-0.5" />
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <div className="text-right">
+                      <div className="text-right flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
                         <div className="font-bold text-lg">
                           ${total.toFixed(2)}
                         </div>
-                        {!isPaid && (
-                          <div className="text-xs text-amber-500">
-                            Pendiente: ${balance.toFixed(2)}
-                          </div>
-                        )}
                       </div>
                       <div className="h-8 w-8 rounded-full flex items-center justify-center bg-muted/20">
                         {openClients[clientId] ? (
@@ -271,15 +264,14 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                 </CollapsibleTrigger>
                 
                 <CollapsibleContent>
-                  <div className="p-0 divide-y">
+                  <div className="bg-card/25 divide-y">
                     {clientOrders.map((order, orderIndex) => (
                       <div key={order.id} className="p-4">
                         <div className="flex justify-between items-center mb-3">
                           <div className="flex items-center gap-2">
-                            <div className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
+                            <Badge variant="outline" className="bg-background">
                               {new Date(order.date).toLocaleDateString()}
-                            </div>
+                            </Badge>
                             {getStatusBadge(order.status)}
                           </div>
                           <div className="flex items-center gap-3">
@@ -295,53 +287,49 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                         </div>
                         
                         <div className="space-y-3 mt-4">
-                          <div className="font-medium text-sm flex items-center gap-2">
-                            <div className="bg-primary/10 p-1 rounded-full">
-                              <ShoppingCart className="h-3 w-3 text-primary" />
-                            </div>
+                          <div className="font-medium text-sm flex items-center gap-2 mb-2">
+                            <ShoppingCart className="h-3.5 w-3.5 text-primary" />
                             Productos
                           </div>
                           
-                          <div className="space-y-2">
+                          <div className="space-y-2 bg-background rounded-lg p-3">
                             {order.items.map((item, index) => {
                               const productName = item.name || `Producto`;
                               const quantity = item.quantity || 1;
                               const variant = item.variant || '';
                               
                               return (
-                                <div key={index} className="p-2 border rounded-md bg-muted/5 text-sm">
-                                  <div className="flex justify-between">
-                                    <div>{productName}</div>
-                                    <div className="font-medium">
-                                      {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
-                                    </div>
+                                <div key={index} className="flex justify-between items-center">
+                                  <div>
+                                    <div className="font-medium">{productName}</div>
+                                    {variant && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Variante: {variant}
+                                      </div>
+                                    )}
                                   </div>
-                                  {variant && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      Variante: {variant}
-                                    </div>
-                                  )}
+                                  <div className="text-sm font-medium">
+                                    {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
                           
-                          <div className="flex gap-2 mt-3 justify-end">
+                          <div className="flex gap-2 mt-4 justify-end">
                             <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="flex items-center gap-1"
+                              variant="destructive" 
+                              size="icon"
+                              className="h-9 w-9"
                               onClick={() => setOrderToDelete(order.id)}
                             >
-                              <Trash className="h-3.5 w-3.5" />
-                              Eliminar
+                              <Trash className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="default" 
-                              size="sm"
                               className="flex items-center gap-1"
                             >
-                              <Edit className="h-3.5 w-3.5" />
+                              <Edit className="h-4 w-4" />
                               Editar
                             </Button>
                           </div>
@@ -351,7 +339,7 @@ export const OrderCardList = ({ orders, onOrderUpdate }: OrderCardListProps) => 
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-            </Card>
+            </div>
           );
         })}
       </div>
