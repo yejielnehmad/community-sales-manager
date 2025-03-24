@@ -83,7 +83,7 @@ export const ProductItem = ({
         minHeight: isEditing ? '120px' : '74px',
         borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
       }}
-      ref={(ref) => actions.registerProductRef?.(productKey, ref)}
+      ref={(ref) => actions.registerProductRef && actions.registerProductRef(productKey, ref)}
     >
       <div 
         className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"

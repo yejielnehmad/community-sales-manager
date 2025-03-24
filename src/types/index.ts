@@ -1,4 +1,3 @@
-
 export interface MessageItem {
   product: {
     id?: string;
@@ -104,7 +103,6 @@ export interface MessageVariant {
   name: string;
 }
 
-// Nuevas interfaces para el contexto de pedidos
 export interface OrdersState {
   isLoading: boolean;
   isRefreshing: boolean;
@@ -121,6 +119,7 @@ export interface OrderItemState {
   editingProduct: string | null;
   productQuantities: { [key: string]: number };
   openClientId: string | null;
+  _pendingOpenClientId?: string | null;
   orderToDelete: string | null;
   clientToDelete: string | null;
   isSaving: boolean;
@@ -149,5 +148,7 @@ export interface OrdersContextProps {
     completeSwipeAnimation: (productKey: string) => void;
     completeClientSwipeAnimation: (clientId: string) => void;
     closeAllSwipes: (exceptKey?: string) => void;
+    registerProductRef?: (key: string, ref: HTMLDivElement | null) => void;
+    registerClientRef?: (key: string, ref: HTMLDivElement | null) => void;
   };
 }

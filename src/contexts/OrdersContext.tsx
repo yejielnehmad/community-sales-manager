@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
-import { Order, OrdersContextProps, OrdersState, OrderItemState } from '@/types';
+import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -40,6 +40,21 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   const clientTouchStartXRef = useRef<number | null>(null);
   const productItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const clientItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
+  
+  // Mapeo de items de la API al formato esperado
+  const mapApiItemsToOrderItems = (items: any[], productMap: {[key: string]: string}, variantMap: {[key: string]: string}): OrderItem[] => {
+    return items.map(item => ({
+      id: item.id,
+      product_id: item.product_id,
+      name: productMap[item.product_id] || 'Producto',
+      variant: item.variant_id ? variantMap[item.variant_id] || 'Variante' : undefined,
+      variant_id: item.variant_id || undefined,
+      quantity: item.quantity,
+      price: item.price,
+      total: item.total,
+      is_paid: item.is_paid
+    }));
+  };
   
   // Funciones para actualizar los pedidos
   const fetchOrders = useCallback(async (refresh = false) => {
@@ -119,18 +134,26 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           variantMap[variant.id] = variant.name;
         });
 
-        const orderItemsMap: { [key: string]: any[] } = {};
+        const orderItemsMap: { [key: string]: OrderItem[] } = {};
         if (orderItemsData) {
           orderItemsData.forEach(item => {
             if (!orderItemsMap[item.order_id]) {
               orderItemsMap[item.order_id] = [];
             }
             
-            orderItemsMap[item.order_id].push({
-              ...item,
-              name: productMap[item.product_id] || `Producto`,
-              variant: item.variant_id ? variantMap[item.variant_id] || `Variante` : null
-            });
+            const mappedItem: OrderItem = {
+              id: item.id,
+              product_id: item.product_id,
+              name: productMap[item.product_id] || 'Producto',
+              variant: item.variant_id ? variantMap[item.variant_id] || 'Variante' : undefined,
+              variant_id: item.variant_id || undefined,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.total,
+              is_paid: item.is_paid
+            };
+            
+            orderItemsMap[item.order_id].push(mappedItem);
           });
         }
 
@@ -199,6 +222,122 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   const setSearchTerm = (term: string) => {
     setState(prev => ({ ...prev, searchTerm: term }));
   };
+
+  // Manejadores para los swipes y referencias
+  const handleProductSwipe = useCallback((productKey: string, deltaX: number) => {
+    // Limitar el deslizamiento entre 0 y -140 (70px por cada botón)
+    const newSwipeX = Math.max(-140, Math.min(0, deltaX));
+    
+    setItemState(prev => ({
+      ...prev,
+      swipeStates: {
+        ...prev.swipeStates,
+        [productKey]: newSwipeX
+      }
+    }));
+  }, []);
+
+  const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
+    // Limitar el deslizamiento entre 0 y -70 (tamaño del botón de eliminar)
+    const newSwipeX = Math.max(-70, Math.min(0, deltaX));
+    
+    setItemState(prev => ({
+      ...prev,
+      clientSwipeStates: {
+        ...prev.clientSwipeStates,
+        [clientId]: newSwipeX
+      }
+    }));
+  }, []);
+
+  const completeSwipeAnimation = useCallback((productKey: string) => {
+    setItemState(prev => {
+      const currentSwipe = prev.swipeStates[productKey] || 0;
+      
+      // Si el deslizamiento es más de la mitad (-70), completar el deslizamiento
+      if (currentSwipe < -70) {
+        return {
+          ...prev,
+          swipeStates: {
+            ...prev.swipeStates,
+            [productKey]: -140
+          }
+        };
+      } 
+      // Si está entre 0 y la mitad, volver a 0
+      else if (currentSwipe > -70 && currentSwipe < 0) {
+        return {
+          ...prev,
+          swipeStates: {
+            ...prev.swipeStates,
+            [productKey]: 0
+          }
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const completeClientSwipeAnimation = useCallback((clientId: string) => {
+    setItemState(prev => {
+      const currentSwipe = prev.clientSwipeStates[clientId] || 0;
+      
+      // Si el deslizamiento es más de la mitad (-35), completar el deslizamiento
+      if (currentSwipe < -35) {
+        return {
+          ...prev,
+          clientSwipeStates: {
+            ...prev.clientSwipeStates,
+            [clientId]: -70
+          }
+        };
+      } 
+      // Si está entre 0 y la mitad, volver a 0
+      else if (currentSwipe > -35 && currentSwipe < 0) {
+        return {
+          ...prev,
+          clientSwipeStates: {
+            ...prev.clientSwipeStates,
+            [clientId]: 0
+          }
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const closeAllSwipes = useCallback((exceptKey?: string) => {
+    setItemState(prev => {
+      const newSwipeStates = { ...prev.swipeStates };
+      const newClientSwipeStates = { ...prev.clientSwipeStates };
+      
+      Object.keys(newSwipeStates).forEach(key => {
+        if (key !== exceptKey) {
+          newSwipeStates[key] = 0;
+        }
+      });
+      
+      Object.keys(newClientSwipeStates).forEach(key => {
+        if (key !== exceptKey) {
+          newClientSwipeStates[key] = 0;
+        }
+      });
+      
+      return {
+        ...prev,
+        swipeStates: newSwipeStates,
+        clientSwipeStates: newClientSwipeStates
+      };
+    });
+  }, []);
+
+  const registerProductRef = useCallback((key: string, ref: HTMLDivElement | null) => {
+    productItemRefs.current[key] = ref;
+  }, []);
+
+  const registerClientRef = useCallback((key: string, ref: HTMLDivElement | null) => {
+    clientItemRefs.current[key] = ref;
+  }, []);
   
   // Manejo de productos
   const handleToggleProductPaid = async (productKey: string, orderId: string, itemId: string, isPaid: boolean) => {
@@ -503,15 +642,88 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Actualización de pedidos
+  // Actualizar cantidad de producto
+  const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
+    // No permitir editar productos pagados
+    if (isPaid) {
+      toast({
+        title: "Producto pagado",
+        description: "No se puede editar un producto que ya está pagado",
+        variant: "default"
+      });
+      return;
+    }
+
+    // Cerrar cualquier otro swipe abierto
+    closeAllSwipes();
+    
+    setItemState(prev => ({
+      ...prev,
+      editingProduct: productKey,
+      productQuantities: {
+        ...prev.productQuantities,
+        [productKey]: currentQuantity
+      }
+    }));
+  };
+
+  const handleQuantityChange = (productKey: string, newQuantity: number) => {
+    setItemState(prev => ({
+      ...prev,
+      productQuantities: {
+        ...prev.productQuantities,
+        [productKey]: Math.max(1, newQuantity)
+      }
+    }));
+  };
+
+  // Actualización de productos
   const updateOrderTotal = async (orderId: string) => {
     try {
       const { data: items, error: itemsError } = await supabase
         .from('order_items')
-        .select('total')
+        .select('*')
         .eq('order_id', orderId);
       
       if (itemsError) throw itemsError;
+      
+      // Obtener información de productos para asociar nombres
+      const productIds = items?.map(item => item.product_id) || [];
+      let productsData: any[] = [];
+      let variantsData: any[] = [];
+      
+      if (productIds.length > 0) {
+        const { data: prods, error: productsError } = await supabase
+          .from('products')
+          .select('id, name')
+          .in('id', productIds);
+          
+        if (productsError) throw productsError;
+        productsData = prods || [];
+        
+        // También obtener variantes
+        const variantIds = items?.filter(item => item.variant_id).map(item => item.variant_id) || [];
+        if (variantIds.length > 0) {
+          const { data: vars, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('id, name')
+            .in('id', variantIds);
+            
+          if (variantsError) throw variantsError;
+          variantsData = vars || [];
+        }
+      }
+      
+      // Crear mapas para lookup rápido
+      const productMap: { [key: string]: string } = {};
+      productsData.forEach(product => {
+        productMap[product.id] = product.name;
+      });
+      
+      const variantMap: { [key: string]: string } = {};
+      variantsData.forEach(variant => {
+        variantMap[variant.id] = variant.name;
+      });
       
       const newTotal = items?.reduce((sum, item) => sum + (item.total || 0), 0) || 0;
       
@@ -536,49 +748,32 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (updateError) throw updateError;
       
-      return { newTotal, amountPaid, newBalance };
+      // Actualizar estado local
+      setState(prev => ({
+        ...prev,
+        orders: prev.orders.map(order => {
+          if (order.id === orderId) {
+            // Mapear items con nombres
+            const mappedItems = items ? mapApiItemsToOrderItems(items, productMap, variantMap) : [];
+            
+            return {
+              ...order,
+              total: newTotal,
+              amountPaid: amountPaid,
+              balance: newBalance,
+              items: mappedItems
+            };
+          }
+          return order;
+        })
+      }));
+      
     } catch (error) {
       console.error("Error al actualizar el total del pedido:", error);
       throw error;
     }
   };
-  
-  // Edición de productos
-  const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
-    // No permitir editar productos pagados
-    if (isPaid) {
-      toast({
-        title: "Producto pagado",
-        description: "No se puede editar un producto que ya está pagado",
-        variant: "default"
-      });
-      return;
-    }
 
-    // Cerrar cualquier otro swipe abierto
-    setItemState(prev => ({
-      ...prev,
-      swipeStates: Object.keys(prev.swipeStates).reduce((acc, key) => ({ ...acc, [key]: 0 }), {}),
-      editingProduct: productKey,
-      productQuantities: {
-        ...prev.productQuantities,
-        [productKey]: currentQuantity
-      }
-    }));
-  };
-  
-  // Cambio de cantidad
-  const handleQuantityChange = (productKey: string, newQuantity: number) => {
-    setItemState(prev => ({
-      ...prev,
-      productQuantities: {
-        ...prev.productQuantities,
-        [productKey]: Math.max(1, newQuantity)
-      }
-    }));
-  };
-  
-  // Guardado de cambios de producto
   const saveProductChanges = async (productKey: string, orderId: string, itemId: string) => {
     const newQuantity = itemState.productQuantities[productKey] || 1;
     
@@ -606,36 +801,14 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (error) throw error;
       
-      const result = await updateOrderTotal(orderId);
+      // Actualizar total del pedido
+      await updateOrderTotal(orderId);
       
       toast({
         title: "Producto actualizado",
         description: `Cantidad actualizada a ${newQuantity}`,
         variant: "default"
       });
-      
-      const { data: updatedItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', orderId);
-        
-      if (itemsError) throw itemsError;
-      
-      // Actualizar estado local
-      setState(prev => ({
-        ...prev,
-        orders: prev.orders.map(order => 
-          order.id === orderId 
-            ? {
-                ...order,
-                total: result.newTotal,
-                amountPaid: result.amountPaid,
-                balance: result.newBalance,
-                items: updatedItems || []
-              } 
-            : order
-        )
-      }));
       
     } catch (error: any) {
       console.error("Error al actualizar el producto:", error);
@@ -649,12 +822,14 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         ...prev, 
         isSaving: false,
         editingProduct: null,
-        swipeStates: Object.keys(prev.swipeStates).reduce((acc, key) => ({ ...acc, [key]: 0 }), {})
+        swipeStates: Object.keys(prev.swipeStates).reduce((acc, key) => {
+          acc[key] = 0;
+          return acc;
+        }, {} as {[key: string]: number})
       }));
     }
   };
-  
-  // Eliminación de productos
+
   const deleteProduct = async (productKey: string, orderId: string, itemId: string) => {
     setItemState(prev => ({ ...prev, isSaving: true }));
     try {
@@ -665,36 +840,14 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (error) throw error;
       
-      const result = await updateOrderTotal(orderId);
+      // Actualizar total del pedido
+      await updateOrderTotal(orderId);
       
       toast({
         title: "Producto eliminado",
         description: "El producto ha sido eliminado del pedido",
         variant: "default"
       });
-      
-      const { data: updatedItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', orderId);
-        
-      if (itemsError) throw itemsError;
-      
-      // Actualizar estado local
-      setState(prev => ({
-        ...prev,
-        orders: prev.orders.map(order => 
-          order.id === orderId 
-            ? {
-                ...order,
-                total: result.newTotal,
-                amountPaid: result.amountPaid,
-                balance: result.newBalance,
-                items: updatedItems || []
-              } 
-            : order
-        )
-      }));
       
     } catch (error: any) {
       console.error("Error al eliminar el producto:", error);
@@ -715,18 +868,18 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Interactividad de tarjetas
+  // Toggle para abrir/cerrar el panel de cliente
   const toggleClient = (clientId: string) => {
     setItemState(prev => {
+      // Si hay un cliente abierto y es diferente del que queremos abrir, cerrarlo primero
       if (prev.openClientId && prev.openClientId !== clientId) {
-        // Si ya hay un cliente abierto y es diferente, primero cerrarlo y luego abrir el nuevo
         return {
           ...prev,
-          openClientId: null,
-          _pendingOpenClientId: clientId
+          _pendingOpenClientId: clientId,  // Guardar temporalmente el cliente que queremos abrir
+          openClientId: null              // Cerrar el cliente actual
         };
       } else {
-        // Si no hay cliente abierto o es el mismo, simplemente alternar
+        // Si no hay cliente abierto o es el mismo, simplemente toggle
         return {
           ...prev,
           openClientId: prev.openClientId === clientId ? null : clientId
@@ -735,22 +888,22 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     });
   };
   
-  // Efecto para gestionar la apertura retrasada después de cerrar un cliente
+  // Efecto para abrir el cliente pendiente después de cerrar el actual
   useEffect(() => {
-    if (itemState._pendingOpenClientId) {
-      const timeout = setTimeout(() => {
+    if (itemState._pendingOpenClientId && !itemState.openClientId) {
+      const timer = setTimeout(() => {
         setItemState(prev => ({
           ...prev,
           openClientId: prev._pendingOpenClientId,
-          _pendingOpenClientId: undefined
+          _pendingOpenClientId: null
         }));
-      }, 50);
+      }, 50); // Pequeño delay para permitir la animación de cierre
       
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(timer);
     }
-  }, [itemState._pendingOpenClientId]);
+  }, [itemState.openClientId, itemState._pendingOpenClientId]);
   
-  // Configurar eliminaciones
+  // Utilidades para actualizar el estado de eliminación
   const setOrderToDelete = (orderId: string | null) => {
     setItemState(prev => ({ ...prev, orderToDelete: orderId }));
   };
@@ -759,224 +912,13 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setItemState(prev => ({ ...prev, clientToDelete: clientId }));
   };
   
-  // Funciones para el manejo de swipe en UI móvil
-  const handleProductSwipe = (productKey: string, deltaX: number) => {
-    const newSwipeX = Math.max(-140, Math.min(0, deltaX));
-    
-    setItemState(prev => ({
-      ...prev,
-      swipeStates: {
-        ...prev.swipeStates,
-        [productKey]: newSwipeX
-      }
-    }));
-  };
-  
-  const handleClientSwipe = (clientId: string, deltaX: number) => {
-    const newSwipeX = Math.max(-70, Math.min(0, deltaX));
-    
-    setItemState(prev => ({
-      ...prev,
-      clientSwipeStates: {
-        ...prev.clientSwipeStates,
-        [clientId]: newSwipeX
-      }
-    }));
-  };
-  
-  const completeSwipeAnimation = (productKey: string) => {
-    const currentSwipe = itemState.swipeStates[productKey] || 0;
-    
-    if (currentSwipe < -70) {
-      setItemState(prev => ({
-        ...prev,
-        swipeStates: {
-          ...prev.swipeStates,
-          [productKey]: -140
-        }
-      }));
-    } else if (currentSwipe > -70 && currentSwipe < 0) {
-      setItemState(prev => ({
-        ...prev,
-        swipeStates: {
-          ...prev.swipeStates,
-          [productKey]: 0
-        }
-      }));
-    }
-  };
-  
-  const completeClientSwipeAnimation = (clientId: string) => {
-    const currentSwipe = itemState.clientSwipeStates[clientId] || 0;
-    
-    if (currentSwipe < -35) {
-      setItemState(prev => ({
-        ...prev,
-        clientSwipeStates: {
-          ...prev.clientSwipeStates,
-          [clientId]: -70
-        }
-      }));
-    } else if (currentSwipe > -35 && currentSwipe < 0) {
-      setItemState(prev => ({
-        ...prev,
-        clientSwipeStates: {
-          ...prev.clientSwipeStates,
-          [clientId]: 0
-        }
-      }));
-    }
-  };
-  
-  const closeAllSwipes = (exceptKey?: string) => {
-    setItemState(prev => ({
-      ...prev,
-      swipeStates: Object.keys(prev.swipeStates).reduce((acc, key) => ({ 
-        ...acc, 
-        [key]: key === exceptKey ? prev.swipeStates[key] : 0 
-      }), {}),
-      clientSwipeStates: Object.keys(prev.clientSwipeStates).reduce((acc, key) => ({ 
-        ...acc, 
-        [key]: key === exceptKey ? prev.clientSwipeStates[key] : 0 
-      }), {})
-    }));
-  };
-  
-  // Registrar referencias de DOM para eventos táctiles
-  const registerProductRef = (key: string, ref: HTMLDivElement | null) => {
-    productItemRefs.current[key] = ref;
-  };
-  
-  const registerClientRef = (key: string, ref: HTMLDivElement | null) => {
-    clientItemRefs.current[key] = ref;
-  };
-  
-  // Efectos de eventos táctiles para UX móvil
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      const target = e.target as HTMLElement;
-      const productItem = target.closest('[data-product-key]') as HTMLElement;
-      const clientItem = target.closest('[data-client-id]') as HTMLElement;
-      
-      // Cerrar cualquier panel de edición abierto
-      if (itemState.editingProduct && (!productItem || productItem.getAttribute('data-product-key') !== itemState.editingProduct)) {
-        setItemState(prev => ({ ...prev, editingProduct: null }));
-      }
-      
-      if (productItem) {
-        const productKey = productItem.getAttribute('data-product-key');
-        if (productKey) {
-          // Verificar si el producto está pagado
-          const isPaid = itemState.productPaidStatus[productKey] || false;
-          
-          // Si está pagado, no permitir el swipe
-          if (!isPaid) {
-            touchStartXRef.current = e.touches[0].clientX;
-            closeAllSwipes(productKey);
-          }
-        }
-      } else if (clientItem) {
-        const clientId = clientItem.getAttribute('data-client-id');
-        if (clientId) {
-          clientTouchStartXRef.current = e.touches[0].clientX;
-          closeAllSwipes(clientId);
-        }
-      }
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (touchStartXRef.current !== null) {
-        const target = e.target as HTMLElement;
-        const productItem = target.closest('[data-product-key]') as HTMLElement;
-        
-        if (productItem) {
-          const productKey = productItem.getAttribute('data-product-key');
-          if (productKey) {
-            const currentX = e.touches[0].clientX;
-            const deltaX = currentX - touchStartXRef.current;
-            handleProductSwipe(productKey, deltaX);
-          }
-        }
-      }
-      
-      if (clientTouchStartXRef.current !== null) {
-        const target = e.target as HTMLElement;
-        const clientItem = target.closest('[data-client-id]') as HTMLElement;
-        
-        if (clientItem) {
-          const clientId = clientItem.getAttribute('data-client-id');
-          if (clientId) {
-            const currentX = e.touches[0].clientX;
-            const deltaX = currentX - clientTouchStartXRef.current;
-            handleClientSwipe(clientId, deltaX);
-          }
-        }
-      }
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (touchStartXRef.current !== null) {
-        const target = e.target as HTMLElement;
-        const productItem = target.closest('[data-product-key]') as HTMLElement;
-        
-        if (productItem) {
-          const productKey = productItem.getAttribute('data-product-key');
-          if (productKey) {
-            completeSwipeAnimation(productKey);
-          }
-        }
-        
-        touchStartXRef.current = null;
-      }
-      
-      if (clientTouchStartXRef.current !== null) {
-        const target = e.target as HTMLElement;
-        const clientItem = target.closest('[data-client-id]') as HTMLElement;
-        
-        if (clientItem) {
-          const clientId = clientItem.getAttribute('data-client-id');
-          if (clientId) {
-            completeClientSwipeAnimation(clientId);
-          }
-        }
-        
-        clientTouchStartXRef.current = null;
-      }
-    };
-    
-    const handleDocumentClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const isActionButton = target.closest('.product-action-button') || target.closest('.client-action-button');
-      const productItem = target.closest('[data-product-key]');
-      const clientItem = target.closest('[data-client-id]');
-      const editControls = target.closest('.edit-controls');
-      
-      // No cerrar si se está haciendo clic en los controles de edición
-      if (!isActionButton && !productItem && !clientItem && !editControls) {
-        closeAllSwipes();
-        setItemState(prev => ({ ...prev, editingProduct: null }));
-      }
-    };
-    
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
-    document.addEventListener('touchend', handleTouchEnd);
-    document.addEventListener('click', handleDocumentClick);
-    
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-      document.removeEventListener('click', handleDocumentClick);
-    };
-  }, [itemState.editingProduct, itemState.productPaidStatus, itemState.swipeStates, itemState.clientSwipeStates]);
-  
   // Cargar pedidos al montar el componente
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
   
-  const value: OrdersContextProps = {
+  // Valores a exportar en el contexto
+  const contextValue: OrdersContextProps = {
     state,
     itemState,
     actions: {
@@ -997,18 +939,20 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       handleClientSwipe,
       completeSwipeAnimation,
       completeClientSwipeAnimation,
-      closeAllSwipes
+      closeAllSwipes,
+      registerProductRef,
+      registerClientRef
     }
   };
   
   return (
-    <OrdersContext.Provider value={value}>
+    <OrdersContext.Provider value={contextValue}>
       {children}
     </OrdersContext.Provider>
   );
 };
 
-// Hook para consumir el contexto
+// Hook personalizado para usar el contexto
 export const useOrders = () => {
   const context = useContext(OrdersContext);
   if (context === undefined) {

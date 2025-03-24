@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { useOrders } from "@/contexts/OrdersContext";
 import { 
   AlertDialog,
@@ -24,7 +23,7 @@ export const OrdersList = () => {
     handleToggleProductPaid, handleToggleAllProducts, 
     handleDeleteOrder, handleDeleteClientOrders, handleEditProduct, 
     handleQuantityChange, saveProductChanges, deleteProduct, 
-    toggleClient, setClientToDelete
+    toggleClient, setOrderToDelete, setClientToDelete
   } = actions;
 
   // Organizar pedidos por cliente
@@ -115,7 +114,7 @@ export const OrdersList = () => {
         </div>
       )}
       
-      <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && actions.setOrderToDelete(null)}>
+      <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este pedido?</AlertDialogTitle>
@@ -136,7 +135,7 @@ export const OrdersList = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && actions.setClientToDelete(null)}>
+      <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar todos los pedidos de este cliente?</AlertDialogTitle>
