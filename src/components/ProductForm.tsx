@@ -68,9 +68,14 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     }
   };
 
+  // Corregimos esta función para que maneje correctamente los tipos
   const handleVariantChange = (index: number, field: keyof ProductVariant, value: string | number) => {
     const newVariants = [...variants];
-    newVariants[index][field] = value;
+    if (field === 'name') {
+      newVariants[index].name = value as string;
+    } else if (field === 'price') {
+      newVariants[index].price = typeof value === 'number' ? value : 0;
+    }
     setVariants(newVariants);
   };
 
