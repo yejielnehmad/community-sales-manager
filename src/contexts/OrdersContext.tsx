@@ -3,14 +3,11 @@ import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } fro
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
-// Crear el contexto con un valor inicial
 const OrdersContext = createContext<OrdersContextProps | undefined>(undefined);
 
-// Proveedor del contexto
 export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
   
-  // Estado principal de pedidos
   const [state, setState] = useState<OrdersState>({
     isLoading: true,
     isRefreshing: false,
@@ -20,7 +17,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     searchTerm: ''
   });
   
-  // Estado relacionado con los items de pedidos
   const [itemState, setItemState] = useState<OrderItemState>({
     productPaidStatus: {},
     swipeStates: {},
@@ -37,13 +33,11 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     clientItemRefs: {}
   });
   
-  // Referencias para el manejo táctil
   const touchStartXRef = useRef<number | null>(null);
   const clientTouchStartXRef = useRef<number | null>(null);
   const productItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const clientItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   
-  // Mapeo de items de la API al formato esperado
   const mapApiItemsToOrderItems = (items: any[], productMap: {[key: string]: {name: string, price: number}}, variantMap: {[key: string]: {name: string, price: number}}): OrderItem[] => {
     return items.map(item => {
       const productInfo = productMap[item.product_id] || { name: 'Producto', price: 0 };
@@ -63,7 +57,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     });
   };
   
-  // Funciones para actualizar los pedidos
   const fetchOrders = useCallback(async (refresh = false) => {
     if (refresh) {
       setState(prev => ({ ...prev, isRefreshing: true }));
@@ -140,7 +133,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           console.log(`Obtenidas ${variantsData.length} variantes`);
         }
 
-        // Corregir los mapas para incluir tanto nombre como precio
         const productMap: { [key: string]: {name: string, price: number} } = {};
         productsData?.forEach(product => {
           productMap[product.id] = {
@@ -150,7 +142,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         });
         
         const variantMap: { [key: string]: {name: string, price: number} } = {};
-        variantsData?.forEach(variant => {
+        variantsData.forEach(variant => {
           variantMap[variant.id] = {
             name: variant.name,
             price: variant.price || 0
@@ -214,7 +206,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
             clientMap
           }));
           
-          // Inicializar el estado de pago de productos
           const initialPaidStatus: { [key: string]: boolean } = {};
           transformedOrders.forEach(order => {
             order.items.forEach(item => {
@@ -251,14 +242,11 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [toast]);
   
-  // Establecer término de búsqueda
   const setSearchTerm = (term: string) => {
     setState(prev => ({ ...prev, searchTerm: term }));
   };
 
-  // Manejadores para los swipes y referencias
   const handleProductSwipe = useCallback((productKey: string, deltaX: number) => {
-    // Limitar el deslizamiento entre 0 y -140 (70px por cada botón)
     const newSwipeX = Math.max(-140, Math.min(0, deltaX));
     
     setItemState(prev => ({
@@ -271,7 +259,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
-    // Limitar el deslizamiento entre 0 y -70 (tamaño del botón de eliminar)
     const newSwipeX = Math.max(-70, Math.min(0, deltaX));
     
     setItemState(prev => ({
@@ -287,7 +274,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setItemState(prev => {
       const currentSwipe = prev.swipeStates[productKey] || 0;
       
-      // Si el deslizamiento es más de la mitad (-70), completar el deslizamiento
       if (currentSwipe < -70) {
         return {
           ...prev,
@@ -297,7 +283,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           }
         };
       } 
-      // Si está entre 0 y la mitad, volver a 0
       else if (currentSwipe > -70 && currentSwipe < 0) {
         return {
           ...prev,
@@ -315,7 +300,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setItemState(prev => {
       const currentSwipe = prev.clientSwipeStates[clientId] || 0;
       
-      // Si el deslizamiento es más de la mitad (-35), completar el deslizamiento
       if (currentSwipe < -35) {
         return {
           ...prev,
@@ -325,7 +309,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           }
         };
       } 
-      // Si está entre 0 y la mitad, volver a 0
       else if (currentSwipe > -35 && currentSwipe < 0) {
         return {
           ...prev,
@@ -372,12 +355,10 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     clientItemRefs.current[key] = ref;
   }, []);
   
-  // Manejo de productos
   const handleToggleProductPaid = async (productKey: string, orderId: string, itemId: string, isPaid: boolean) => {
     try {
       setItemState(prev => ({ ...prev, isSaving: true }));
       
-      // Primero actualizamos el estado local inmediatamente para UI responsiva
       setItemState(prev => ({
         ...prev,
         productPaidStatus: {
@@ -386,13 +367,11 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         }
       }));
       
-      // Encontrar todos los productos para esta orden
       const order = state.orders.find(o => o.id === orderId);
       if (!order) {
         throw new Error("Pedido no encontrado");
       }
       
-      // Obtener el precio del producto que estamos cambiando
       const item = order.items.find(item => item.id === itemId);
       if (!item) {
         throw new Error("Producto no encontrado");
@@ -400,11 +379,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       
       const productTotal = item.price * item.quantity;
       
-      // Calcular el nuevo monto pagado basado en todos los productos marcados como pagados
       let newAmountPaid = 0;
       order.items.forEach(orderItem => {
         const itemKey = `${orderItem.name || 'Producto'}_${orderItem.variant || ''}_${order.id}`;
-        // Si es el ítem actual, usar el nuevo estado; de lo contrario, usar el estado existente
         const isItemPaid = itemKey === productKey 
           ? isPaid 
           : (itemState.productPaidStatus[itemKey] || false);
@@ -414,11 +391,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         }
       });
       
-      // Redondear para evitar problemas de precisión
       newAmountPaid = Math.round(newAmountPaid * 100) / 100;
       const newBalance = Math.max(0, order.total - newAmountPaid);
       
-      // Actualizar en la base de datos
       const { error } = await supabase
         .from('orders')
         .update({
@@ -429,7 +404,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (error) throw error;
       
-      // También debemos actualizar el estado del item específico en la tabla order_items
       const { error: itemError } = await supabase
         .from('order_items')
         .update({
@@ -441,7 +415,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         console.error("Error al actualizar estado de pago del item:", itemError);
       }
       
-      // Actualizar el estado de la aplicación
       setState(prev => ({
         ...prev,
         orders: prev.orders.map(order => 
@@ -464,7 +437,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         variant: "destructive",
       });
       
-      // Revertir cambio local en caso de error
       setItemState(prev => ({
         ...prev,
         productPaidStatus: {
@@ -477,12 +449,10 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Manejo de pagos masivos
   const handleToggleAllProducts = async (clientId: string, isPaid: boolean) => {
     try {
       setItemState(prev => ({ ...prev, isSaving: true }));
       
-      // Seleccionar órdenes del cliente
       const clientOrders = state.orders.filter(order => order.clientId === clientId);
       
       if (clientOrders.length === 0) {
@@ -491,7 +461,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       
       const clientProducts: { [key: string]: boolean } = {};
       
-      // Actualizar estado local primero para UI responsive
       clientOrders.forEach(order => {
         order.items.forEach(item => {
           const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
@@ -507,9 +476,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         }
       }));
       
-      // Actualizar cada pedido en la base de datos
       for (const order of clientOrders) {
-        // Primero, actualizar cada item del pedido
         for (const item of order.items) {
           const { error: itemError } = await supabase
             .from('order_items')
@@ -519,7 +486,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           if (itemError) throw itemError;
         }
         
-        // Luego, recalcular el amount_paid y balance del pedido
         const newAmountPaid = isPaid ? order.total : 0;
         const newBalance = isPaid ? 0 : order.total;
         
@@ -534,7 +500,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         if (error) throw error;
       }
       
-      // Actualizar el estado de la aplicación
       setState(prev => ({
         ...prev,
         orders: prev.orders.map(order => 
@@ -561,14 +526,12 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         variant: "destructive",
       });
       
-      // Recargar para asegurar coherencia
       fetchOrders(true);
     } finally {
       setItemState(prev => ({ ...prev, isSaving: false }));
     }
   };
   
-  // Eliminación de pedidos
   const handleDeleteOrder = async () => {
     const { orderToDelete } = itemState;
     if (!orderToDelete) return;
@@ -595,7 +558,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         variant: "default"
       });
       
-      // Actualizar estado local
       setState(prev => ({
         ...prev,
         orders: prev.orders.filter(order => order.id !== orderToDelete)
@@ -616,7 +578,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Eliminación de pedidos de cliente
   const handleDeleteClientOrders = async () => {
     const { clientToDelete } = itemState;
     if (!clientToDelete) return;
@@ -650,7 +611,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         variant: "default"
       });
       
-      // Actualizar estado local
       setState(prev => ({
         ...prev,
         orders: prev.orders.filter(order => order.clientId !== clientToDelete)
@@ -675,9 +635,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Actualizar cantidad de producto
   const handleEditProduct = (productKey: string, currentQuantity: number, isPaid: boolean) => {
-    // No permitir editar productos pagados
     if (isPaid) {
       toast({
         title: "Producto pagado",
@@ -687,7 +645,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Cerrar cualquier otro swipe abierto
     closeAllSwipes();
     
     setItemState(prev => ({
@@ -710,7 +667,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-  // Actualización de productos
   const updateOrderTotal = async (orderId: string) => {
     try {
       const { data: items, error: itemsError } = await supabase
@@ -720,7 +676,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       
       if (itemsError) throw itemsError;
       
-      // Obtener información de productos para asociar nombres
       const productIds = items?.map(item => item.product_id) || [];
       let productsData: any[] = [];
       let variantsData: any[] = [];
@@ -734,7 +689,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         if (productsError) throw productsError;
         productsData = prods || [];
         
-        // También obtener variantes
         const variantIds = items?.filter(item => item.variant_id).map(item => item.variant_id) || [];
         if (variantIds.length > 0) {
           const { data: vars, error: variantsError } = await supabase
@@ -747,7 +701,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
-      // Crear mapas para lookup rápido
       const productMap: { [key: string]: {name: string, price: number} } = {};
       productsData.forEach(product => {
         productMap[product.id] = {
@@ -787,12 +740,10 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (updateError) throw updateError;
       
-      // Actualizar estado local
       setState(prev => ({
         ...prev,
         orders: prev.orders.map(order => {
           if (order.id === orderId) {
-            // Mapear items con nombres
             const mappedItems = items ? mapApiItemsToOrderItems(items, productMap, variantMap) : [];
             
             return {
@@ -840,7 +791,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (error) throw error;
       
-      // Actualizar total del pedido
       await updateOrderTotal(orderId);
       
       toast({
@@ -879,7 +829,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         
       if (error) throw error;
       
-      // Actualizar total del pedido
       await updateOrderTotal(orderId);
       
       toast({
@@ -907,18 +856,15 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Toggle para abrir/cerrar el panel de cliente
   const toggleClient = (clientId: string) => {
     setItemState(prev => {
-      // Si hay un cliente abierto y es diferente del que queremos abrir, cerrarlo primero
       if (prev.openClientId && prev.openClientId !== clientId) {
         return {
           ...prev,
-          _pendingOpenClientId: clientId,  // Guardar temporalmente el cliente que queremos abrir
-          openClientId: null              // Cerrar el cliente actual
+          _pendingOpenClientId: clientId,
+          openClientId: null
         };
       } else {
-        // Si no hay cliente abierto o es el mismo, simplemente toggle
         return {
           ...prev,
           openClientId: prev.openClientId === clientId ? null : clientId
@@ -927,7 +873,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     });
   };
   
-  // Efecto para abrir el cliente pendiente después de cerrar el actual
   useEffect(() => {
     if (itemState._pendingOpenClientId && !itemState.openClientId) {
       const timer = setTimeout(() => {
@@ -936,13 +881,12 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           openClientId: prev._pendingOpenClientId,
           _pendingOpenClientId: null
         }));
-      }, 50); // Pequeño delay para permitir la animación de cierre
+      }, 50);
       
       return () => clearTimeout(timer);
     }
   }, [itemState.openClientId, itemState._pendingOpenClientId]);
   
-  // Utilidades para actualizar el estado de eliminación
   const setOrderToDelete = (orderId: string | null) => {
     setItemState(prev => ({ ...prev, orderToDelete: orderId }));
   };
@@ -951,12 +895,10 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setItemState(prev => ({ ...prev, clientToDelete: clientId }));
   };
   
-  // Cargar pedidos al montar el componente
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
   
-  // Valores a exportar en el contexto
   const contextValue: OrdersContextProps = {
     state,
     itemState,
@@ -991,7 +933,6 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Hook personalizado para usar el contexto
 export const useOrders = () => {
   const context = useContext(OrdersContext);
   if (context === undefined) {

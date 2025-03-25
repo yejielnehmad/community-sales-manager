@@ -101,7 +101,7 @@ export const ClientOrderCardNew = ({
         const itemUniqueKey = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
         
         // Obtener el estado de pago actual (desde props)
-        const isPaid = productPaidStatus[itemUniqueKey];
+        const isPaid = productPaidStatus[itemUniqueKey] === true;
         
         if (existingVariantIndex >= 0) {
           // Si la variante ya existe, actualizar cantidad y total
