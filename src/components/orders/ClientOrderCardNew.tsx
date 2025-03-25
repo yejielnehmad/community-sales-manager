@@ -228,10 +228,10 @@ export const ClientOrderCardNew = ({
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                   <div className="font-medium">
                     <span className={`${balance > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                      ${balance > 0 ? balance.toFixed(2) : '0.00'}
+                      ${Math.round(balance)}
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      /${total.toFixed(2)}
+                      /${Math.round(total)}
                     </span>
                   </div>
                 </div>
@@ -323,7 +323,7 @@ export const ClientOrderCardNew = ({
                 <div className="text-sm font-medium">
                   Total:
                   <span className="ml-1">
-                    ${total.toFixed(2)}
+                    ${Math.round(total)}
                   </span>
                 </div>
               </div>

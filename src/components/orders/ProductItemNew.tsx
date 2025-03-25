@@ -231,7 +231,7 @@ export const ProductItemNew = ({
                   {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
                 </div>
                 <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
-                  ${product.price.toFixed(2)}
+                  ${Math.round(product.price)}
                 </div>
               </div>
             </div>
