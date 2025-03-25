@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash } from "lucide-react";
+import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck } from "lucide-react";
 import { Order } from '@/types';
 import { Switch } from "@/components/ui/switch";
 import { ProductItemNew } from "./ProductItemNew";
@@ -53,7 +53,7 @@ export const ClientOrderCardNew = ({
   
   // Usar nuestro custom hook para el swipe
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -55, // Reducido de -70 a -55 para que no se desplace tanto
+    maxSwipe: -55, // Reducido a -55 para que no se desplace tanto
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -337,57 +337,77 @@ export const ClientOrderCardNew = ({
                 <div className="space-y-2">
                   {/* Renderizamos una tarjeta por cada grupo de productos */}
                   {Object.entries(productGroups).map(([baseProductName, group], productIndex) => {
+                    // Para cada producto principal (ej: "Pañales")
+                    // Verificar si todas las variantes están pagadas
+                    const allVariantsPaid = group.variants?.every(v => {
+                      const itemKey = `${v.name}_${v.variant || ''}_${v.orderId}`;
+                      return productPaidStatus[itemKey];
+                    });
+
                     return (
                       <div key={baseProductName} className="bg-card rounded-lg shadow-sm">
-                        {/* Título del grupo de producto y total */}
+                        {/* Título del grupo de producto */}
                         <div className="flex justify-between items-center p-2 border-b">
-                          <div className="font-semibold text-sm">
+                          <div className="font-semibold text-sm flex items-center gap-1">
+                            <div className={`p-1 rounded-full ${allVariantsPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
+                              <Package className={`h-3 w-3 ${allVariantsPaid ? 'text-green-600' : 'text-primary'}`} />
+                            </div>
                             {group.baseName}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium">
-                              <span className="text-xs text-muted-foreground mr-1">Total:</span>
-                              ${Math.round(group.totalPrice)}
-                            </div>
-                            <div className="bg-primary/10 px-2 py-0.5 rounded-full text-xs">
+                          <div className="flex items-center gap-1">
+                            <div className="bg-primary/5 px-2 py-0.5 rounded-full text-xs">
                               {group.totalUnits} {group.totalUnits === 1 ? 'unidad' : 'unidades'}
                             </div>
                           </div>
                         </div>
                         
-                        {/* Variantes del producto */}
-                        <div className="divide-y divide-gray-100">
-                          {group.variants?.map((variant, variantIndex) => {
-                            const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
-                            const isPaid = productPaidStatus[productKey] === true;
-                            
-                            return (
-                              <ProductItemNew
-                                key={`${productKey}_${variantIndex}`}
-                                productKey={productKey}
-                                product={{
-                                  id: variant.id,
-                                  name: group.baseName, // Usamos el nombre base del grupo
-                                  variant: variant.variant, // Y la variante específica
-                                  quantity: variant.quantity,
-                                  price: variant.price,
-                                  total: variant.total,
-                                  orderId: variant.orderId
-                                }}
-                                isPaid={isPaid}
-                                isLastItem={variantIndex === (group.variants?.length || 0) - 1}
-                                isFirstItem={variantIndex === 0}
-                                isSaving={isSaving}
-                                editingProduct={editingProduct}
-                                productQuantities={productQuantities}
-                                onDeleteProduct={deleteProduct}
-                                onEditProduct={handleEditProduct}
-                                onSaveProductChanges={saveProductChanges}
-                                onQuantityChange={handleQuantityChange}
-                                onToggleProductPaid={handleToggleProductPaid}
-                              />
-                            );
-                          })}
+                        {/* Variantes del producto en formato compacto */}
+                        <div className="p-2">
+                          {/* Listado de variantes */}
+                          <div className="space-y-1">
+                            {group.variants?.map((variant, variantIndex) => {
+                              const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
+                              const isPaid = productPaidStatus[productKey] === true;
+                              
+                              return (
+                                <div 
+                                  key={`${productKey}_${variantIndex}`} 
+                                  className="flex justify-between items-center"
+                                >
+                                  <div className="flex items-center gap-1">
+                                    {isPaid && <CircleCheck size={10} className="text-green-500" />}
+                                    <span className="text-xs font-medium">
+                                      {variant.variant} x {variant.quantity}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className="text-xs font-medium mr-2">
+                                      ${Math.round(variant.price)}
+                                    </span>
+                                    <Switch
+                                      checked={isPaid}
+                                      onCheckedChange={(checked) => 
+                                        handleToggleProductPaid(productKey, variant.orderId, variant.id || '', checked)
+                                      }
+                                      disabled={isSaving}
+                                      className="data-[state=checked]:bg-green-500 h-3 w-5"
+                                      aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {/* Total del grupo */}
+                          <div className="flex justify-end mt-2 pt-2 border-t border-gray-100">
+                            <div className="text-xs font-semibold">
+                              <span className="text-muted-foreground mr-1">Total:</span>
+                              <span className={`${allVariantsPaid ? 'text-green-600' : ''}`}>
+                                ${Math.round(group.totalPrice)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );

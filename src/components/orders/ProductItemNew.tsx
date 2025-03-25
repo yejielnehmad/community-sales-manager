@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Edit, Trash, Loader2, Check, X, Package } from "lucide-react";
+import { Edit, Trash, Loader2, Check, X, Package, CircleCheck, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
@@ -53,7 +53,7 @@ export const ProductItemNew = ({
   
   // Usar nuestro custom hook para el swipe con un valor más pequeño para el desplazamiento máximo
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -100, // Reducido de -140 a -100 para que no se desplace tanto
+    maxSwipe: -80, // Reducido a -80 para que no se desplace tanto
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -103,7 +103,7 @@ export const ProductItemNew = ({
       data-product-key={productKey}
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
-        minHeight: isEditing ? '120px' : '68px', // Reducido de 74px a 68px para que sea más compacto
+        minHeight: isEditing ? '120px' : '64px', // Altura reducida para hacerla más compacta
         borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
@@ -113,7 +113,7 @@ export const ProductItemNew = ({
         <div 
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
-            width: '100px', // Reducido de 140px a 100px
+            width: '80px', // Reducido para que no se desplace tanto
             borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
             zIndex: 1,
             pointerEvents: isEditing ? 'none' : 'auto',
@@ -136,7 +136,7 @@ export const ProductItemNew = ({
               onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
               disabled={isSaving}
               label="Eliminar producto"
-              className="rounded-r-lg" // Aseguramos que el botón rojo tenga bordes redondeados a la derecha
+              className="rounded-r-lg" // Bordes redondeados a la derecha
             />
           </div>
         </div>
@@ -144,7 +144,7 @@ export const ProductItemNew = ({
       
       <div 
         {...(!isPaid && !isEditing ? {...getMouseProps(), ...getTouchProps()} : {})}
-        className={`flex justify-between items-center p-3 transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
+        className={`flex flex-col justify-between transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
@@ -157,7 +157,7 @@ export const ProductItemNew = ({
         }}
       >
         {isEditing ? (
-          <div className="flex-1 flex flex-col gap-2 w-full">
+          <div className="flex-1 flex flex-col gap-2 w-full p-3">
             <div className="flex-1">
               <div className="font-medium text-sm flex items-center gap-2">
                 <div className="bg-primary/10 p-1 rounded-full">
@@ -223,35 +223,50 @@ export const ProductItemNew = ({
           </div>
         ) : (
           <>
-            <div className="flex-1">
-              <div className="font-medium text-sm flex items-center gap-2">
-                <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
-                  <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
+            {/* Nuevo diseño compacto según tu dibujo */}
+            <div className="p-2 w-full">
+              {/* Encabezado con nombre del producto e interruptor de pago */}
+              <div className="flex justify-between items-center mb-1">
+                <div className="font-medium text-sm flex items-center gap-1">
+                  <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
+                    <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
+                  </div>
+                  <span>{product.name}</span>
                 </div>
-                {!product.variant ? product.name : product.variant}
+                <Switch
+                  checked={isPaid}
+                  onCheckedChange={handleSwitchChange}
+                  disabled={isSaving}
+                  className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
+                  aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
+                />
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <div>
-                  {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
+              
+              {/* Línea divisoria */}
+              <div className="border-t border-gray-100 mb-1"></div>
+              
+              {/* Información del producto/variante */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  {isPaid && <CircleCheck size={10} className="text-green-500" />}
+                  <span className="text-xs">
+                    {product.variant || product.name} x {product.quantity}
+                  </span>
                 </div>
-                <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
+                <div className="text-xs font-medium">
                   ${Math.round(product.price)}
                 </div>
               </div>
-              <div className="text-right text-xs font-medium">
-                <span className="text-foreground">
-                  Total: ${Math.round(product.price * product.quantity)}
-                </span>
+              
+              {/* Total */}
+              <div className="flex justify-end mt-1">
+                <div className="text-xs font-semibold flex items-center gap-1">
+                  <span className="text-muted-foreground">Total:</span>
+                  <span className={`${isPaid ? 'text-green-600' : ''}`}>
+                    ${Math.round(calculateTotal())}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center ml-2">
-              <Switch
-                checked={isPaid}
-                onCheckedChange={handleSwitchChange}
-                disabled={isSaving}
-                className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
-                aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
-              />
             </div>
           </>
         )}
