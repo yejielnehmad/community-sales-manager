@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -729,7 +728,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       if (productIds.length > 0) {
         const { data: prods, error: productsError } = await supabase
           .from('products')
-          .select('id, name')
+          .select('id, name, price')
           .in('id', productIds);
           
         if (productsError) throw productsError;
@@ -740,7 +739,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         if (variantIds.length > 0) {
           const { data: vars, error: variantsError } = await supabase
             .from('product_variants')
-            .select('id, name')
+            .select('id, name, price')
             .in('id', variantIds);
             
           if (variantsError) throw variantsError;
@@ -749,14 +748,20 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Crear mapas para lookup rápido
-      const productMap: { [key: string]: string } = {};
+      const productMap: { [key: string]: {name: string, price: number} } = {};
       productsData.forEach(product => {
-        productMap[product.id] = product.name;
+        productMap[product.id] = {
+          name: product.name,
+          price: product.price || 0
+        };
       });
       
-      const variantMap: { [key: string]: string } = {};
+      const variantMap: { [key: string]: {name: string, price: number} } = {};
       variantsData.forEach(variant => {
-        variantMap[variant.id] = variant.name;
+        variantMap[variant.id] = {
+          name: variant.name,
+          price: variant.price || 0
+        };
       });
       
       const newTotal = items?.reduce((sum, item) => sum + (item.total || 0), 0) || 0;
