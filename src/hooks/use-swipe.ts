@@ -96,8 +96,10 @@ export function useSwipe(options: SwipeOptions = {}) {
       handleSwipeStart(e.clientX);
     },
     onMouseMove: (e: ReactMouseEvent) => {
-      e.stopPropagation();
-      handleSwipeMove(e.clientX);
+      if (isActiveRef.current) {
+        e.stopPropagation();
+        handleSwipeMove(e.clientX);
+      }
     },
     onMouseUp: (e: ReactMouseEvent) => {
       e.stopPropagation();
@@ -116,8 +118,10 @@ export function useSwipe(options: SwipeOptions = {}) {
       handleSwipeStart(e.touches[0].clientX);
     },
     onTouchMove: (e: ReactTouchEvent) => {
-      e.stopPropagation();
-      handleSwipeMove(e.touches[0].clientX);
+      if (isActiveRef.current) {
+        e.stopPropagation();
+        handleSwipeMove(e.touches[0].clientX);
+      }
     },
     onTouchEnd: (e: ReactTouchEvent) => {
       e.stopPropagation();
@@ -134,6 +138,6 @@ export function useSwipe(options: SwipeOptions = {}) {
     resetSwipe,
     getMouseProps,
     getTouchProps,
-    isActive: swipeX !== 0 || isActiveRef.current
+    isActive: isActiveRef.current || swipeX !== 0
   };
 }

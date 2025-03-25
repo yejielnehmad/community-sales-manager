@@ -97,6 +97,12 @@ export const ProductItemNew = ({
   const productName = product.name.split(' ')[0] || product.name; // Ejemplo: "Leche" de "Leche Entera"
   const variantName = product.variant || (product.name.includes(' ') ? product.name.substring(productName.length).trim() : '');
   
+  // Determinar si aplicamos las props de swipe
+  const swipeProps = (!isPaid && !isEditing) ? {
+    ...getMouseProps(),
+    ...getTouchProps()
+  } : {};
+  
   return (
     <div 
       key={productKey} 
@@ -144,7 +150,7 @@ export const ProductItemNew = ({
       
       {/* Contenido del producto con capacidad de swipe */}
       <div 
-        {...((!isPaid && !isEditing) ? { ...getMouseProps(), ...getTouchProps() } : {})}
+        {...swipeProps}
         className={`flex flex-col justify-between transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}

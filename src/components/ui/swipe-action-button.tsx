@@ -25,6 +25,15 @@ export const SwipeActionButton = ({
     default: "bg-primary hover:bg-primary/90 text-primary-foreground"
   };
   
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (!disabled) {
+      onClick();
+    }
+  };
+  
   return (
     <button 
       className={cn(
@@ -33,10 +42,7 @@ export const SwipeActionButton = ({
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}
-      onClick={(e) => {
-        e.stopPropagation(); // Evitar la propagación del evento
-        if (!disabled) onClick();
-      }}
+      onClick={handleClick}
       disabled={disabled}
       aria-label={label}
     >
