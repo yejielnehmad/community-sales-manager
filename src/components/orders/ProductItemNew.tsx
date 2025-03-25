@@ -100,37 +100,40 @@ export const ProductItemNew = ({
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
     >
-      <div 
-        className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
-        style={{ 
-          width: '140px',
-          borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
-          zIndex: 1
-        }}
-      >
-        <div className="flex-1 flex items-stretch h-full">
-          <SwipeActionButton
-            variant="warning"
-            icon={<Edit className="h-5 w-5" />}
-            onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
-            disabled={isSaving || isPaid}
-            label="Editar producto"
-          />
+      {/* Botones de acción en el fondo - solo visibles cuando NO está en modo edición */}
+      {!isEditing && (
+        <div 
+          className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
+          style={{ 
+            width: '140px',
+            borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
+            zIndex: 1
+          }}
+        >
+          <div className="flex-1 flex items-stretch h-full">
+            <SwipeActionButton
+              variant="warning"
+              icon={<Edit className="h-5 w-5" />}
+              onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
+              disabled={isSaving || isPaid}
+              label="Editar producto"
+            />
+          </div>
+          <div className="flex-1 flex items-stretch h-full">
+            <SwipeActionButton
+              variant="destructive" 
+              icon={<Trash className="h-5 w-5" />}
+              onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
+              disabled={isSaving}
+              label="Eliminar producto"
+            />
+          </div>
         </div>
-        <div className="flex-1 flex items-stretch h-full">
-          <SwipeActionButton
-            variant="destructive" 
-            icon={<Trash className="h-5 w-5" />}
-            onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
-            disabled={isSaving}
-            label="Eliminar producto"
-          />
-        </div>
-      </div>
+      )}
       
       <div 
-        {...(!isPaid ? {...getMouseProps(), ...getTouchProps()} : {})}
-        className={`flex justify-between items-center p-4 transition-transform bg-card ${!isPaid && 'cursor-grab active:cursor-grabbing'}
+        {...(!isPaid && !isEditing ? {...getMouseProps(), ...getTouchProps()} : {})}
+        className={`flex justify-between items-center p-4 transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
@@ -191,16 +194,6 @@ export const ProductItemNew = ({
               </div>
               <div className="flex gap-2 edit-controls">
                 <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  className="h-8 rounded-full px-3"
-                  onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
-                  disabled={isSaving}
-                >
-                  <Trash className="h-4 w-4 mr-1" />
-                  Eliminar
-                </Button>
-                <Button 
                   variant="default" 
                   size="sm" 
                   className="h-8 rounded-full px-3"
@@ -238,7 +231,7 @@ export const ProductItemNew = ({
                   {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
                 </div>
                 <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
-                  ${product.total.toFixed(2)}
+                  ${product.price.toFixed(2)}
                 </div>
               </div>
             </div>

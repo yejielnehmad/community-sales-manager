@@ -86,35 +86,38 @@ export const ProductItem = ({
       }}
       ref={(ref) => registerRef(productKey, ref)}
     >
-      <div 
-        className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
-        style={{ 
-          width: '70px',
-          borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
-          zIndex: 1
-        }}
-      >
-        <div className="flex-1 flex items-stretch h-full">
-          <button 
-            className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
-            onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
-            disabled={isSaving || isPaid}
-            aria-label="Editar producto"
-          >
-            <Edit className="h-5 w-5" />
-          </button>
+      {/* Botones de acción en el fondo - solo visibles cuando NO está en modo edición */}
+      {!isEditing && (
+        <div 
+          className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
+          style={{ 
+            width: '70px',
+            borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
+            zIndex: 1
+          }}
+        >
+          <div className="flex-1 flex items-stretch h-full">
+            <button 
+              className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
+              onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
+              disabled={isSaving || isPaid}
+              aria-label="Editar producto"
+            >
+              <Edit className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex-1 flex items-stretch h-full">
+            <button 
+              className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
+              onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
+              disabled={isSaving}
+              aria-label="Eliminar producto"
+            >
+              <Trash className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <div className="flex-1 flex items-stretch h-full">
-          <button 
-            className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
-            onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
-            disabled={isSaving}
-            aria-label="Eliminar producto"
-          >
-            <Trash className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+      )}
       
       <div 
         className={`flex justify-between items-center p-4 transition-transform bg-card 
@@ -178,16 +181,6 @@ export const ProductItem = ({
               </div>
               <div className="flex gap-2 edit-controls">
                 <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  className="h-8 rounded-full px-3"
-                  onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
-                  disabled={isSaving}
-                >
-                  <Trash className="h-4 w-4 mr-1" />
-                  Eliminar
-                </Button>
-                <Button 
                   variant="default" 
                   size="sm" 
                   className="h-8 rounded-full px-3"
@@ -225,7 +218,7 @@ export const ProductItem = ({
                   {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
                 </div>
                 <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
-                  ${product.total.toFixed(2)}
+                  ${product.price.toFixed(2)}
                 </div>
               </div>
             </div>
