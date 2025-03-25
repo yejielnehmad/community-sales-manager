@@ -24,7 +24,9 @@ import {
   User, 
   Package, 
   Info,
-  CreditCard
+  CreditCard,
+  Edit,
+  Trash
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +36,8 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '@/components/ui/tooltip';
+import { useSwipe } from '@/hooks/use-swipe';
+import { PriceDisplay } from '@/components/ui/price-display';
 
 interface OrderCardProps {
   order: OrderCardType;
@@ -46,6 +50,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
 
   const handleItemUpdate = (index: number, updatedItem: MessageItem) => {
     const updatedItems = [...order.items];
@@ -159,69 +164,149 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
         <CollapsibleContent>
           <CardContent className="pt-3">
             <div className="space-y-3">
-              {order.items.map((item, index) => (
-                <div key={index} className={`p-3 border rounded-md transition-all duration-200 ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : 'hover:bg-muted/30'}`}>
-                  <div className="flex justify-between">
-                    <div className="font-medium flex items-center gap-2">
-                      <div className="bg-primary/10 p-1 rounded-full">
-                        <Package className="h-3 w-3 text-primary" />
-                      </div>
-                      {item.product.name}
+              {order.items.map((item, index) => {
+                // Hook de swipe para cada ítem
+                const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
+                  maxSwipe: -100,
+                  onSwipeEnd: (completed) => {
+                    if (!completed) {
+                      resetSwipe();
+                    }
+                  }
+                });
+                
+                const isEditing = editingItemIndex === index;
+                
+                return (
+                  <div key={index} className="relative overflow-hidden">
+                    {/* Botones de acción al hacer swipe */}
+                    <div 
+                      className="absolute inset-y-0 right-0 flex items-stretch h-full"
+                      style={{ 
+                        width: '100px',
+                        zIndex: 1
+                      }}
+                    >
+                      <button 
+                        className="w-1/2 bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition-colors"
+                        onClick={() => setEditingItemIndex(index)}
+                        aria-label="Editar producto"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button 
+                        className="w-1/2 bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
+                        onClick={() => {
+                          // Eliminar producto
+                          const updatedItems = order.items.filter((_, i) => i !== index);
+                          onUpdate({
+                            ...order,
+                            items: updatedItems
+                          });
+                        }}
+                        aria-label="Eliminar producto"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </button>
                     </div>
-                    <div className="font-medium">
-                      Cantidad: {item.quantity}
+                    
+                    {/* Contenido del producto con soporte para swipe */}
+                    <div 
+                      {...(item.status !== 'duda' && !isEditing ? { ...getMouseProps(), ...getTouchProps() } : {})}
+                      className={`border rounded-md transition-all ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : ''} overflow-hidden`}
+                      style={{ 
+                        transform: `translateX(${swipeX}px)`,
+                        transition: 'transform 0.3s ease-out',
+                        touchAction: 'pan-y'
+                      }}
+                    >
+                      <div className={`p-3 ${isEditing ? 'bg-primary/5' : ''}`}>
+                        {/* Layout en grid para mejor organización */}
+                        <div className="grid grid-cols-12 gap-1">
+                          {/* Columna izquierda - Nombre del producto */}
+                          <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center rounded-l-md">
+                            <div className="font-medium text-sm text-center">
+                              {item.product.name.split(' ')[0]} {/* Primera palabra del nombre */}
+                            </div>
+                          </div>
+                          
+                          {/* Columna derecha - Detalles */}
+                          <div className="col-span-9 p-2">
+                            {/* Nombre completo o variante */}
+                            <div className="flex justify-between items-center">
+                              <div className="font-medium flex items-center gap-2">
+                                {item.product.name}
+                              </div>
+                              <div className="font-medium">
+                                x{item.quantity}
+                              </div>
+                            </div>
+                            
+                            {/* Variante si existe */}
+                            {item.variant && (
+                              <div className="text-sm mt-1">
+                                <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
+                              </div>
+                            )}
+                            
+                            {/* Separador */}
+                            <div className="border-t my-1 border-gray-100"></div>
+                            
+                            {/* Precio y total */}
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Total:</span>
+                              <PriceDisplay 
+                                value={(item.price || item.variant?.price || item.product.price || 0) * (item.quantity || 1)} 
+                                className="font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Notas adicionales */}
+                        {item.notes && (
+                          <div className="flex items-center mt-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                    <Info className="h-3.5 w-3.5" />
+                                    <span>Nota: {item.notes}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                  <div className="max-w-xs p-1 text-sm">
+                                    {item.notes}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Sección para productos con alternativas */}
+                      {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
+                        <div className="p-3 pt-0">
+                          <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {item.alternatives.map((alt) => (
+                              <Badge 
+                                key={alt.id} 
+                                variant={item.variant?.id === alt.id ? "default" : "outline"}
+                                className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
+                                onClick={() => handleSelectAlternative(index, alt.id)}
+                              >
+                                {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {item.variant && (
-                    <div className="text-sm mt-1">
-                      Variante: <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
-                    </div>
-                  )}
-                  
-                  {item.notes && (
-                    <div className="flex items-center mt-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Info className="h-3.5 w-3.5" />
-                              <span>Nota: {item.notes}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            <div className="max-w-xs p-1 text-sm">
-                              {item.notes}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  )}
-                  
-                  <div className="text-sm mt-1">
-                    Precio: <span className="font-medium">${(item.price || item.variant?.price || item.product.price || 0).toFixed(2)}</span>
-                  </div>
-                  
-                  {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {item.alternatives.map((alt) => (
-                          <Badge 
-                            key={alt.id} 
-                            variant={item.variant?.id === alt.id ? "default" : "outline"}
-                            className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
-                            onClick={() => handleSelectAlternative(index, alt.id)}
-                          >
-                            {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
           

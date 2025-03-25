@@ -8,6 +8,7 @@ interface PriceDisplayProps {
 
 /**
  * Componente para mostrar precios formateados con puntos como separadores de miles
+ * v1.0.1
  */
 export function PriceDisplay({ value, className = "" }: PriceDisplayProps) {
   return (
