@@ -242,6 +242,11 @@ export const ProductItemNew = ({
                   ${Math.round(product.price)}
                 </div>
               </div>
+              <div className="text-right text-xs font-medium mt-1">
+                <span className="text-foreground">
+                  Total: ${Math.round(product.price * product.quantity)}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-3 ml-2">
               <Switch

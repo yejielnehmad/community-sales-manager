@@ -206,6 +206,20 @@ export const ClientOrderCardNew = ({
     return groupTotal;
   };
   
+  // Calcular el total por grupo de producto (sumando sus variantes)
+  const calculateProductGroupTotal = (variants: any[]) => {
+    return variants.reduce((sum, variant) => {
+      return sum + (variant.price * variant.quantity);
+    }, 0);
+  };
+  
+  // Calcular el total de unidades por grupo de producto
+  const calculateProductGroupUnits = (variants: any[]) => {
+    return variants.reduce((sum, variant) => {
+      return sum + variant.quantity;
+    }, 0);
+  };
+  
   const groupTotal = calculateGroupTotal();
   
   return (
@@ -245,7 +259,7 @@ export const ClientOrderCardNew = ({
           <CollapsibleTrigger className="w-full text-left">
             <div className="p-4 flex justify-between items-center bg-card hover:bg-muted/10">
               <div className="flex items-center gap-2">
-                <div className="font-medium text-lg">
+                <div className="font-semibold text-lg">
                   {clientName}
                   {isPaid && (
                     <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
@@ -278,9 +292,9 @@ export const ClientOrderCardNew = ({
             </div>
             
             {/* Barra de progreso de pago */}
-            <div className="h-1 w-full bg-gray-100">
+            <div className="h-1.5 w-full bg-gray-100">
               <div 
-                className="h-1 bg-green-500 transition-all duration-500"
+                className="h-1.5 bg-green-500 transition-all duration-500"
                 style={{ width: `${paymentPercentage}%` }}
               />
             </div>
@@ -306,44 +320,60 @@ export const ClientOrderCardNew = ({
               </div>
               
               {hasProducts ? (
-                <div className="bg-background rounded-lg divide-y divide-gray-100">
+                <div className="space-y-3">
                   {/* Renderizamos una tarjeta por cada nombre de producto */}
-                  {Object.entries(productGroups).map(([productName, variants], productIndex) => (
-                    <div key={productName} className="bg-card rounded-lg mb-2">
-                      {/* Título del producto */}
-                      <div className="font-medium px-4 pt-3 pb-2">
-                        {productName}
+                  {Object.entries(productGroups).map(([productName, variants], productIndex) => {
+                    const productGroupTotal = calculateProductGroupTotal(variants);
+                    const totalUnits = calculateProductGroupUnits(variants);
+                    
+                    return (
+                      <div key={productName} className="bg-card rounded-lg shadow-sm">
+                        {/* Título del producto y total del grupo */}
+                        <div className="flex justify-between items-center p-3 border-b">
+                          <div className="font-semibold text-base">
+                            {productName}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium">
+                              <span className="text-xs text-muted-foreground mr-1">Total:</span>
+                              ${Math.round(productGroupTotal)}
+                            </div>
+                            <div className="bg-primary/10 px-2 py-0.5 rounded-full text-xs">
+                              {totalUnits} {totalUnits === 1 ? 'unidad' : 'unidades'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Variantes del producto */}
+                        <div className="divide-y divide-gray-100">
+                          {variants.map((variant, variantIndex) => {
+                            const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
+                            // Obtener el estado de pago directamente del productPaidStatus para asegurar que sea correcto
+                            const isPaid = productPaidStatus[productKey] === true;
+                            
+                            return (
+                              <ProductItemNew
+                                key={`${productKey}_${variantIndex}`}
+                                productKey={productKey}
+                                product={variant}
+                                isPaid={isPaid}
+                                isLastItem={variantIndex === variants.length - 1}
+                                isFirstItem={variantIndex === 0}
+                                isSaving={isSaving}
+                                editingProduct={editingProduct}
+                                productQuantities={productQuantities}
+                                onDeleteProduct={deleteProduct}
+                                onEditProduct={handleEditProduct}
+                                onSaveProductChanges={saveProductChanges}
+                                onQuantityChange={handleQuantityChange}
+                                onToggleProductPaid={handleToggleProductPaid}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
-                      
-                      {/* Variantes del producto */}
-                      <div className="divide-y divide-gray-100">
-                        {variants.map((variant, variantIndex) => {
-                          const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
-                          // Obtener el estado de pago directamente del productPaidStatus para asegurar que sea correcto
-                          const isPaid = productPaidStatus[productKey] === true;
-                          
-                          return (
-                            <ProductItemNew
-                              key={`${productKey}_${variantIndex}`}
-                              productKey={productKey}
-                              product={variant}
-                              isPaid={isPaid}
-                              isLastItem={variantIndex === variants.length - 1}
-                              isFirstItem={variantIndex === 0}
-                              isSaving={isSaving}
-                              editingProduct={editingProduct}
-                              productQuantities={productQuantities}
-                              onDeleteProduct={deleteProduct}
-                              onEditProduct={handleEditProduct}
-                              onSaveProductChanges={saveProductChanges}
-                              onQuantityChange={handleQuantityChange}
-                              onToggleProductPaid={handleToggleProductPaid}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="bg-background rounded-lg p-4 text-center text-muted-foreground">
@@ -351,12 +381,10 @@ export const ClientOrderCardNew = ({
                 </div>
               )}
               
-              <div className="mt-3 flex justify-end items-center">
-                <div className="text-sm font-medium">
-                  Total:
-                  <span className="ml-1">
-                    ${Math.round(groupTotal)}
-                  </span>
+              <div className="mt-4 p-3 flex justify-between items-center bg-primary/5 rounded-lg">
+                <div className="font-medium">Total Cliente:</div>
+                <div className="text-lg font-semibold">
+                  ${Math.round(groupTotal)}
                 </div>
               </div>
             </div>
