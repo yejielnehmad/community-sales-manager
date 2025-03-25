@@ -51,9 +51,9 @@ export const ProductItemNew = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const currentQuantity = productQuantities[productKey] || product.quantity;
   
-  // Usar nuestro custom hook para el swipe
+  // Usar nuestro custom hook para el swipe con un valor más pequeño para el desplazamiento máximo
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -140,
+    maxSwipe: -100, // Reducido de -140 a -100 para que no se desplace tanto
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -103,7 +103,7 @@ export const ProductItemNew = ({
       data-product-key={productKey}
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
-        minHeight: isEditing ? '120px' : '74px',
+        minHeight: isEditing ? '120px' : '68px', // Reducido de 74px a 68px para que sea más compacto
         borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
@@ -113,7 +113,7 @@ export const ProductItemNew = ({
         <div 
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
-            width: '140px',
+            width: '100px', // Reducido de 140px a 100px
             borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
             zIndex: 1,
             pointerEvents: isEditing ? 'none' : 'auto',
@@ -136,6 +136,7 @@ export const ProductItemNew = ({
               onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
               disabled={isSaving}
               label="Eliminar producto"
+              className="rounded-r-lg" // Aseguramos que el botón rojo tenga bordes redondeados a la derecha
             />
           </div>
         </div>
@@ -143,7 +144,7 @@ export const ProductItemNew = ({
       
       <div 
         {...(!isPaid && !isEditing ? {...getMouseProps(), ...getTouchProps()} : {})}
-        className={`flex justify-between items-center p-4 transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
+        className={`flex justify-between items-center p-3 transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
@@ -156,7 +157,7 @@ export const ProductItemNew = ({
         }}
       >
         {isEditing ? (
-          <div className="flex-1 flex flex-col gap-3 w-full">
+          <div className="flex-1 flex flex-col gap-2 w-full">
             <div className="flex-1">
               <div className="font-medium text-sm flex items-center gap-2">
                 <div className="bg-primary/10 p-1 rounded-full">
@@ -175,7 +176,7 @@ export const ProductItemNew = ({
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  className="h-8 w-8 rounded-full"
+                  className="h-7 w-7 rounded-full"
                   onClick={() => onQuantityChange(productKey, currentQuantity - 1)}
                   disabled={isSaving || currentQuantity <= 1}
                   aria-label="Reducir cantidad"
@@ -186,7 +187,7 @@ export const ProductItemNew = ({
                   type="number"
                   value={currentQuantity}
                   onChange={(e) => onQuantityChange(productKey, parseInt(e.target.value) || 1)}
-                  className="w-12 h-8 mx-1 text-center p-0"
+                  className="w-12 h-7 mx-1 text-center p-0"
                   disabled={isSaving}
                   aria-label="Cantidad"
                   min="1"
@@ -194,7 +195,7 @@ export const ProductItemNew = ({
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  className="h-8 w-8 rounded-full"
+                  className="h-7 w-7 rounded-full"
                   onClick={() => onQuantityChange(productKey, currentQuantity + 1)}
                   disabled={isSaving}
                   aria-label="Aumentar cantidad"
@@ -206,7 +207,7 @@ export const ProductItemNew = ({
                 <Button 
                   variant="default" 
                   size="sm" 
-                  className="h-8 rounded-full px-3"
+                  className="h-7 rounded-full px-3"
                   onClick={() => onSaveProductChanges(productKey, product.orderId, product.id || '')}
                   disabled={isSaving}
                 >
@@ -227,14 +228,9 @@ export const ProductItemNew = ({
                 <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
                   <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
                 </div>
-                {product.name}
-                {product.variant && (
-                  <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
-                    {product.variant}
-                  </Badge>
-                )}
+                {!product.variant ? product.name : product.variant}
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <div>
                   {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
                 </div>
@@ -242,13 +238,13 @@ export const ProductItemNew = ({
                   ${Math.round(product.price)}
                 </div>
               </div>
-              <div className="text-right text-xs font-medium mt-1">
+              <div className="text-right text-xs font-medium">
                 <span className="text-foreground">
                   Total: ${Math.round(product.price * product.quantity)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3 ml-2">
+            <div className="flex items-center ml-2">
               <Switch
                 checked={isPaid}
                 onCheckedChange={handleSwitchChange}
