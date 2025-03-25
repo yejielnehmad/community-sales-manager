@@ -1,9 +1,15 @@
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
+    // Si es un campo de tipo number y no se especifica el paso, establecer step en 1
+    const inputProps = type === "number" 
+      ? { step: props.step || "1", min: props.min || "0", ...props }
+      : props;
+      
     return (
       <input
         type={type}
@@ -12,7 +18,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className
         )}
         ref={ref}
-        {...props}
+        {...inputProps}
       />
     )
   }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -46,9 +45,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     },
   });
 
-  // Prevenir scroll del body cuando el formulario está activo
   useEffect(() => {
-    // El formulario ahora es pantalla completa, aseguramos scroll dentro del form
     document.body.classList.add('overflow-hidden');
     
     return () => {
@@ -72,20 +69,19 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
   const handleVariantChange = (index: number, field: keyof ProductVariant, value: string) => {
     const newVariants = [...variants];
     if (field === 'price') {
-      newVariants[index][field] = parseFloat(value) || 0;
+      const parsedValue = parseInt(value);
+      newVariants[index][field] = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
     } else {
-      // @ts-ignore: Fix para manejar campo name como string
       newVariants[index][field] = value;
     }
     setVariants(newVariants);
   };
 
   const handleFormSubmit = (data: ProductFormValues) => {
-    // Validar que todas las variantes tengan nombre
     const allVariantsValid = variants.every(v => v.name.trim());
     
     if (!allVariantsValid) {
-      return; // No permitir enviar si hay variantes sin nombre
+      return;
     }
     
     onSubmit({
@@ -96,7 +92,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Header con botón de regreso */}
       <div className="py-4 px-4 border-b flex items-center justify-between">
         <button 
           onClick={onCancel}
@@ -108,10 +103,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
         <h2 className="text-lg font-semibold">
           {initialData?.id ? "Editar" : "Crear"} Producto
         </h2>
-        <div className="w-20"></div> {/* Espacio para equilibrar el header */}
+        <div className="w-20"></div>
       </div>
       
-      {/* Contenido con ScrollArea para garantizar scroll */}
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="p-4 max-w-xl mx-auto">
           <Form {...form}>
@@ -173,17 +167,21 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                           />
                         </FormItem>
                       </div>
-                      <div className="w-24">
+                      <div className="w-24 relative">
                         <FormItem>
                           <FormLabel className="text-xs">Precio</FormLabel>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={variant.price}
-                            onChange={(e) => handleVariantChange(index, 'price', e.target.value)}
-                            className="text-sm"
-                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={variant.price || ""}
+                              onChange={(e) => handleVariantChange(index, 'price', e.target.value)}
+                              className="text-sm pl-7"
+                              placeholder=""
+                            />
+                          </div>
                         </FormItem>
                       </div>
                       <Button

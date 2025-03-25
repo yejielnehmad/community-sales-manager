@@ -210,8 +210,8 @@ const MagicOrder = () => {
           break;
         }
         
-        const estimatedPrice = 100;
-        total += item.quantity * estimatedPrice;
+        const itemPrice = item.variant?.price || item.product.price || 0;
+        total += item.quantity * itemPrice;
       }
       
       if (hasInvalidItems) {
@@ -246,8 +246,8 @@ const MagicOrder = () => {
         product_id: item.product.id!,
         variant_id: item.variant?.id || null,
         quantity: item.quantity,
-        price: 100,
-        total: item.quantity * 100
+        price: item.variant?.price || item.product.price || 0,
+        total: item.quantity * (item.variant?.price || item.product.price || 0)
       }));
 
       const { error: itemsError } = await supabase
