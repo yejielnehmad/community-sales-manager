@@ -85,7 +85,9 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           status: 'confirmado',
           variant: {
             id: selected.id,
-            name: selected.name
+            name: selected.name,
+            // Mantener el precio existente si está disponible
+            ...(selected.price !== undefined && { price: selected.price })
           }
         });
       }

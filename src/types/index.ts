@@ -1,4 +1,3 @@
-
 export interface MessageItem {
   product: {
     id?: string;
@@ -97,11 +96,13 @@ export interface ProductVariant {
 export interface MessageProduct {
   id?: string;
   name: string;
+  price?: number;
 }
 
 export interface MessageVariant {
   id: string;
   name: string;
+  price?: number;
 }
 
 export interface OrdersState {
