@@ -3,12 +3,11 @@ import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Edit, Trash, Loader2, Check, X, Package, CircleCheck, ArrowRight } from "lucide-react";
+import { Edit, Trash, Loader2, Check, X, Package, CircleCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
 import { PriceDisplay } from "@/components/ui/price-display";
-import { formatPrice } from "@/lib/format";
 
 interface ProductItemProps {
   productKey: string;
@@ -53,9 +52,10 @@ export const ProductItemNew = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const currentQuantity = productQuantities[productKey] || product.quantity;
   
-  // Usar nuestro custom hook para el swipe con un valor más pequeño para el desplazamiento máximo
+  // Usar nuestro custom hook para el swipe, pasando si está deshabilitado
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -80, // Reducido a -80 para que no se desplace tanto
+    maxSwipe: -80, // Reducido para que no se desplace tanto
+    disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -81,13 +81,7 @@ export const ProductItemNew = ({
         top: window.scrollY,
         behavior: 'smooth'
       });
-    }
-  }, [isEditing]);
-  
-  // Resetear swipe al iniciar edición
-  useEffect(() => {
-    if (isEditing) {
-      resetSwipe();
+      resetSwipe(); // Asegurarse de que el swipe se resetee al entrar en modo edición
     }
   }, [isEditing, resetSwipe]);
   
@@ -119,7 +113,7 @@ export const ProductItemNew = ({
         <div 
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
-            width: '80px', // Reducido para que no se desplace tanto
+            width: '80px', // Anchura de los botones de acción
             borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
             zIndex: 1,
             pointerEvents: isEditing ? 'none' : 'auto',
@@ -150,12 +144,13 @@ export const ProductItemNew = ({
       
       {/* Contenido del producto con capacidad de swipe */}
       <div 
-        {...(!isPaid && !isEditing ? {...getMouseProps(), ...getTouchProps()} : {})}
+        {...getMouseProps()}
+        {...getTouchProps()}
         className={`flex flex-col justify-between transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
-          transform: `translateX(${isEditing ? 0 : swipeX}px)`,
+          transform: `translateX(${swipeX}px)`,
           transition: 'transform 0.3s ease-out',
           height: '100%',
           position: 'relative',

@@ -1,13 +1,14 @@
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
 
-interface SwipeOptions {
+export interface SwipeOptions {
   threshold?: number;
   maxSwipe?: number;
   onSwipeStart?: () => void;
   onSwipeMove?: (x: number) => void;
   onSwipeEnd?: (completed: boolean) => void;
+  disabled?: boolean;
 }
 
 export function useSwipe(options: SwipeOptions = {}) {
@@ -16,22 +17,34 @@ export function useSwipe(options: SwipeOptions = {}) {
     maxSwipe = -140,
     onSwipeStart,
     onSwipeMove,
-    onSwipeEnd
+    onSwipeEnd,
+    disabled = false
   } = options;
 
   const [swipeX, setSwipeX] = useState(0);
   const startXRef = useRef<number | null>(null);
   const currentXRef = useRef<number | null>(null);
+  const isActiveRef = useRef(false);
+
+  // Reiniciar el swipe cuando se deshabilita
+  useEffect(() => {
+    if (disabled && swipeX !== 0) {
+      resetSwipe();
+    }
+  }, [disabled]);
 
   const handleSwipeStart = useCallback((clientX: number) => {
+    if (disabled) return;
+    
     startXRef.current = clientX;
     currentXRef.current = clientX;
-    setSwipeX(0); // Reiniciar el swipe al comenzar
+    isActiveRef.current = true;
+    setSwipeX(0);
     onSwipeStart?.();
-  }, [onSwipeStart]);
+  }, [disabled, onSwipeStart]);
 
   const handleSwipeMove = useCallback((clientX: number) => {
-    if (startXRef.current === null) return;
+    if (disabled || !isActiveRef.current || startXRef.current === null) return;
     
     currentXRef.current = clientX;
     const deltaX = currentXRef.current - startXRef.current;
@@ -45,10 +58,10 @@ export function useSwipe(options: SwipeOptions = {}) {
       // Llamar al callback onSwipeMove si existe
       onSwipeMove?.(newSwipeX);
     }
-  }, [maxSwipe, onSwipeMove]);
+  }, [disabled, maxSwipe, onSwipeMove]);
 
   const handleSwipeEnd = useCallback(() => {
-    if (startXRef.current === null || currentXRef.current === null) return;
+    if (disabled || !isActiveRef.current || startXRef.current === null || currentXRef.current === null) return;
     
     const deltaX = currentXRef.current - startXRef.current;
     let completed = false;
@@ -65,24 +78,22 @@ export function useSwipe(options: SwipeOptions = {}) {
     
     startXRef.current = null;
     currentXRef.current = null;
+    isActiveRef.current = false;
     
     onSwipeEnd?.(completed);
-  }, [maxSwipe, onSwipeEnd]);
+  }, [disabled, maxSwipe, onSwipeEnd]);
 
   const resetSwipe = useCallback(() => {
     setSwipeX(0);
     startXRef.current = null;
     currentXRef.current = null;
+    isActiveRef.current = false;
   }, []);
 
   // Props para eventos de mouse con tipos correctos de React
   const getMouseProps = useCallback(() => ({
     onMouseDown: (e: ReactMouseEvent) => handleSwipeStart(e.clientX),
-    onMouseMove: (e: ReactMouseEvent) => {
-      if (startXRef.current !== null) {
-        handleSwipeMove(e.clientX);
-      }
-    },
+    onMouseMove: (e: ReactMouseEvent) => handleSwipeMove(e.clientX),
     onMouseUp: () => handleSwipeEnd(),
     onMouseLeave: () => handleSwipeEnd(),
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
@@ -90,11 +101,7 @@ export function useSwipe(options: SwipeOptions = {}) {
   // Props para eventos táctiles con tipos correctos de React
   const getTouchProps = useCallback(() => ({
     onTouchStart: (e: ReactTouchEvent) => handleSwipeStart(e.touches[0].clientX),
-    onTouchMove: (e: ReactTouchEvent) => {
-      if (startXRef.current !== null) {
-        handleSwipeMove(e.touches[0].clientX);
-      }
-    },
+    onTouchMove: (e: ReactTouchEvent) => handleSwipeMove(e.touches[0].clientX),
     onTouchEnd: () => handleSwipeEnd(),
     onTouchCancel: () => handleSwipeEnd(),
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
@@ -104,6 +111,6 @@ export function useSwipe(options: SwipeOptions = {}) {
     resetSwipe,
     getMouseProps,
     getTouchProps,
-    isActive: swipeX !== 0
+    isActive: swipeX !== 0 || isActiveRef.current
   };
 }

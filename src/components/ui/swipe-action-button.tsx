@@ -33,7 +33,10 @@ export const SwipeActionButton = ({
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation(); // Evitar la propagación del evento
+        if (!disabled) onClick();
+      }}
       disabled={disabled}
       aria-label={label}
     >
