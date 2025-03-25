@@ -65,7 +65,8 @@ export const ClientOrderCard = ({
   
   // Organizar productos por pedido - AGRUPANDO VARIANTES
   const productGroups = useMemo(() => {
-    const groups: {[key: string]: {
+    // Usamos un mapa para agrupar productos por nombre
+    const productMap: {[productName: string]: {
       id?: string,
       name: string, 
       variant?: string, 
@@ -83,16 +84,12 @@ export const ClientOrderCard = ({
     }} = {};
     
     orders.forEach(order => {
-      // Primero crear un mapa de productos por nombre (sin variante)
-      const orderProductMap: {[productName: string]: typeof groups[string]} = {};
-      
       order.items.forEach(item => {
         const productName = item.name || 'Producto';
         
-        // Si este producto aún no existe en el mapa de esta orden, inicializarlo
-        if (!orderProductMap[productName]) {
-          const key = `${productName}_${order.id}`;
-          orderProductMap[productName] = {
+        // Si este producto aún no existe en el mapa, inicializarlo
+        if (!productMap[productName]) {
+          productMap[productName] = {
             id: item.id,
             name: productName,
             quantity: 0,
@@ -101,31 +98,49 @@ export const ClientOrderCard = ({
             orderId: order.id,
             variants: []
           };
-          
-          // Agregar al mapa global de productos
-          groups[key] = orderProductMap[productName];
         }
         
         // Agregar la variante, si existe
         if (item.variant) {
-          orderProductMap[productName].variants?.push({
-            variant: item.variant,
-            quantity: item.quantity || 1,
-            id: item.id,
-            price: item.price,
-            total: (item.price || 0) * (item.quantity || 1)
-          });
+          // Verificar si esta variante ya existe
+          const existingVariantIndex = productMap[productName].variants?.findIndex(
+            v => v.variant === item.variant
+          );
+          
+          if (existingVariantIndex !== undefined && existingVariantIndex >= 0 && productMap[productName].variants) {
+            // La variante ya existe, incrementar cantidad
+            productMap[productName].variants[existingVariantIndex].quantity += (item.quantity || 1);
+            if (productMap[productName].variants[existingVariantIndex].total !== undefined) {
+              productMap[productName].variants[existingVariantIndex].total! += (item.price || 0) * (item.quantity || 1);
+            }
+          } else {
+            // La variante no existe, agregarla
+            productMap[productName].variants?.push({
+              variant: item.variant,
+              quantity: item.quantity || 1,
+              id: item.id,
+              price: item.price,
+              total: (item.price || 0) * (item.quantity || 1)
+            });
+          }
         } else {
           // Si no hay variante, sumar directamente a la cantidad del producto
-          orderProductMap[productName].quantity += (item.quantity || 1);
+          productMap[productName].quantity += (item.quantity || 1);
         }
         
         // Actualizar totales
-        orderProductMap[productName].total += (item.price || 0) * (item.quantity || 1);
+        productMap[productName].total += (item.price || 0) * (item.quantity || 1);
       });
     });
     
-    return groups;
+    // Convertir el mapa a un objeto con claves compuestas
+    const result: {[key: string]: typeof productMap[string]} = {};
+    Object.entries(productMap).forEach(([name, product]) => {
+      const key = `${name}_${product.orderId}`;
+      result[key] = product;
+    });
+    
+    return result;
   }, [orders]);
   
   // Verificar si hay productos
@@ -164,6 +179,7 @@ export const ClientOrderCard = ({
       className="relative rounded-xl overflow-hidden mb-3 shadow-sm hover:shadow-md transition-shadow"
       data-client-id={clientId}
       ref={(ref) => registerClientRef(clientId, ref)}
+      style={{ zIndex: 5 }}
     >
       {/* Botón de acción en el background con altura completa */}
       <div 

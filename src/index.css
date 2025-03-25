@@ -141,3 +141,23 @@
     animation: collapsible-up 0.3s ease-out;
   }
 }
+
+/* Estilos para garantizar posicionamiento correcto de componentes modales */
+.dialog-content,
+.popover-content,
+.alert-dialog-content {
+  z-index: 999 !important;
+}
+
+/* Asegurar que el contenido de la página esté por debajo de barras de navegación */
+.app-main-content {
+  z-index: 1;
+}
+
+/* Prevenir que tarjetas floten sobre cabeceras */
+.top-bar,
+.app-header {
+  z-index: 40 !important; 
+  position: relative;
+}
+

@@ -39,8 +39,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
-export const MAGIC_ORDER_VERSION = "1.0.9";
-
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -312,7 +310,6 @@ const MagicOrder = () => {
             </h1>
             <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
           </div>
-          <div className="text-xs text-muted-foreground">v{MAGIC_ORDER_VERSION}</div>
         </div>
 
         <Collapsible

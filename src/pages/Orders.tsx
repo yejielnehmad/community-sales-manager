@@ -45,7 +45,6 @@ const OrdersContent = () => {
               </button>
             )}
           </div>
-          {/* Botón de actualizar eliminado */}
         </div>
       </div>
 
