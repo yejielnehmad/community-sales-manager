@@ -53,7 +53,7 @@ export const ProductItemNew = ({
   
   // Usar nuestro custom hook para el swipe con un valor más pequeño para el desplazamiento máximo
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -100, // Reducido de -140 a -100 para que no se desplace tanto
+    maxSwipe: -80, // Reducido aún más para evitar espacios blancos en las esquinas
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -103,7 +103,7 @@ export const ProductItemNew = ({
       data-product-key={productKey}
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
-        minHeight: isEditing ? '120px' : '68px', // Reducido de 74px a 68px para que sea más compacto
+        minHeight: isEditing ? '120px' : '58px', // Reducido aún más para que sea más compacto
         borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
@@ -113,7 +113,7 @@ export const ProductItemNew = ({
         <div 
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
-            width: '100px', // Reducido de 140px a 100px
+            width: '80px', // Reducido para que coincida con maxSwipe
             borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
             zIndex: 1,
             pointerEvents: isEditing ? 'none' : 'auto',
@@ -123,7 +123,7 @@ export const ProductItemNew = ({
           <div className="flex-1 flex items-stretch h-full">
             <SwipeActionButton
               variant="warning"
-              icon={<Edit className="h-5 w-5" />}
+              icon={<Edit className="h-4 w-4" />}
               onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
               disabled={isSaving || isPaid}
               label="Editar producto"
@@ -132,7 +132,7 @@ export const ProductItemNew = ({
           <div className="flex-1 flex items-stretch h-full">
             <SwipeActionButton
               variant="destructive" 
-              icon={<Trash className="h-5 w-5" />}
+              icon={<Trash className="h-4 w-4" />}
               onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
               disabled={isSaving}
               label="Eliminar producto"
@@ -144,7 +144,7 @@ export const ProductItemNew = ({
       
       <div 
         {...(!isPaid && !isEditing ? {...getMouseProps(), ...getTouchProps()} : {})}
-        className={`flex justify-between items-center p-3 transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
+        className={`flex justify-between items-center p-2 transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
@@ -223,28 +223,35 @@ export const ProductItemNew = ({
           </div>
         ) : (
           <>
-            <div className="flex-1">
-              <div className="font-medium text-sm flex items-center gap-2">
-                <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
-                  <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
-                </div>
-                {!product.variant ? product.name : product.variant}
+            <div className="flex items-center gap-2 flex-1">
+              <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
+                <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <div>
-                  {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
+              <div className="flex flex-col">
+                <div className="font-medium text-sm flex items-center gap-1 flex-wrap">
+                  {!product.variant ? product.name : 
+                    <span className="flex items-center">
+                      <span className="opacity-75">{product.name}</span>
+                      <span className="mx-1 text-xs opacity-50">→</span>
+                      <span className="font-semibold">{product.variant}</span>
+                    </span>
+                  }
                 </div>
-                <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
-                  ${Math.round(product.price)}
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <span className="inline-flex items-center">
+                    {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
+                    <span className="mx-1 opacity-50">·</span>
+                    <span className={`font-medium ${isPaid ? 'text-green-600' : ''}`}>
+                      ${Math.round(product.price)}
+                    </span>
+                  </span>
                 </div>
-              </div>
-              <div className="text-right text-xs font-medium">
-                <span className="text-foreground">
-                  Total: ${Math.round(product.price * product.quantity)}
-                </span>
               </div>
             </div>
-            <div className="flex items-center ml-2">
+            <div className="flex items-center gap-2">
+              <div className={`text-right text-xs font-medium rounded-full px-2 py-0.5 ${isPaid ? 'bg-green-50 text-green-600' : 'bg-primary/5 text-primary/90'}`}>
+                ${Math.round(product.price * product.quantity)}
+              </div>
               <Switch
                 checked={isPaid}
                 onCheckedChange={handleSwitchChange}
