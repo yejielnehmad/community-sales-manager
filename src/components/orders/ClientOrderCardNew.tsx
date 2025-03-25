@@ -62,8 +62,26 @@ export const ClientOrderCardNew = ({
   });
   
   // Calcular el balance del cliente
-  const total = orders.reduce((sum, order) => sum + order.total, 0);
-  const paid = orders.reduce((sum, order) => sum + order.amountPaid, 0);
+  const total = useMemo(() => {
+    return orders.reduce((sum, order) => {
+      const orderTotal = order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price || 0) * (item.quantity || 1);
+      }, 0);
+      return sum + orderTotal;
+    }, 0);
+  }, [orders]);
+
+  const paid = useMemo(() => {
+    return orders.reduce((sum, order) => {
+      const orderPaid = order.items.reduce((itemSum, item) => {
+        const itemKey = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
+        const isPaid = productPaidStatus[itemKey] === true;
+        return itemSum + (isPaid ? (item.price || 0) * (item.quantity || 1) : 0);
+      }, 0);
+      return sum + orderPaid;
+    }, 0);
+  }, [orders, productPaidStatus]);
+  
   const balance = total - paid;
   
   // Calcular el porcentaje de pago (para la barra de progreso visual)
@@ -149,7 +167,6 @@ export const ClientOrderCardNew = ({
   }, [productGroups, productPaidStatus]);
   
   // Estado calculado para saber si todos los productos están pagados
-  // Cambiamos la lógica para no usar paid/total que podría estar desactualizado
   const isPaid = areAllProductsPaid;
   
   // Manejar el cambio del switch principal con animación
@@ -175,6 +192,21 @@ export const ClientOrderCardNew = ({
   // Determinar si se puede hacer swipe en la tarjeta principal
   // Solo permitir swipe cuando la tarjeta está cerrada (no expandida)
   const isSwipeEnabled = openClientId !== clientId;
+  
+  // Calcular el total de todos los productos en el grupo
+  const calculateGroupTotal = () => {
+    let groupTotal = 0;
+    
+    Object.values(productGroups).forEach(variants => {
+      variants.forEach(variant => {
+        groupTotal += variant.price * variant.quantity;
+      });
+    });
+    
+    return groupTotal;
+  };
+  
+  const groupTotal = calculateGroupTotal();
   
   return (
     <div 
@@ -323,7 +355,7 @@ export const ClientOrderCardNew = ({
                 <div className="text-sm font-medium">
                   Total:
                   <span className="ml-1">
-                    ${Math.round(total)}
+                    ${Math.round(groupTotal)}
                   </span>
                 </div>
               </div>

@@ -89,6 +89,14 @@ export const ProductItemNew = ({
     }
   }, [isEditing, resetSwipe]);
   
+  // Calcular el total basado en el precio y la cantidad actual
+  const calculateTotal = () => {
+    if (isEditing) {
+      return product.price * currentQuantity;
+    }
+    return product.price * product.quantity;
+  };
+  
   return (
     <div 
       key={productKey} 

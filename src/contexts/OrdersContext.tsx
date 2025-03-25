@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -477,6 +478,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       }));
       
       for (const order of clientOrders) {
+        // Calcular la suma de todos los productos
+        const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
         for (const item of order.items) {
           const { error: itemError } = await supabase
             .from('order_items')
@@ -486,14 +490,15 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           if (itemError) throw itemError;
         }
         
-        const newAmountPaid = isPaid ? order.total : 0;
-        const newBalance = isPaid ? 0 : order.total;
+        const newAmountPaid = isPaid ? orderTotal : 0;
+        const newBalance = isPaid ? 0 : orderTotal;
         
         const { error } = await supabase
           .from('orders')
           .update({ 
             amount_paid: newAmountPaid,
-            balance: newBalance
+            balance: newBalance,
+            total: orderTotal // Asegurar que el total sea correcto
           })
           .eq('id', order.id);
           
@@ -502,15 +507,18 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       
       setState(prev => ({
         ...prev,
-        orders: prev.orders.map(order => 
-          order.clientId === clientId 
-            ? { 
-                ...order, 
-                amountPaid: isPaid ? order.total : 0, 
-                balance: isPaid ? 0 : order.total 
-              } 
-            : order
-        )
+        orders: prev.orders.map(order => {
+          if (order.clientId === clientId) {
+            const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            return { 
+              ...order, 
+              total: orderTotal,
+              amountPaid: isPaid ? orderTotal : 0, 
+              balance: isPaid ? 0 : orderTotal 
+            };
+          }
+          return order;
+        })
       }));
       
       toast({
@@ -717,7 +725,11 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         };
       });
       
-      const newTotal = items?.reduce((sum, item) => sum + (item.total || 0), 0) || 0;
+      // Calcular el total real basado en price * quantity para cada item
+      const newTotal = items?.reduce((sum, item) => {
+        const itemTotal = (item.price || 0) * (item.quantity || 1);
+        return sum + itemTotal;
+      }, 0) || 0;
       
       const { data: currentOrder, error: orderError } = await supabase
         .from('orders')
@@ -793,6 +805,29 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       
       await updateOrderTotal(orderId);
       
+      // Actualizar estado local para reflejar la nueva cantidad
+      setState(prev => ({
+        ...prev,
+        orders: prev.orders.map(order => {
+          if (order.id === orderId) {
+            return {
+              ...order,
+              items: order.items.map(item => {
+                if (item.id === itemId) {
+                  return {
+                    ...item,
+                    quantity: newQuantity,
+                    total: price * newQuantity
+                  };
+                }
+                return item;
+              })
+            };
+          }
+          return order;
+        })
+      }));
+      
       toast({
         title: "Producto actualizado",
         description: `Cantidad actualizada a ${newQuantity}`,
@@ -830,6 +865,31 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
       
       await updateOrderTotal(orderId);
+      
+      // Actualizar el estado local
+      setState(prev => ({
+        ...prev,
+        orders: prev.orders.map(order => {
+          if (order.id === orderId) {
+            return {
+              ...order,
+              items: order.items.filter(item => item.id !== itemId)
+            };
+          }
+          return order;
+        })
+      }));
+      
+      // Eliminar estado de pago del producto eliminado
+      setItemState(prev => {
+        const newPaidStatus = { ...prev.productPaidStatus };
+        delete newPaidStatus[productKey];
+        
+        return {
+          ...prev,
+          productPaidStatus: newPaidStatus
+        };
+      });
       
       toast({
         title: "Producto eliminado",
