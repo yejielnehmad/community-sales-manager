@@ -251,7 +251,7 @@ export const ClientOrderCardNew = ({
           icon={<Trash className="h-5 w-5" />}
           onClick={() => setClientToDelete(clientId)}
           label="Eliminar cliente"
-          className="rounded-r-xl" // Asegurar que el botón rojo cubra toda la esquina redondeada
+          className="rounded-r-xl"
         />
       </div>
       
@@ -288,10 +288,10 @@ export const ClientOrderCardNew = ({
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                   <div className="font-medium">
                     <span className={`${balance > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                      <PriceDisplay value={Math.round(balance)} className="no-prefix" />
+                      <PriceDisplay value={Math.round(balance)} showPrefix={false} />
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      /<PriceDisplay value={Math.round(total)} className="no-prefix" />
+                      /<PriceDisplay value={Math.round(total)} showPrefix={false} />
                     </span>
                   </div>
                 </div>
@@ -335,78 +335,69 @@ export const ClientOrderCardNew = ({
               
               {hasProducts ? (
                 <div className="space-y-2">
-                  {/* Renderizamos una tarjeta por cada grupo de productos */}
+                  {/* Renderizamos una tarjeta por cada grupo de productos con el nuevo formato */}
                   {Object.entries(productGroups).map(([baseProductName, group], productIndex) => {
-                    // Para cada producto principal (ej: "Pañales")
+                    // Para cada producto principal (ej: "Leche")
                     // Verificar si todas las variantes están pagadas
                     const allVariantsPaid = group.variants?.every(v => {
                       const itemKey = `${v.name}_${v.variant || ''}_${v.orderId}`;
                       return productPaidStatus[itemKey];
                     });
 
+                    // Calcular el precio total del grupo
+                    const groupTotal = group.totalPrice || 0;
+
                     return (
-                      <div key={baseProductName} className="bg-card rounded-lg shadow-sm">
-                        {/* Título del grupo de producto */}
-                        <div className="flex justify-between items-center p-2 border-b">
-                          <div className="font-semibold text-sm flex items-center gap-1">
-                            <div className={`p-1 rounded-full ${allVariantsPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
-                              <Package className={`h-3 w-3 ${allVariantsPaid ? 'text-green-600' : 'text-primary'}`} />
-                            </div>
-                            {group.baseName}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <div className="bg-primary/5 px-2 py-0.5 rounded-full text-xs">
-                              {group.totalUnits} {group.totalUnits === 1 ? 'unidad' : 'unidades'}
+                      <div key={baseProductName} className="border rounded-lg overflow-hidden bg-card shadow-sm">
+                        {/* Nuevo formato de tarjeta basado en la imagen */}
+                        <div className="grid grid-cols-[1fr,2fr,1fr] items-stretch">
+                          {/* Columna 1: Nombre del producto */}
+                          <div className="p-3 border-r flex items-center">
+                            <div className="font-bold text-lg">
+                              {group.baseName}
                             </div>
                           </div>
-                        </div>
-                        
-                        {/* Variantes del producto en formato compacto */}
-                        <div className="p-2">
-                          {/* Listado de variantes */}
-                          <div className="space-y-1">
-                            {group.variants?.map((variant, variantIndex) => {
-                              const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
-                              const isPaid = productPaidStatus[productKey] === true;
+                          
+                          {/* Columna 2: Variantes con precios y cantidades */}
+                          <div className="p-3 flex flex-col justify-center space-y-2">
+                            {group.variants?.map((variant, idx) => {
+                              const itemKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
+                              const isPaid = productPaidStatus[itemKey] === true;
                               
                               return (
-                                <div 
-                                  key={`${productKey}_${variantIndex}`} 
-                                  className="flex justify-between items-center"
-                                >
-                                  <div className="flex items-center gap-1">
-                                    {isPaid && <CircleCheck size={10} className="text-green-500" />}
-                                    <span className="text-xs font-medium">
-                                      {variant.variant} x {variant.quantity}
-                                    </span>
+                                <div key={idx} className="flex justify-between items-center">
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="font-medium">{variant.variant}</span>
+                                    <span className="text-sm">X</span>
+                                    <span className="font-medium">{variant.quantity}</span>
+                                    <span className="text-sm">=</span>
                                   </div>
-                                  <div className="flex items-center">
-                                    <span className="text-xs font-medium mr-2">
-                                      <PriceDisplay value={Math.round(variant.price)} />
-                                    </span>
-                                    <Switch
-                                      checked={isPaid}
-                                      onCheckedChange={(checked) => 
-                                        handleToggleProductPaid(productKey, variant.orderId, variant.id || '', checked)
-                                      }
-                                      disabled={isSaving}
-                                      className="data-[state=checked]:bg-green-500 h-3 w-5"
-                                      aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
-                                    />
-                                  </div>
+                                  <PriceDisplay 
+                                    value={Math.round(variant.price * variant.quantity)} 
+                                    className={`font-medium ${isPaid ? 'text-green-600' : ''}`}
+                                  />
                                 </div>
                               );
                             })}
                           </div>
                           
-                          {/* Total del grupo */}
-                          <div className="flex justify-end mt-2 pt-2 border-t border-gray-100">
-                            <div className="text-xs font-semibold">
-                              <span className="text-muted-foreground mr-1">Total:</span>
-                              <span className={`${allVariantsPaid ? 'text-green-600' : ''}`}>
-                                <PriceDisplay value={Math.round(group.totalPrice)} />
-                              </span>
+                          {/* Columna 3: Total y switch de pago */}
+                          <div className="p-3 border-l flex flex-col items-center justify-center bg-muted/10">
+                            <div className="font-bold text-lg mb-2">
+                              <PriceDisplay value={Math.round(groupTotal)} />
                             </div>
+                            <Switch
+                              checked={allVariantsPaid}
+                              onCheckedChange={(checked) => {
+                                // Marcar todas las variantes del grupo
+                                group.variants?.forEach(v => {
+                                  const itemKey = `${v.name}_${v.variant || ''}_${v.orderId}`;
+                                  handleToggleProductPaid(itemKey, v.orderId, v.id || '', checked);
+                                });
+                              }}
+                              disabled={isSaving}
+                              className="data-[state=checked]:bg-green-500 h-6 w-12"
+                            />
                           </div>
                         </div>
                       </div>

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -34,6 +33,7 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '@/components/ui/tooltip';
+import { PriceDisplay } from '@/components/ui/price-display';
 
 interface OrderCardProps {
   order: OrderCardType;
@@ -200,7 +200,9 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                   )}
                   
                   <div className="text-sm mt-1">
-                    Precio: <span className="font-medium">${(item.price || item.variant?.price || item.product.price || 0).toFixed(2)}</span>
+                    Precio: <span className="font-medium">
+                      <PriceDisplay value={item.price || item.variant?.price || item.product.price || 0} />
+                    </span>
                   </div>
                   
                   {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
@@ -214,7 +216,9 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                             className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
                             onClick={() => handleSelectAlternative(index, alt.id)}
                           >
-                            {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
+                            {alt.name} {alt.price !== undefined ? (
+                              <PriceDisplay value={alt.price} className="ml-1" />
+                            ) : ''}
                           </Badge>
                         ))}
                       </div>
