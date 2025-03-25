@@ -34,7 +34,6 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '@/components/ui/tooltip';
-import { PriceDisplay } from '@/components/ui/price-display';
 
 interface OrderCardProps {
   order: OrderCardType;
@@ -160,81 +159,69 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
         <CollapsibleContent>
           <CardContent className="pt-3">
             <div className="space-y-3">
-              {order.items.map((item, index) => {
-                // Calcular el precio total de este ítem
-                const itemTotal = (item.price || item.variant?.price || item.product.price || 0) * item.quantity;
-                
-                return (
-                  <div key={index} className={`p-3 border rounded-md transition-all duration-200 ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : 'hover:bg-muted/30'}`}>
-                    {/* Estructura más organizada, inspirada en la imagen */}
-                    <div className="grid grid-cols-12 gap-2">
-                      {/* Nombre del producto - columna izquierda */}
-                      <div className="col-span-3 flex items-center">
-                        <div className="font-medium flex items-center gap-2">
-                          <div className="bg-primary/10 p-1 rounded-full">
-                            <Package className="h-3 w-3 text-primary" />
-                          </div>
-                          {item.product.name}
-                        </div>
+              {order.items.map((item, index) => (
+                <div key={index} className={`p-3 border rounded-md transition-all duration-200 ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : 'hover:bg-muted/30'}`}>
+                  <div className="flex justify-between">
+                    <div className="font-medium flex items-center gap-2">
+                      <div className="bg-primary/10 p-1 rounded-full">
+                        <Package className="h-3 w-3 text-primary" />
                       </div>
-                      
-                      {/* Detalles - columna central */}
-                      <div className="col-span-6">
-                        {item.variant && (
-                          <div className="text-sm">
-                            <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
-                          </div>
-                        )}
-                        
-                        {item.notes && (
-                          <div className="flex items-center mt-1">
+                      {item.product.name}
+                    </div>
+                    <div className="font-medium">
+                      Cantidad: {item.quantity}
+                    </div>
+                  </div>
+                  
+                  {item.variant && (
+                    <div className="text-sm mt-1">
+                      Variante: <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
+                    </div>
+                  )}
+                  
+                  {item.notes && (
+                    <div className="flex items-center mt-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Info className="h-3.5 w-3.5" />
                               <span>Nota: {item.notes}</span>
                             </div>
-                          </div>
-                        )}
-                        
-                        <div className="text-sm mt-1 flex items-center gap-2">
-                          <span className="text-muted-foreground">Cantidad: {item.quantity}</span>
-                          <span>×</span>
-                          <span className="font-medium">
-                            <PriceDisplay value={item.price || item.variant?.price || item.product.price || 0} />
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* Precio total - columna derecha */}
-                      <div className="col-span-3 flex items-center justify-end">
-                        <div className="font-semibold">
-                          <PriceDisplay value={itemTotal} />
-                        </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <div className="max-w-xs p-1 text-sm">
+                              {item.notes}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
+                  
+                  <div className="text-sm mt-1">
+                    Precio: <span className="font-medium">${(item.price || item.variant?.price || item.product.price || 0).toFixed(2)}</span>
+                  </div>
+                  
+                  {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {item.alternatives.map((alt) => (
+                          <Badge 
+                            key={alt.id} 
+                            variant={item.variant?.id === alt.id ? "default" : "outline"}
+                            className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
+                            onClick={() => handleSelectAlternative(index, alt.id)}
+                          >
+                            {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
-                    
-                    {/* Opciones de alternativas - fila inferior */}
-                    {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
-                      <div className="mt-3 pt-3 border-t">
-                        <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
-                        <div className="flex flex-wrap gap-2">
-                          {item.alternatives.map((alt) => (
-                            <Badge 
-                              key={alt.id} 
-                              variant={item.variant?.id === alt.id ? "default" : "outline"}
-                              className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
-                              onClick={() => handleSelectAlternative(index, alt.id)}
-                            >
-                              {alt.name} {alt.price !== undefined ? (
-                                <PriceDisplay value={alt.price} className="ml-1" />
-                              ) : ''}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              ))}
             </div>
           </CardContent>
           
