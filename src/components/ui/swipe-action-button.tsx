@@ -45,6 +45,7 @@ export const SwipeActionButton = ({
       onClick={handleClick}
       disabled={disabled}
       aria-label={label}
+      data-testid="swipe-action-button"
     >
       {icon}
     </button>
