@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -140,6 +141,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           console.log(`Obtenidas ${variantsData.length} variantes`);
         }
 
+        // Corregir los mapas para incluir tanto nombre como precio
         const productMap: { [key: string]: {name: string, price: number} } = {};
         productsData?.forEach(product => {
           productMap[product.id] = {
