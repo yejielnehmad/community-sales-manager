@@ -97,7 +97,11 @@ export const ClientOrderCardNew = ({
           p => p.variant === item.variant
         );
         
-        const isPaid = productPaidStatus[`${item.name || 'Producto'}_${item.variant || ''}_${order.id}`] || false;
+        // Generar la clave única para este producto
+        const itemUniqueKey = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
+        
+        // Obtener el estado de pago actual (desde props)
+        const isPaid = productPaidStatus[itemUniqueKey];
         
         if (existingVariantIndex >= 0) {
           // Si la variante ya existe, actualizar cantidad y total
@@ -106,7 +110,7 @@ export const ClientOrderCardNew = ({
             productMap[productKey][existingVariantIndex].price * 
             productMap[productKey][existingVariantIndex].quantity;
           // Si alguno no está pagado, marcar como no pagado (más estricto)
-          if (!isPaid) {
+          if (isPaid === false) {
             productMap[productKey][existingVariantIndex].isPaid = false;
           }
         } else {
@@ -137,11 +141,16 @@ export const ClientOrderCardNew = ({
     const allProducts = Object.values(productGroups).flat();
     if (allProducts.length === 0) return false;
     
-    return allProducts.every(product => product.isPaid === true);
-  }, [productGroups]);
+    // Comprobar si todos los productos están marcados como pagados
+    return allProducts.every(product => {
+      const itemKey = `${product.name}_${product.variant || ''}_${product.orderId}`;
+      return productPaidStatus[itemKey] === true;
+    });
+  }, [productGroups, productPaidStatus]);
   
   // Estado calculado para saber si todos los productos están pagados
-  const isPaid = areAllProductsPaid || (paid >= total * 0.99);
+  // Cambiamos la lógica para no usar paid/total que podría estar desactualizado
+  const isPaid = areAllProductsPaid;
   
   // Manejar el cambio del switch principal con animación
   const handleMainSwitchChange = (checked: boolean) => {
@@ -277,8 +286,9 @@ export const ClientOrderCardNew = ({
                       {/* Variantes del producto */}
                       <div className="divide-y divide-gray-100">
                         {variants.map((variant, variantIndex) => {
-                          const productKey = `${variant.name || 'Producto'}_${variant.variant || ''}_${variant.orderId}`;
-                          const isPaid = productPaidStatus[productKey] || variant.isPaid;
+                          const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
+                          // Obtener el estado de pago directamente del productPaidStatus para asegurar que sea correcto
+                          const isPaid = productPaidStatus[productKey] === true;
                           
                           return (
                             <ProductItemNew

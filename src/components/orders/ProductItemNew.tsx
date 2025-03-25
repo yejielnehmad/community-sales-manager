@@ -216,6 +216,9 @@ export const ProductItemNew = ({
           <>
             <div className="flex-1">
               <div className="font-medium text-sm flex items-center gap-2">
+                <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
+                  <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
+                </div>
                 {product.name}
                 {product.variant && (
                   <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
