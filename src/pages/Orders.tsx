@@ -17,10 +17,6 @@ const OrdersContent = () => {
     setSearchTerm("");
   };
 
-  const handleRefresh = () => {
-    fetchOrders(true);
-  };
-
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -49,17 +45,7 @@ const OrdersContent = () => {
               </button>
             )}
           </div>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={handleRefresh}
-            className="rounded-full"
-            title="Actualizar pedidos"
-            disabled={isRefreshing}
-            aria-label="Actualizar"
-          >
-            <Loader2 className={`h-4 w-4 ${isRefreshing || isLoading ? 'animate-spin' : ''}`} />
-          </Button>
+          {/* Botón de actualizar eliminado */}
         </div>
       </div>
 
@@ -77,7 +63,7 @@ const OrdersContent = () => {
               variant="outline" 
               size="sm" 
               className="mt-2"
-              onClick={handleRefresh}
+              onClick={() => fetchOrders(true)}
             >
               Reintentar
             </Button>

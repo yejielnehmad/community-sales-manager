@@ -17,6 +17,13 @@ interface ProductItemProps {
     total: number;
     orderId: string;
     is_paid?: boolean;
+    variants?: Array<{
+      variant: string;
+      quantity: number;
+      id?: string;
+      price?: number;
+      total?: number;
+    }>;
   };
   isPaid: boolean;
   isLastItem: boolean;
@@ -74,6 +81,10 @@ export const ProductItem = ({
       });
     }
   }, [isEditing]);
+  
+  // Total de todas las variantes
+  const totalVariants = product.variants?.reduce((sum, v) => sum + (v.quantity || 0), 0) || 0;
+  const totalQuantity = totalVariants > 0 ? totalVariants : product.quantity;
   
   return (
     <div 
@@ -206,16 +217,31 @@ export const ProductItem = ({
                 </div>
                 {product.name}
               </div>
-              {product.variant && (
+              
+              {/* Mostrar variantes agrupadas */}
+              {product.variants && product.variants.length > 0 ? (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {product.variants.map((variant, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant={isPaid ? "outline" : "secondary"} 
+                      className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}
+                    >
+                      {variant.variant} ({variant.quantity})
+                    </Badge>
+                  ))}
+                </div>
+              ) : product.variant ? (
                 <div className="text-xs text-muted-foreground mt-1">
                   <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
                     {product.variant}
                   </Badge>
                 </div>
-              )}
+              ) : null}
+              
               <div className="flex justify-between text-xs text-muted-foreground mt-2">
                 <div>
-                  {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}
+                  {totalQuantity} {totalQuantity === 1 ? 'unidad' : 'unidades'}
                 </div>
                 <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
                   ${product.price.toFixed(2)}

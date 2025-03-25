@@ -63,7 +63,7 @@ export const ClientOrderCard = ({
   // Calcular el porcentaje de pago (para la barra de progreso visual)
   const paymentPercentage = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
   
-  // Organizar productos por pedido
+  // Organizar productos por pedido - AGRUPANDO VARIANTES
   const productGroups = useMemo(() => {
     const groups: {[key: string]: {
       id?: string,
@@ -72,25 +72,56 @@ export const ClientOrderCard = ({
       quantity: number,
       price: number,
       total: number,
-      orderId: string
+      orderId: string,
+      variants?: Array<{
+        variant: string,
+        quantity: number, 
+        id?: string,
+        price?: number,
+        total?: number
+      }>
     }} = {};
     
     orders.forEach(order => {
+      // Primero crear un mapa de productos por nombre (sin variante)
+      const orderProductMap: {[productName: string]: typeof groups[string]} = {};
+      
       order.items.forEach(item => {
-        const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-        if (!groups[key]) {
-          groups[key] = {
+        const productName = item.name || 'Producto';
+        
+        // Si este producto aún no existe en el mapa de esta orden, inicializarlo
+        if (!orderProductMap[productName]) {
+          const key = `${productName}_${order.id}`;
+          orderProductMap[productName] = {
             id: item.id,
-            name: item.name || 'Producto',
-            variant: item.variant,
+            name: productName,
             quantity: 0,
             price: item.price || 0,
             total: 0,
-            orderId: order.id
+            orderId: order.id,
+            variants: []
           };
+          
+          // Agregar al mapa global de productos
+          groups[key] = orderProductMap[productName];
         }
-        groups[key].quantity += (item.quantity || 1);
-        groups[key].total = groups[key].price * groups[key].quantity;
+        
+        // Agregar la variante, si existe
+        if (item.variant) {
+          orderProductMap[productName].variants?.push({
+            variant: item.variant,
+            quantity: item.quantity || 1,
+            id: item.id,
+            price: item.price,
+            total: (item.price || 0) * (item.quantity || 1)
+          });
+        } else {
+          // Si no hay variante, sumar directamente a la cantidad del producto
+          orderProductMap[productName].quantity += (item.quantity || 1);
+        }
+        
+        // Actualizar totales
+        orderProductMap[productName].total += (item.price || 0) * (item.quantity || 1);
       });
     });
     
@@ -123,6 +154,10 @@ export const ClientOrderCard = ({
       }, 500);
     }
   };
+
+  // Determinar si se puede hacer swipe en la tarjeta principal
+  // Solo permitir swipe cuando la tarjeta está cerrada (no expandida)
+  const isSwipeable = openClientId !== clientId;
   
   return (
     <div 
@@ -150,7 +185,8 @@ export const ClientOrderCard = ({
         style={{ 
           transform: `translateX(${clientSwipeX}px)`,
           transition: 'transform 0.3s ease-out',
-          zIndex: clientSwipeX === 0 ? 10 : 5
+          zIndex: clientSwipeX === 0 ? 10 : 5,
+          pointerEvents: isSwipeable ? 'all' : 'none' // Deshabilitar interacción cuando está abierto
         }}
       >
         <Collapsible 
