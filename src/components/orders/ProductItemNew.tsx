@@ -148,6 +148,7 @@ export const ProductItemNew = ({
         </div>
       )}
       
+      {/* Contenido del producto con capacidad de swipe */}
       <div 
         {...(!isPaid && !isEditing ? {...getMouseProps(), ...getTouchProps()} : {})}
         className={`flex flex-col justify-between transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}

@@ -26,6 +26,7 @@ export function useSwipe(options: SwipeOptions = {}) {
   const handleSwipeStart = useCallback((clientX: number) => {
     startXRef.current = clientX;
     currentXRef.current = clientX;
+    setSwipeX(0); // Reiniciar el swipe al comenzar
     onSwipeStart?.();
   }, [onSwipeStart]);
 
@@ -77,7 +78,11 @@ export function useSwipe(options: SwipeOptions = {}) {
   // Props para eventos de mouse con tipos correctos de React
   const getMouseProps = useCallback(() => ({
     onMouseDown: (e: ReactMouseEvent) => handleSwipeStart(e.clientX),
-    onMouseMove: (e: ReactMouseEvent) => handleSwipeMove(e.clientX),
+    onMouseMove: (e: ReactMouseEvent) => {
+      if (startXRef.current !== null) {
+        handleSwipeMove(e.clientX);
+      }
+    },
     onMouseUp: () => handleSwipeEnd(),
     onMouseLeave: () => handleSwipeEnd(),
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
@@ -85,7 +90,11 @@ export function useSwipe(options: SwipeOptions = {}) {
   // Props para eventos táctiles con tipos correctos de React
   const getTouchProps = useCallback(() => ({
     onTouchStart: (e: ReactTouchEvent) => handleSwipeStart(e.touches[0].clientX),
-    onTouchMove: (e: ReactTouchEvent) => handleSwipeMove(e.touches[0].clientX),
+    onTouchMove: (e: ReactTouchEvent) => {
+      if (startXRef.current !== null) {
+        handleSwipeMove(e.touches[0].clientX);
+      }
+    },
     onTouchEnd: () => handleSwipeEnd(),
     onTouchCancel: () => handleSwipeEnd(),
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
