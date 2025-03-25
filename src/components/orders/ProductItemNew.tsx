@@ -1,11 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit, Trash, Loader2, Check, X, Package, CircleCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PriceDisplay } from "@/components/ui/price-display";
+import { useSwipe } from "@/hooks/use-swipe";
+import { SwipeActionButton } from "@/components/ui/swipe-action-button";
 
 interface ProductItemProps {
   productKey: string;
@@ -49,6 +51,18 @@ export const ProductItemNew = ({
   const isEditing = editingProduct === productKey;
   const [isAnimating, setIsAnimating] = useState(false);
   const currentQuantity = productQuantities[productKey] || product.quantity;
+  const elRef = useRef<HTMLDivElement>(null);
+  
+  // Usar nuestro custom hook para el swipe
+  const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
+    maxSwipe: -70,
+    disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
+    onSwipeEnd: (completed) => {
+      if (!completed) {
+        resetSwipe();
+      }
+    }
+  });
   
   // Manejar el cambio del switch con animación
   const handleSwitchChange = (checked: boolean) => {
@@ -83,9 +97,16 @@ export const ProductItemNew = ({
   const productName = product.name.split(' ')[0] || product.name; // Ejemplo: "Leche" de "Leche Entera"
   const variantName = product.variant || (product.name.includes(' ') ? product.name.substring(productName.length).trim() : '');
   
+  // Determinar si aplicamos las props de swipe
+  const swipeProps = (!isPaid && !isEditing) ? {
+    ...getMouseProps(),
+    ...getTouchProps()
+  } : {};
+  
   return (
     <div 
       key={productKey} 
+      ref={elRef}
       data-product-key={productKey}
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
@@ -94,16 +115,49 @@ export const ProductItemNew = ({
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
     >
-      {/* Contenido del producto sin capacidad de swipe para Mensaje Mágico */}
+      {/* Botones de acción en el fondo - solo visibles cuando NO está en modo edición */}
+      {!isEditing && (
+        <div 
+          className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
+          style={{ 
+            width: '70px',
+            borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
+            zIndex: 1
+          }}
+        >
+          <div className="flex-1 flex items-stretch h-full">
+            <SwipeActionButton 
+              variant="warning"
+              icon={<Edit className="h-5 w-5" />}
+              onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
+              disabled={isSaving || isPaid}
+              label="Editar producto"
+            />
+          </div>
+          <div className="flex-1 flex items-stretch h-full">
+            <SwipeActionButton 
+              variant="destructive"
+              icon={<Trash className="h-5 w-5" />}
+              onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
+              disabled={isSaving}
+              label="Eliminar producto"
+            />
+          </div>
+        </div>
+      )}
+      
       <div 
+        {...swipeProps}
         className={`flex flex-col justify-between transition-transform bg-card 
+                  ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
+          transform: `translateX(${isEditing ? 0 : swipeX}px)`,
           transition: 'transform 0.3s ease-out',
           height: '100%',
           position: 'relative',
-          zIndex: isEditing ? 20 : 10,
+          zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
           borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
         }}
       >
