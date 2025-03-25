@@ -97,6 +97,10 @@ export const ProductItemNew = ({
     return product.price * product.quantity;
   };
   
+  // Extraer el nombre y las variantes para el diseño según la imagen
+  const productName = product.name.split(' ')[0] || product.name; // Ejemplo: "Leche" de "Leche Entera"
+  const variantName = product.variant || (product.name.includes(' ') ? product.name.substring(productName.length).trim() : '');
+  
   return (
     <div 
       key={productKey} 
@@ -223,48 +227,59 @@ export const ProductItemNew = ({
           </div>
         ) : (
           <>
-            {/* Nuevo diseño compacto según tu dibujo */}
-            <div className="p-2 w-full">
-              {/* Encabezado con nombre del producto e interruptor de pago */}
-              <div className="flex justify-between items-center mb-1">
-                <div className="font-medium text-sm flex items-center gap-1">
-                  <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
-                    <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
+            {/* Nuevo diseño según la imagen proporcionada */}
+            <div className="border border-amber-200 bg-amber-50/50 rounded-md m-2 overflow-hidden">
+              <div className="grid grid-cols-12 gap-0">
+                {/* Nombre del producto (columna izquierda) */}
+                <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center border-r border-amber-200">
+                  <div className="font-medium text-sm text-center">{productName}</div>
+                </div>
+                
+                {/* Variantes y detalles (columna derecha) */}
+                <div className="col-span-9 p-2">
+                  {/* Variante 1 (si existe) */}
+                  {variantName && (
+                    <div className="flex justify-between items-center text-sm mb-1">
+                      <div className="flex items-center">
+                        <span className="font-medium">{variantName}</span>
+                        <span className="text-muted-foreground ml-1">x {product.quantity}</span>
+                      </div>
+                      <div className="font-medium">${Math.round(product.price)}</div>
+                    </div>
+                  )}
+                  
+                  {/* Si no hay variante, mostrar el producto principal */}
+                  {!variantName && (
+                    <div className="flex justify-between items-center text-sm mb-1">
+                      <div className="flex items-center">
+                        <span className="font-medium">{product.name}</span>
+                        <span className="text-muted-foreground ml-1">x {product.quantity}</span>
+                      </div>
+                      <div className="font-medium">${Math.round(product.price)}</div>
+                    </div>
+                  )}
+                  
+                  {/* Línea divisoria */}
+                  <div className="border-t border-amber-200 my-1"></div>
+                  
+                  {/* Total */}
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Total:
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-medium text-sm ${isPaid ? 'text-green-600' : ''}`}>
+                        ${Math.round(calculateTotal())}
+                      </span>
+                      <Switch
+                        checked={isPaid}
+                        onCheckedChange={handleSwitchChange}
+                        disabled={isSaving}
+                        className={`data-[state=checked]:bg-green-500 h-4 w-6`}
+                        aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
+                      />
+                    </div>
                   </div>
-                  <span>{product.name}</span>
-                </div>
-                <Switch
-                  checked={isPaid}
-                  onCheckedChange={handleSwitchChange}
-                  disabled={isSaving}
-                  className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
-                  aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
-                />
-              </div>
-              
-              {/* Línea divisoria */}
-              <div className="border-t border-gray-100 mb-1"></div>
-              
-              {/* Información del producto/variante */}
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1">
-                  {isPaid && <CircleCheck size={10} className="text-green-500" />}
-                  <span className="text-xs">
-                    {product.variant || product.name} x {product.quantity}
-                  </span>
-                </div>
-                <div className="text-xs font-medium">
-                  ${Math.round(product.price)}
-                </div>
-              </div>
-              
-              {/* Total */}
-              <div className="flex justify-end mt-1">
-                <div className="text-xs font-semibold flex items-center gap-1">
-                  <span className="text-muted-foreground">Total:</span>
-                  <span className={`${isPaid ? 'text-green-600' : ''}`}>
-                    ${Math.round(calculateTotal())}
-                  </span>
                 </div>
               </div>
             </div>
