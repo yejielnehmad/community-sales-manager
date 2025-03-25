@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -86,8 +85,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           variant: {
             id: selected.id,
             name: selected.name,
-            // Mantener el precio existente si está disponible
-            ...(selected.price !== undefined && { price: selected.price })
+            price: selected.price
           }
         });
       }

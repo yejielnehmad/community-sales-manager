@@ -2,10 +2,12 @@ export interface MessageItem {
   product: {
     id?: string;
     name: string;
+    price?: number;
   };
   variant?: {
     id: string;
     name: string;
+    price?: number;
   };
   quantity: number;
   notes?: string;
@@ -20,6 +22,7 @@ export interface MessageItem {
 export interface MessageAlternative {
   id: string;
   name: string;
+  price?: number;
 }
 
 export interface MessageClient {
