@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -10,6 +11,7 @@ import { X, Plus, ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ProductVariant } from "./ProductCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PriceInput } from "@/components/ui/price-input";
 
 const productSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -66,14 +68,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     }
   };
 
-  const handleVariantChange = (index: number, field: keyof ProductVariant, value: string) => {
+  const handleVariantChange = (index: number, field: keyof ProductVariant, value: string | number) => {
     const newVariants = [...variants];
-    if (field === 'price') {
-      const parsedValue = parseInt(value);
-      newVariants[index][field] = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
-    } else {
-      newVariants[index][field] = value;
-    }
+    newVariants[index][field] = value;
     setVariants(newVariants);
   };
 
@@ -170,18 +167,11 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                       <div className="w-24 relative">
                         <FormItem>
                           <FormLabel className="text-xs">Precio</FormLabel>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                            <Input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={variant.price || ""}
-                              onChange={(e) => handleVariantChange(index, 'price', e.target.value)}
-                              className="text-sm pl-7"
-                              placeholder=""
-                            />
-                          </div>
+                          <PriceInput
+                            value={variant.price}
+                            onChange={(value) => handleVariantChange(index, 'price', value)}
+                            className="text-sm"
+                          />
                         </FormItem>
                       </div>
                       <Button

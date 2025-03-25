@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { getProductIcon } from "@/services/productIconService";
+import { PriceDisplay } from "@/components/ui/price-display";
 
 export interface ProductVariant {
   id?: string;
@@ -92,7 +93,9 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
               {product.variants.map((variant, index) => (
                 <div key={variant.id || index} className="bg-muted rounded-md p-2 flex justify-between items-center">
                   <span className="text-sm">{variant.name}</span>
-                  <span className="text-sm font-medium">${variant.price.toFixed(2)}</span>
+                  <span className="text-sm font-medium">
+                    <PriceDisplay value={variant.price} />
+                  </span>
                 </div>
               ))}
             </div>

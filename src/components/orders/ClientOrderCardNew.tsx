@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck } from "lucide-react";
@@ -8,6 +7,7 @@ import { ProductItemNew } from "./ProductItemNew";
 import { Badge } from "@/components/ui/badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
+import { PriceDisplay } from "@/components/ui/price-display";
 
 interface ClientOrderCardProps {
   clientId: string;
@@ -288,10 +288,10 @@ export const ClientOrderCardNew = ({
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                   <div className="font-medium">
                     <span className={`${balance > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                      ${Math.round(balance)}
+                      <PriceDisplay value={Math.round(balance)} className="no-prefix" />
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      /${Math.round(total)}
+                      /<PriceDisplay value={Math.round(total)} className="no-prefix" />
                     </span>
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export const ClientOrderCardNew = ({
                                   </div>
                                   <div className="flex items-center">
                                     <span className="text-xs font-medium mr-2">
-                                      ${Math.round(variant.price)}
+                                      <PriceDisplay value={Math.round(variant.price)} />
                                     </span>
                                     <Switch
                                       checked={isPaid}
@@ -404,7 +404,7 @@ export const ClientOrderCardNew = ({
                             <div className="text-xs font-semibold">
                               <span className="text-muted-foreground mr-1">Total:</span>
                               <span className={`${allVariantsPaid ? 'text-green-600' : ''}`}>
-                                ${Math.round(group.totalPrice)}
+                                <PriceDisplay value={Math.round(group.totalPrice)} />
                               </span>
                             </div>
                           </div>
@@ -422,7 +422,7 @@ export const ClientOrderCardNew = ({
               <div className="mt-3 p-2 flex justify-between items-center bg-primary/5 rounded-lg">
                 <div className="font-medium text-sm">Total Cliente:</div>
                 <div className="text-base font-semibold">
-                  ${Math.round(total)}
+                  <PriceDisplay value={Math.round(total)} />
                 </div>
               </div>
             </div>

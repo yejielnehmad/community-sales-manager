@@ -7,6 +7,8 @@ import { Edit, Trash, Loader2, Check, X, Package, CircleCheck, ArrowRight } from
 import { Badge } from "@/components/ui/badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
+import { PriceDisplay } from "@/components/ui/price-display";
+import { formatPrice } from "@/lib/format";
 
 interface ProductItemProps {
   productKey: string;
@@ -244,7 +246,9 @@ export const ProductItemNew = ({
                         <span className="font-medium">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium">${Math.round(product.price)}</div>
+                      <div className="font-medium">
+                        <PriceDisplay value={Math.round(product.price)} />
+                      </div>
                     </div>
                   )}
                   
@@ -255,7 +259,9 @@ export const ProductItemNew = ({
                         <span className="font-medium">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium">${Math.round(product.price)}</div>
+                      <div className="font-medium">
+                        <PriceDisplay value={Math.round(product.price)} />
+                      </div>
                     </div>
                   )}
                   
@@ -269,13 +275,13 @@ export const ProductItemNew = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`font-medium text-sm ${isPaid ? 'text-green-600' : ''}`}>
-                        ${Math.round(calculateTotal())}
+                        <PriceDisplay value={Math.round(calculateTotal())} />
                       </span>
                       <Switch
                         checked={isPaid}
                         onCheckedChange={handleSwitchChange}
                         disabled={isSaving}
-                        className={`data-[state=checked]:bg-green-500 h-4 w-6`}
+                        className={`data-[state=checked]:bg-green-500 h-4 w-6 focus-visible:ring-0`}
                         aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
                       />
                     </div>
@@ -288,4 +294,4 @@ export const ProductItemNew = ({
       </div>
     </div>
   );
-};
+}
