@@ -69,50 +69,76 @@ export const ClientOrderCardNew = ({
   // Calcular el porcentaje de pago (para la barra de progreso visual)
   const paymentPercentage = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
   
-  // Organizar productos por pedido
+  // Organizar productos por nombre de producto y variante
   const productGroups = useMemo(() => {
-    const groups: {[key: string]: {
+    // Usaremos un mapa para agrupar productos por nombre
+    const productMap: {[key: string]: {
       id?: string,
-      name: string, 
-      variant?: string, 
+      name: string,
+      variant?: string,
       quantity: number,
       price: number,
       total: number,
-      orderId: string
-    }} = {};
+      orderId: string,
+      isPaid: boolean
+    }[]} = {};
     
     orders.forEach(order => {
       order.items.forEach(item => {
-        const key = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
-        if (!groups[key]) {
-          groups[key] = {
+        // Usar solo el nombre del producto como clave para agrupar
+        const productKey = `${item.name || 'Producto'}`;
+        
+        if (!productMap[productKey]) {
+          productMap[productKey] = [];
+        }
+        
+        // Verificar si ya existe una variante igual en el grupo
+        const existingVariantIndex = productMap[productKey].findIndex(
+          p => p.variant === item.variant
+        );
+        
+        const isPaid = productPaidStatus[`${item.name || 'Producto'}_${item.variant || ''}_${order.id}`] || false;
+        
+        if (existingVariantIndex >= 0) {
+          // Si la variante ya existe, actualizar cantidad y total
+          productMap[productKey][existingVariantIndex].quantity += (item.quantity || 1);
+          productMap[productKey][existingVariantIndex].total = 
+            productMap[productKey][existingVariantIndex].price * 
+            productMap[productKey][existingVariantIndex].quantity;
+          // Si alguno no está pagado, marcar como no pagado (más estricto)
+          if (!isPaid) {
+            productMap[productKey][existingVariantIndex].isPaid = false;
+          }
+        } else {
+          // Si es una nueva variante, agregarla al grupo
+          productMap[productKey].push({
             id: item.id,
             name: item.name || 'Producto',
             variant: item.variant,
-            quantity: 0,
+            quantity: item.quantity || 1,
             price: item.price || 0,
-            total: 0,
-            orderId: order.id
-          };
+            total: (item.price || 0) * (item.quantity || 1),
+            orderId: order.id,
+            isPaid: isPaid
+          });
         }
-        groups[key].quantity += (item.quantity || 1);
-        groups[key].total = groups[key].price * groups[key].quantity;
       });
     });
     
-    return groups;
-  }, [orders]);
+    return productMap;
+  }, [orders, productPaidStatus]);
   
   // Verificar si hay productos
   const hasProducts = Object.keys(productGroups).length > 0;
   
   // Verificar si todos los productos están pagados
   const areAllProductsPaid = useMemo(() => {
-    const products = Object.keys(productGroups);
-    if (products.length === 0) return false;
+    // Aplanar el array de grupos de productos
+    const allProducts = Object.values(productGroups).flat();
+    if (allProducts.length === 0) return false;
     
-    return products.every(key => productPaidStatus[key] === true);
-  }, [productGroups, productPaidStatus]);
+    return allProducts.every(product => product.isPaid === true);
+  }, [productGroups]);
   
   // Estado calculado para saber si todos los productos están pagados
   const isPaid = areAllProductsPaid || (paid >= total * 0.99);
@@ -145,6 +171,7 @@ export const ClientOrderCardNew = ({
     <div 
       className="relative rounded-xl overflow-hidden mb-3 shadow-sm hover:shadow-md transition-shadow"
       data-client-id={clientId}
+      style={{ zIndex: 1 }} // Asegurar que tenga un z-index bajo
     >
       {/* Botón de acción en el background con altura completa */}
       <div 
@@ -239,28 +266,42 @@ export const ClientOrderCardNew = ({
               
               {hasProducts ? (
                 <div className="bg-background rounded-lg divide-y divide-gray-100">
-                  {Object.entries(productGroups).map(([key, product], index) => {
-                    const isPaid = productPaidStatus[key] || false;
-                    
-                    return (
-                      <ProductItemNew
-                        key={key}
-                        productKey={key}
-                        product={product}
-                        isPaid={isPaid}
-                        isLastItem={index === Object.keys(productGroups).length - 1}
-                        isFirstItem={index === 0}
-                        isSaving={isSaving}
-                        editingProduct={editingProduct}
-                        productQuantities={productQuantities}
-                        onDeleteProduct={deleteProduct}
-                        onEditProduct={handleEditProduct}
-                        onSaveProductChanges={saveProductChanges}
-                        onQuantityChange={handleQuantityChange}
-                        onToggleProductPaid={handleToggleProductPaid}
-                      />
-                    );
-                  })}
+                  {/* Renderizamos una tarjeta por cada nombre de producto */}
+                  {Object.entries(productGroups).map(([productName, variants], productIndex) => (
+                    <div key={productName} className="bg-card rounded-lg mb-2">
+                      {/* Título del producto */}
+                      <div className="font-medium px-4 pt-3 pb-2">
+                        {productName}
+                      </div>
+                      
+                      {/* Variantes del producto */}
+                      <div className="divide-y divide-gray-100">
+                        {variants.map((variant, variantIndex) => {
+                          const productKey = `${variant.name || 'Producto'}_${variant.variant || ''}_${variant.orderId}`;
+                          const isPaid = productPaidStatus[productKey] || variant.isPaid;
+                          
+                          return (
+                            <ProductItemNew
+                              key={`${productKey}_${variantIndex}`}
+                              productKey={productKey}
+                              product={variant}
+                              isPaid={isPaid}
+                              isLastItem={variantIndex === variants.length - 1}
+                              isFirstItem={variantIndex === 0}
+                              isSaving={isSaving}
+                              editingProduct={editingProduct}
+                              productQuantities={productQuantities}
+                              onDeleteProduct={deleteProduct}
+                              onEditProduct={handleEditProduct}
+                              onSaveProductChanges={saveProductChanges}
+                              onQuantityChange={handleQuantityChange}
+                              onToggleProductPaid={handleToggleProductPaid}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="bg-background rounded-lg p-4 text-center text-muted-foreground">

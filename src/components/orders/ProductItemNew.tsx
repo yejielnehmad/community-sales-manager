@@ -107,7 +107,9 @@ export const ProductItemNew = ({
           style={{ 
             width: '140px',
             borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
-            zIndex: 1
+            zIndex: 1,
+            pointerEvents: isEditing ? 'none' : 'auto',
+            opacity: isEditing ? 0 : 1,
           }}
         >
           <div className="flex-1 flex items-stretch h-full">
@@ -217,15 +219,12 @@ export const ProductItemNew = ({
                 <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
                   <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
                 </div>
-                {product.name}
-              </div>
-              {product.variant && (
-                <div className="text-xs text-muted-foreground mt-1">
+                {product.variant && (
                   <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
                     {product.variant}
                   </Badge>
-                </div>
-              )}
+                )}
+              </div>
               <div className="flex justify-between text-xs text-muted-foreground mt-2">
                 <div>
                   {product.quantity} {product.quantity === 1 ? 'unidad' : 'unidades'}

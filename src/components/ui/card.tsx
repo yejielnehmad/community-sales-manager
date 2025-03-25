@@ -13,7 +13,6 @@ const Card = React.forwardRef<
       "rounded-xl bg-card text-card-foreground shadow-sm transition-all hover:shadow-md relative",
       className
     )}
-    style={{ zIndex: 10 }}
     {...props}
   />
 ))
