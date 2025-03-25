@@ -34,6 +34,7 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '@/components/ui/tooltip';
+import { PriceDisplay } from '@/components/ui/price-display';
 
 interface OrderCardProps {
   order: OrderCardType;
@@ -46,7 +47,8 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  
   const handleItemUpdate = (index: number, updatedItem: MessageItem) => {
     const updatedItems = [...order.items];
     updatedItems[index] = updatedItem;
@@ -159,69 +161,93 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
         <CollapsibleContent>
           <CardContent className="pt-3">
             <div className="space-y-3">
-              {order.items.map((item, index) => (
-                <div key={index} className={`p-3 border rounded-md transition-all duration-200 ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : 'hover:bg-muted/30'}`}>
-                  <div className="flex justify-between">
-                    <div className="font-medium flex items-center gap-2">
-                      <div className="bg-primary/10 p-1 rounded-full">
-                        <Package className="h-3 w-3 text-primary" />
+              {order.items.map((item, index) => {                
+                return (
+                  <div key={index} className="relative overflow-hidden">
+                    <div 
+                      className="border rounded-md transition-all overflow-hidden"
+                      style={{ 
+                        touchAction: 'pan-y'
+                      }}
+                    >
+                      <div className={`p-3`}>
+                        <div className="grid grid-cols-12 gap-1">
+                          <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center rounded-l-md">
+                            <div className="font-medium text-sm text-center">
+                              {item.product.name.split(' ')[0]}
+                            </div>
+                          </div>
+                          
+                          <div className="col-span-9 p-2">
+                            <div className="flex justify-between items-center">
+                              <div className="font-medium flex items-center gap-2">
+                                {item.product.name}
+                              </div>
+                              <div className="font-medium">
+                                x{item.quantity}
+                              </div>
+                            </div>
+                            
+                            {item.variant && (
+                              <div className="text-sm mt-1">
+                                <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
+                              </div>
+                            )}
+                            
+                            <div className="border-t my-1 border-gray-100"></div>
+                            
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Total:</span>
+                              <PriceDisplay 
+                                value={(item.price || item.variant?.price || item.product.price || 0) * (item.quantity || 1)} 
+                                className="font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {item.notes && (
+                          <div className="flex items-center mt-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                    <Info className="h-3.5 w-3.5" />
+                                    <span>Nota: {item.notes}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                  <div className="max-w-xs p-1 text-sm">
+                                    {item.notes}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
                       </div>
-                      {item.product.name}
-                    </div>
-                    <div className="font-medium">
-                      Cantidad: {item.quantity}
+                      
+                      {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
+                        <div className="p-3 pt-0">
+                          <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {item.alternatives.map((alt) => (
+                              <Badge 
+                                key={alt.id} 
+                                variant={item.variant?.id === alt.id ? "default" : "outline"}
+                                className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
+                                onClick={() => handleSelectAlternative(index, alt.id)}
+                              >
+                                {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {item.variant && (
-                    <div className="text-sm mt-1">
-                      Variante: <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
-                    </div>
-                  )}
-                  
-                  {item.notes && (
-                    <div className="flex items-center mt-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Info className="h-3.5 w-3.5" />
-                              <span>Nota: {item.notes}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            <div className="max-w-xs p-1 text-sm">
-                              {item.notes}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  )}
-                  
-                  <div className="text-sm mt-1">
-                    Precio: <span className="font-medium">${(item.price || item.variant?.price || item.product.price || 0).toFixed(2)}</span>
-                  </div>
-                  
-                  {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {item.alternatives.map((alt) => (
-                          <Badge 
-                            key={alt.id} 
-                            variant={item.variant?.id === alt.id ? "default" : "outline"}
-                            className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
-                            onClick={() => handleSelectAlternative(index, alt.id)}
-                          >
-                            {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
           

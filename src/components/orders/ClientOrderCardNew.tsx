@@ -51,9 +51,10 @@ export const ClientOrderCardNew = ({
   // Estado local para controlar la animación del switch principal
   const [isPaidAnimating, setIsPaidAnimating] = useState(false);
   
-  // Usar nuestro custom hook para el swipe
+  // Usar nuestro custom hook para el swipe con opciones mejoradas
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -55, // Reducido a -55 para que no se desplace tanto
+    maxSwipe: -55, // Reducido para el tamaño del botón de eliminar
+    disabled: openClientId === clientId, // Deshabilitar cuando la tarjeta está abierta
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -92,7 +93,6 @@ export const ClientOrderCardNew = ({
     const productMap: {[key: string]: {
       id?: string,
       name: string,
-      // Extraemos nombre base (ej: "Pañales" de "Pañales G")
       baseName: string,
       variants?: {
         id?: string,
@@ -108,14 +108,12 @@ export const ClientOrderCardNew = ({
       totalPrice: number
     }} = {};
     
-    // Función para extraer el nombre base del producto
     const getBaseName = (fullName: string) => {
-      // Patrones comunes como "Producto X", "Producto Talla X", etc.
       const patterns = [
-        /^(.+?)(?:\s+[XSML]$)/i, // Para tallas X, S, M, L
-        /^(.+?)(?:\s+(?:Grande|Mediano|Pequeño)$)/i, // Para descripciones de tamaño en español
-        /^(.+?)(?:\s+(?:G|M|P)$)/i, // Para abreviaturas G, M, P
-        /^(.+?)(?:\s+\d+$)/i, // Para productos con números al final
+        /^(.+?)(?:\s+[XSML]$)/i,
+        /^(.+?)(?:\s+(?:Grande|Mediano|Pequeño)$)/i,
+        /^(.+?)(?:\s+(?:G|M|P)$)/i,
+        /^(.+?)(?:\s+\d+$)/i,
       ];
       
       for (const pattern of patterns) {
@@ -125,17 +123,14 @@ export const ClientOrderCardNew = ({
         }
       }
       
-      // Si no coincide con ningún patrón, devolver el nombre completo
       return fullName;
     };
     
     orders.forEach(order => {
       order.items.forEach(item => {
-        // Extraer el nombre base del producto
         const productName = item.name || 'Producto';
         const baseName = getBaseName(productName);
         
-        // Clave para agrupar productos del mismo tipo
         const groupKey = baseName;
         
         if (!productMap[groupKey]) {
@@ -148,32 +143,25 @@ export const ClientOrderCardNew = ({
           };
         }
         
-        // Determinar si este ítem es una variante
         const isVariant = productName !== baseName || item.variant;
         const variantName = isVariant ? (item.variant || productName) : '';
         
-        // Generar la clave única para este producto
         const itemUniqueKey = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
         
-        // Obtener el estado de pago actual
         const isPaid = productPaidStatus[itemUniqueKey] === true;
         
-        // Verificar si esta variante ya existe en el grupo
         const existingVariantIndex = productMap[groupKey].variants?.findIndex(
           v => v.variant === variantName
         );
         
         if (existingVariantIndex !== undefined && existingVariantIndex >= 0) {
-          // La variante ya existe, actualizar cantidad y total
           const variant = productMap[groupKey].variants![existingVariantIndex];
           variant.quantity += (item.quantity || 1);
           variant.total = variant.price * variant.quantity;
-          // Si alguno no está pagado, marcamos como no pagado
           if (!isPaid) {
             variant.isPaid = false;
           }
         } else {
-          // Agregar la variante al grupo
           productMap[groupKey].variants?.push({
             id: item.id,
             name: item.name || 'Producto',
@@ -186,7 +174,6 @@ export const ClientOrderCardNew = ({
           });
         }
         
-        // Actualizar totales del grupo
         productMap[groupKey].totalUnits += (item.quantity || 1);
         productMap[groupKey].totalPrice += (item.price || 0) * (item.quantity || 1);
       });
@@ -200,7 +187,6 @@ export const ClientOrderCardNew = ({
   
   // Verificar si todos los productos están pagados
   const areAllProductsPaid = useMemo(() => {
-    // Verificar todos los productos/variantes
     return Object.values(productGroups).every(group => {
       return group.variants?.every(variant => {
         const itemKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
@@ -218,22 +204,16 @@ export const ClientOrderCardNew = ({
       setIsPaidAnimating(true);
       handleToggleAllProducts(clientId, checked);
       
-      // Desactivar la animación después de 500ms
       setTimeout(() => {
         setIsPaidAnimating(false);
       }, 500);
     }
   };
   
-  // Resetear swipe cuando se abre/cierra cliente
+  // Resetear swipe cuando cambia el estado de apertura
   useEffect(() => {
-    if (openClientId === clientId || openClientId === null) {
-      resetSwipe();
-    }
-  }, [openClientId, clientId, resetSwipe]);
-
-  // Determinar si se puede hacer swipe en la tarjeta principal
-  const isSwipeEnabled = openClientId !== clientId;
+    resetSwipe();
+  }, [openClientId, resetSwipe]);
   
   return (
     <div 
@@ -241,7 +221,6 @@ export const ClientOrderCardNew = ({
       data-client-id={clientId}
       style={{ zIndex: 1 }}
     >
-      {/* Botón de acción en el background con altura completa */}
       <div 
         className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden rounded-r-xl"
         style={{ width: '55px', zIndex: 1 }}
@@ -251,14 +230,14 @@ export const ClientOrderCardNew = ({
           icon={<Trash className="h-5 w-5" />}
           onClick={() => setClientToDelete(clientId)}
           label="Eliminar cliente"
-          className="rounded-r-xl" // Asegurar que el botón rojo cubra toda la esquina redondeada
+          className="rounded-r-xl"
         />
       </div>
       
-      {/* Contenido principal de la tarjeta del cliente */}
       <div 
-        {...(isSwipeEnabled ? {...getMouseProps(), ...getTouchProps()} : {})}
-        className={`border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm ${isSwipeEnabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        {...getMouseProps()}
+        {...getTouchProps()}
+        className={`border overflow-hidden transition-all duration-200 rounded-xl bg-background relative shadow-sm ${openClientId !== clientId ? 'cursor-grab active:cursor-grabbing' : ''}`}
         style={{ 
           transform: `translateX(${swipeX}px)`,
           transition: 'transform 0.3s ease-out',
@@ -305,7 +284,6 @@ export const ClientOrderCardNew = ({
               </div>
             </div>
             
-            {/* Barra de progreso de pago */}
             <div className="h-1.5 w-full bg-gray-100">
               <div 
                 className="h-1.5 bg-green-500 transition-all duration-500"
@@ -335,18 +313,14 @@ export const ClientOrderCardNew = ({
               
               {hasProducts ? (
                 <div className="space-y-2">
-                  {/* Renderizamos una tarjeta por cada grupo de productos */}
                   {Object.entries(productGroups).map(([baseProductName, group], productIndex) => {
-                    // Para cada producto principal (ej: "Pañales")
-                    // Verificar si todas las variantes están pagadas
                     const allVariantsPaid = group.variants?.every(v => {
                       const itemKey = `${v.name}_${v.variant || ''}_${v.orderId}`;
                       return productPaidStatus[itemKey];
                     });
-
+                    
                     return (
                       <div key={baseProductName} className="bg-card rounded-lg shadow-sm">
-                        {/* Título del grupo de producto */}
                         <div className="flex justify-between items-center p-2 border-b">
                           <div className="font-semibold text-sm flex items-center gap-1">
                             <div className={`p-1 rounded-full ${allVariantsPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
@@ -361,9 +335,7 @@ export const ClientOrderCardNew = ({
                           </div>
                         </div>
                         
-                        {/* Variantes del producto en formato compacto */}
                         <div className="p-2">
-                          {/* Listado de variantes */}
                           <div className="space-y-1">
                             {group.variants?.map((variant, variantIndex) => {
                               const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
@@ -399,7 +371,6 @@ export const ClientOrderCardNew = ({
                             })}
                           </div>
                           
-                          {/* Total del grupo */}
                           <div className="flex justify-end mt-2 pt-2 border-t border-gray-100">
                             <div className="text-xs font-semibold">
                               <span className="text-muted-foreground mr-1">Total:</span>
@@ -431,4 +402,4 @@ export const ClientOrderCardNew = ({
       </div>
     </div>
   );
-};
+}
