@@ -26,8 +26,8 @@ export const SwipeActionButton = ({
   };
   
   const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
     e.preventDefault();
+    e.stopPropagation();
     
     if (!disabled) {
       onClick();

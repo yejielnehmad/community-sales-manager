@@ -60,7 +60,11 @@ export function useSwipe(options: SwipeOptions = {}) {
   }, [disabled, maxSwipe, onSwipeMove]);
 
   const handleSwipeEnd = useCallback(() => {
-    if (disabled || !isActiveRef.current || startXRef.current === null || currentXRef.current === null) return;
+    if (disabled || !isActiveRef.current) return;
+    if (startXRef.current === null || currentXRef.current === null) {
+      isActiveRef.current = false;
+      return;
+    }
     
     const deltaX = currentXRef.current - startXRef.current;
     let completed = false;
@@ -92,22 +96,30 @@ export function useSwipe(options: SwipeOptions = {}) {
   // Props para eventos de mouse con tipos correctos de React
   const getMouseProps = useCallback(() => ({
     onMouseDown: (e: ReactMouseEvent) => {
+      e.preventDefault();
       e.stopPropagation();
       handleSwipeStart(e.clientX);
     },
     onMouseMove: (e: ReactMouseEvent) => {
       if (isActiveRef.current) {
+        e.preventDefault();
         e.stopPropagation();
         handleSwipeMove(e.clientX);
       }
     },
     onMouseUp: (e: ReactMouseEvent) => {
-      e.stopPropagation();
-      handleSwipeEnd();
+      if (isActiveRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSwipeEnd();
+      }
     },
     onMouseLeave: (e: ReactMouseEvent) => {
-      e.stopPropagation();
-      handleSwipeEnd();
+      if (isActiveRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSwipeEnd();
+      }
     },
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
 
@@ -124,12 +136,16 @@ export function useSwipe(options: SwipeOptions = {}) {
       }
     },
     onTouchEnd: (e: ReactTouchEvent) => {
-      e.stopPropagation();
-      handleSwipeEnd();
+      if (isActiveRef.current) {
+        e.stopPropagation();
+        handleSwipeEnd();
+      }
     },
     onTouchCancel: (e: ReactTouchEvent) => {
-      e.stopPropagation();
-      handleSwipeEnd();
+      if (isActiveRef.current) {
+        e.stopPropagation();
+        handleSwipeEnd();
+      }
     },
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
 

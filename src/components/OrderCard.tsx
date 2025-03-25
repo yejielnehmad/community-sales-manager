@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -23,9 +24,7 @@ import {
   User, 
   Package, 
   Info,
-  CreditCard,
-  Edit,
-  Trash
+  CreditCard
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -35,7 +34,6 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '@/components/ui/tooltip';
-import { useSwipe } from '@/hooks/use-swipe';
 import { PriceDisplay } from '@/components/ui/price-display';
 
 interface OrderCardProps {
@@ -50,8 +48,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
-  const [swipeStates, setSwipeStates] = useState<{[key: number]: number}>({});
-
+  
   const handleItemUpdate = (index: number, updatedItem: MessageItem) => {
     const updatedItems = [...order.items];
     updatedItems[index] = updatedItem;
@@ -97,26 +94,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
         });
       }
     }
-  };
-  
-  const updateSwipeState = (index: number, swipeX: number) => {
-    setSwipeStates(prev => ({
-      ...prev,
-      [index]: swipeX
-    }));
-  };
-
-  const resetAllSwipes = (exceptIndex?: number) => {
-    setSwipeStates(prev => {
-      const newState = { ...prev };
-      Object.keys(newState).forEach(key => {
-        const keyNum = parseInt(key);
-        if (exceptIndex === undefined || keyNum !== exceptIndex) {
-          newState[keyNum] = 0;
-        }
-      });
-      return newState;
-    });
   };
 
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
@@ -184,66 +161,16 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
         <CollapsibleContent>
           <CardContent className="pt-3">
             <div className="space-y-3">
-              {order.items.map((item, index) => {
-                const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-                  maxSwipe: -100,
-                  onSwipeStart: () => {
-                    resetAllSwipes(index);
-                  },
-                  onSwipeMove: (x) => {
-                    updateSwipeState(index, x);
-                  },
-                  onSwipeEnd: (completed) => {
-                    if (!completed) {
-                      resetSwipe();
-                      updateSwipeState(index, 0);
-                    }
-                  }
-                });
-                
-                const isEditing = editingItemIndex === index;
-                
+              {order.items.map((item, index) => {                
                 return (
                   <div key={index} className="relative overflow-hidden">
                     <div 
-                      className="absolute inset-y-0 right-0 flex items-stretch h-full"
+                      className="border rounded-md transition-all overflow-hidden"
                       style={{ 
-                        width: '100px',
-                        zIndex: 1
-                      }}
-                    >
-                      <button 
-                        className="w-1/2 bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition-colors"
-                        onClick={() => setEditingItemIndex(index)}
-                        aria-label="Editar producto"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button 
-                        className="w-1/2 bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
-                        onClick={() => {
-                          const updatedItems = order.items.filter((_, i) => i !== index);
-                          onUpdate({
-                            ...order,
-                            items: updatedItems
-                          });
-                        }}
-                        aria-label="Eliminar producto"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    <div 
-                      {...(item.status !== 'duda' && !isEditing ? { ...getMouseProps(), ...getTouchProps() } : {})}
-                      className={`border rounded-md transition-all ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : ''} overflow-hidden`}
-                      style={{ 
-                        transform: `translateX(${swipeStates[index] || 0}px)`,
-                        transition: 'transform 0.3s ease-out',
                         touchAction: 'pan-y'
                       }}
                     >
-                      <div className={`p-3 ${isEditing ? 'bg-primary/5' : ''}`}>
+                      <div className={`p-3`}>
                         <div className="grid grid-cols-12 gap-1">
                           <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center rounded-l-md">
                             <div className="font-medium text-sm text-center">

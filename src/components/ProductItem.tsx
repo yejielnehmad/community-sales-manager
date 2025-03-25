@@ -65,7 +65,7 @@ export const ProductItem = ({
   const elRef = useRef<HTMLDivElement>(null);
   
   // Usar nuestro custom hook para el swipe
-  const { resetSwipe, getMouseProps, getTouchProps } = useSwipe({
+  const { swipeX: localSwipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
     maxSwipe: -70,
     disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
     onSwipeEnd: (completed) => {
@@ -117,6 +117,9 @@ export const ProductItem = ({
     ...getTouchProps()
   } : {};
   
+  // Usar el swipe local si estamos en control directo, sino usar el proporcionado por el padre
+  const effectiveSwipeX = localSwipeX !== 0 ? localSwipeX : swipeX;
+  
   return (
     <div 
       key={productKey} 
@@ -167,11 +170,11 @@ export const ProductItem = ({
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
         style={{ 
-          transform: `translateX(${isEditing ? 0 : swipeX}px)`,
+          transform: `translateX(${isEditing ? 0 : effectiveSwipeX}px)`,
           transition: 'transform 0.3s ease-out',
           height: '100%',
           position: 'relative',
-          zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
+          zIndex: isEditing ? 20 : (effectiveSwipeX === 0 ? 10 : 5),
           borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
         }}
       >
