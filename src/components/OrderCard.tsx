@@ -51,6 +51,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [swipeStates, setSwipeStates] = useState<{[key: number]: number}>({});
 
   const handleItemUpdate = (index: number, updatedItem: MessageItem) => {
     const updatedItems = [...order.items];
@@ -97,6 +98,26 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
         });
       }
     }
+  };
+  
+  const updateSwipeState = (index: number, swipeX: number) => {
+    setSwipeStates(prev => ({
+      ...prev,
+      [index]: swipeX
+    }));
+  };
+
+  const resetAllSwipes = (exceptIndex?: number) => {
+    setSwipeStates(prev => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach(key => {
+        const keyNum = parseInt(key);
+        if (exceptIndex === undefined || keyNum !== exceptIndex) {
+          newState[keyNum] = 0;
+        }
+      });
+      return newState;
+    });
   };
 
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
@@ -165,12 +186,21 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           <CardContent className="pt-3">
             <div className="space-y-3">
               {order.items.map((item, index) => {
-                // Hook de swipe para cada ítem
+                // Crear un hook de swipe para cada elemento
                 const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
                   maxSwipe: -100,
+                  onSwipeStart: () => {
+                    // Al empezar a deslizar, reset todos los demás swipes
+                    resetAllSwipes(index);
+                  },
+                  onSwipeMove: (x) => {
+                    // Actualizar el estado de swipe para este elemento
+                    updateSwipeState(index, x);
+                  },
                   onSwipeEnd: (completed) => {
                     if (!completed) {
                       resetSwipe();
+                      updateSwipeState(index, 0);
                     }
                   }
                 });
@@ -215,7 +245,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                       {...(item.status !== 'duda' && !isEditing ? { ...getMouseProps(), ...getTouchProps() } : {})}
                       className={`border rounded-md transition-all ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : ''} overflow-hidden`}
                       style={{ 
-                        transform: `translateX(${swipeX}px)`,
+                        transform: `translateX(${swipeStates[index] || 0}px)`,
                         transition: 'transform 0.3s ease-out',
                         touchAction: 'pan-y'
                       }}
