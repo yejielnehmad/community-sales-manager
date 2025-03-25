@@ -86,8 +86,9 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           variant: {
             id: selected.id,
             name: selected.name,
-            price: selected.price
-          }
+            price: selected.price || 0
+          },
+          price: selected.price || item.product.price || 0
         });
       }
     }
@@ -198,11 +199,9 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                     </div>
                   )}
                   
-                  {item.price && (
-                    <div className="text-sm mt-1">
-                      Precio: <span className="font-medium">${item.price.toFixed(2)}</span>
-                    </div>
-                  )}
+                  <div className="text-sm mt-1">
+                    Precio: <span className="font-medium">${(item.price || item.variant?.price || item.product.price || 0).toFixed(2)}</span>
+                  </div>
                   
                   {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
                     <div className="mt-3 pt-3 border-t">
@@ -215,7 +214,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                             className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
                             onClick={() => handleSelectAlternative(index, alt.id)}
                           >
-                            {alt.name} {alt.price ? `($${alt.price.toFixed(2)})` : ''}
+                            {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
                           </Badge>
                         ))}
                       </div>

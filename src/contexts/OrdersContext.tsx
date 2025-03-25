@@ -44,18 +44,23 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   const clientItemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   
   // Mapeo de items de la API al formato esperado
-  const mapApiItemsToOrderItems = (items: any[], productMap: {[key: string]: string}, variantMap: {[key: string]: string}): OrderItem[] => {
-    return items.map(item => ({
-      id: item.id,
-      product_id: item.product_id,
-      name: productMap[item.product_id] || 'Producto',
-      variant: item.variant_id ? variantMap[item.variant_id] || 'Variante' : undefined,
-      variant_id: item.variant_id || undefined,
-      quantity: item.quantity,
-      price: item.price,
-      total: item.total,
-      is_paid: item.is_paid
-    }));
+  const mapApiItemsToOrderItems = (items: any[], productMap: {[key: string]: {name: string, price: number}}, variantMap: {[key: string]: {name: string, price: number}}): OrderItem[] => {
+    return items.map(item => {
+      const productInfo = productMap[item.product_id] || { name: 'Producto', price: 0 };
+      const variantInfo = item.variant_id ? variantMap[item.variant_id] || { name: 'Variante', price: 0 } : undefined;
+      
+      return {
+        id: item.id,
+        product_id: item.product_id,
+        name: productInfo.name,
+        variant: item.variant_id ? variantInfo.name : undefined,
+        variant_id: item.variant_id || undefined,
+        quantity: item.quantity,
+        price: item.price || (variantInfo ? variantInfo.price : productInfo.price),
+        total: item.total,
+        is_paid: item.is_paid
+      };
+    });
   };
   
   // Funciones para actualizar los pedidos
@@ -68,6 +73,8 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, error: null }));
     
     try {
+      console.log("Iniciando fetch de pedidos...");
+      
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
@@ -78,6 +85,8 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (ordersData && ordersData.length > 0) {
+        console.log(`Obtenidos ${ordersData.length} pedidos`);
+        
         const clientIds = [...new Set(ordersData.map(order => order.client_id))];
         const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
@@ -97,12 +106,14 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         if (orderItemsError) {
           throw orderItemsError;
         }
+        
+        console.log(`Obtenidos ${orderItemsData?.length || 0} items de pedidos`);
 
         const productIds = orderItemsData?.map(item => item.product_id) || [];
         const { data: productsData, error: productsError } = productIds.length > 0 
           ? await supabase
               .from('products')
-              .select('id, name')
+              .select('id, name, price')
               .in('id', productIds)
           : { data: [], error: null };
           
@@ -110,13 +121,15 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           throw productsError;
         }
         
+        console.log(`Obtenidos ${productsData?.length || 0} productos`);
+        
         const variantIds = orderItemsData?.filter(item => item.variant_id).map(item => item.variant_id) || [];
         let variantsData = [];
         
         if (variantIds.length > 0) {
           const { data: variants, error: variantsError } = await supabase
             .from('product_variants')
-            .select('id, name')
+            .select('id, name, price')
             .in('id', variantIds);
             
           if (variantsError) {
@@ -124,16 +137,28 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           }
           
           variantsData = variants || [];
+          console.log(`Obtenidas ${variantsData.length} variantes`);
         }
 
-        const productMap: { [key: string]: string } = {};
+        const productMap: { [key: string]: {name: string, price: number} } = {};
         productsData?.forEach(product => {
-          productMap[product.id] = product.name;
+          productMap[product.id] = {
+            name: product.name,
+            price: product.price || 0
+          };
         });
         
-        const variantMap: { [key: string]: string } = {};
+        const variantMap: { [key: string]: {name: string, price: number} } = {};
         variantsData?.forEach(variant => {
-          variantMap[variant.id] = variant.name;
+          variantMap[variant.id] = {
+            name: variant.name,
+            price: variant.price || 0
+          };
+        });
+        
+        console.log("Mapas de productos y variantes creados:", {
+          productMap: Object.keys(productMap).length,
+          variantMap: Object.keys(variantMap).length
         });
 
         const orderItemsMap: { [key: string]: OrderItem[] } = {};
@@ -143,14 +168,17 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
               orderItemsMap[item.order_id] = [];
             }
             
+            const productInfo = productMap[item.product_id] || { name: 'Producto', price: 0 };
+            const variantInfo = item.variant_id ? variantMap[item.variant_id] || { name: 'Variante', price: 0 } : undefined;
+            
             const mappedItem: OrderItem = {
               id: item.id,
               product_id: item.product_id,
-              name: productMap[item.product_id] || 'Producto',
-              variant: item.variant_id ? variantMap[item.variant_id] || 'Variante' : undefined,
+              name: productInfo.name,
+              variant: item.variant_id ? variantInfo.name : undefined,
               variant_id: item.variant_id || undefined,
               quantity: item.quantity,
-              price: item.price,
+              price: item.price || (variantInfo ? variantInfo.price : productInfo.price),
               total: item.total,
               is_paid: item.is_paid
             };
@@ -176,6 +204,8 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
             amountPaid: order.amount_paid,
             balance: order.balance
           }));
+          
+          console.log(`Transformados ${transformedOrders.length} pedidos con sus items`);
           
           setState(prev => ({
             ...prev,
