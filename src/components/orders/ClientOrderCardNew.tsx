@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash } from "lucide-react";
 import { Order } from '@/types';
 import { Switch } from "@/components/ui/switch";
 import { ProductItemNew } from "./ProductItemNew";
@@ -53,7 +53,7 @@ export const ClientOrderCardNew = ({
   
   // Usar nuestro custom hook para el swipe
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -55, // Reducido para que no se desplace tanto
+    maxSwipe: -55, // Reducido de -70 a -55 para que no se desplace tanto
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
@@ -322,7 +322,7 @@ export const ClientOrderCardNew = ({
                   Productos
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Marcar todo</span>
+                  <span className="text-xs text-muted-foreground">Marcar todo como pagado</span>
                   <Switch
                     checked={isPaid}
                     onCheckedChange={handleMainSwitchChange}
@@ -337,39 +337,20 @@ export const ClientOrderCardNew = ({
                 <div className="space-y-2">
                   {/* Renderizamos una tarjeta por cada grupo de productos */}
                   {Object.entries(productGroups).map(([baseProductName, group], productIndex) => {
-                    // Calcular si todas las variantes están pagadas
-                    const allVariantsPaid = group.variants?.every(v => {
-                      const itemKey = `${v.name}_${v.variant || ''}_${v.orderId}`;
-                      return productPaidStatus[itemKey] === true;
-                    });
-                    
                     return (
-                      <div 
-                        key={baseProductName} 
-                        className={`bg-card rounded-lg shadow-sm overflow-hidden ${allVariantsPaid ? 'border-green-200' : ''}`}
-                      >
+                      <div key={baseProductName} className="bg-card rounded-lg shadow-sm">
                         {/* Título del grupo de producto y total */}
-                        <div className={`flex justify-between items-center p-2 border-b 
-                                       ${allVariantsPaid ? 'bg-green-50/30 border-green-100' : ''}`}
-                        >
-                          <div className="font-semibold text-sm flex items-center gap-2">
-                            <div className={`p-1 rounded-full ${allVariantsPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
-                              <Package className={`h-3 w-3 ${allVariantsPaid ? 'text-green-600' : 'text-primary'}`} />
-                            </div>
-                            <span>{group.baseName}</span>
-                            {allVariantsPaid && (
-                              <span className="text-green-600">
-                                <Check className="h-3 w-3" />
-                              </span>
-                            )}
+                        <div className="flex justify-between items-center p-2 border-b">
+                          <div className="font-semibold text-sm">
+                            {group.baseName}
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className={`text-xs font-medium px-2 py-0.5 rounded-full
-                                           ${allVariantsPaid ? 'bg-green-100 text-green-700' : 'bg-primary/10 text-primary'}`}>
+                            <div className="text-sm font-medium">
+                              <span className="text-xs text-muted-foreground mr-1">Total:</span>
                               ${Math.round(group.totalPrice)}
                             </div>
-                            <div className="text-xs bg-muted/30 px-2 py-0.5 rounded-full">
-                              {group.totalUnits} {group.totalUnits === 1 ? 'u.' : 'u.'}
+                            <div className="bg-primary/10 px-2 py-0.5 rounded-full text-xs">
+                              {group.totalUnits} {group.totalUnits === 1 ? 'unidad' : 'unidades'}
                             </div>
                           </div>
                         </div>
