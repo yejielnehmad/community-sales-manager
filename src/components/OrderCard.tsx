@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -186,15 +185,12 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           <CardContent className="pt-3">
             <div className="space-y-3">
               {order.items.map((item, index) => {
-                // Crear un hook de swipe para cada elemento
                 const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
                   maxSwipe: -100,
                   onSwipeStart: () => {
-                    // Al empezar a deslizar, reset todos los demás swipes
                     resetAllSwipes(index);
                   },
                   onSwipeMove: (x) => {
-                    // Actualizar el estado de swipe para este elemento
                     updateSwipeState(index, x);
                   },
                   onSwipeEnd: (completed) => {
@@ -209,7 +205,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                 
                 return (
                   <div key={index} className="relative overflow-hidden">
-                    {/* Botones de acción al hacer swipe */}
                     <div 
                       className="absolute inset-y-0 right-0 flex items-stretch h-full"
                       style={{ 
@@ -227,7 +222,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                       <button 
                         className="w-1/2 bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
                         onClick={() => {
-                          // Eliminar producto
                           const updatedItems = order.items.filter((_, i) => i !== index);
                           onUpdate({
                             ...order,
@@ -240,7 +234,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                       </button>
                     </div>
                     
-                    {/* Contenido del producto con soporte para swipe */}
                     <div 
                       {...(item.status !== 'duda' && !isEditing ? { ...getMouseProps(), ...getTouchProps() } : {})}
                       className={`border rounded-md transition-all ${item.status === 'duda' ? 'border-amber-300 bg-amber-50' : ''} overflow-hidden`}
@@ -251,18 +244,14 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                       }}
                     >
                       <div className={`p-3 ${isEditing ? 'bg-primary/5' : ''}`}>
-                        {/* Layout en grid para mejor organización */}
                         <div className="grid grid-cols-12 gap-1">
-                          {/* Columna izquierda - Nombre del producto */}
                           <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center rounded-l-md">
                             <div className="font-medium text-sm text-center">
-                              {item.product.name.split(' ')[0]} {/* Primera palabra del nombre */}
+                              {item.product.name.split(' ')[0]}
                             </div>
                           </div>
                           
-                          {/* Columna derecha - Detalles */}
                           <div className="col-span-9 p-2">
-                            {/* Nombre completo o variante */}
                             <div className="flex justify-between items-center">
                               <div className="font-medium flex items-center gap-2">
                                 {item.product.name}
@@ -272,17 +261,14 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                               </div>
                             </div>
                             
-                            {/* Variante si existe */}
                             {item.variant && (
                               <div className="text-sm mt-1">
                                 <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
                               </div>
                             )}
                             
-                            {/* Separador */}
                             <div className="border-t my-1 border-gray-100"></div>
                             
-                            {/* Precio y total */}
                             <div className="flex justify-between items-center">
                               <span className="text-sm text-muted-foreground">Total:</span>
                               <PriceDisplay 
@@ -293,7 +279,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                           </div>
                         </div>
                         
-                        {/* Notas adicionales */}
                         {item.notes && (
                           <div className="flex items-center mt-2">
                             <TooltipProvider>
@@ -315,7 +300,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                         )}
                       </div>
                       
-                      {/* Sección para productos con alternativas */}
                       {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
                         <div className="p-3 pt-0">
                           <div className="text-sm font-medium mb-2">Opciones disponibles:</div>

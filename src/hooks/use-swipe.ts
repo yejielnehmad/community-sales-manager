@@ -6,6 +6,7 @@ interface SwipeOptions {
   threshold?: number;
   maxSwipe?: number;
   onSwipeStart?: () => void;
+  onSwipeMove?: (x: number) => void;
   onSwipeEnd?: (completed: boolean) => void;
 }
 
@@ -14,6 +15,7 @@ export function useSwipe(options: SwipeOptions = {}) {
     threshold = 20,
     maxSwipe = -140,
     onSwipeStart,
+    onSwipeMove,
     onSwipeEnd
   } = options;
 
@@ -38,8 +40,11 @@ export function useSwipe(options: SwipeOptions = {}) {
       // Limitar el deslizamiento entre 0 y maxSwipe
       const newSwipeX = Math.max(maxSwipe, Math.min(0, deltaX));
       setSwipeX(newSwipeX);
+      
+      // Llamar al callback onSwipeMove si existe
+      onSwipeMove?.(newSwipeX);
     }
-  }, [maxSwipe]);
+  }, [maxSwipe, onSwipeMove]);
 
   const handleSwipeEnd = useCallback(() => {
     if (startXRef.current === null || currentXRef.current === null) return;
