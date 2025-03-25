@@ -1,12 +1,10 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit, Trash, Loader2, Check, X, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useSwipe } from "@/hooks/use-swipe";
-import { SwipeActionButton } from "@/components/ui/swipe-action-button";
 
 interface ProductItemProps {
   productKey: string;
@@ -62,18 +60,6 @@ export const ProductItem = ({
   const isEditing = editingProduct === productKey;
   const [isAnimating, setIsAnimating] = useState(false);
   const currentQuantity = productQuantities[productKey] || product.quantity;
-  const elRef = useRef<HTMLDivElement>(null);
-  
-  // Usar nuestro custom hook para el swipe
-  const { swipeX: localSwipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -70,
-    disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
-    onSwipeEnd: (completed) => {
-      if (!completed) {
-        resetSwipe();
-      }
-    }
-  });
   
   // Manejar el cambio del switch con animación
   const handleSwitchChange = (checked: boolean) => {
@@ -95,42 +81,21 @@ export const ProductItem = ({
       });
     }
   }, [isEditing]);
-
-  // Referencia para el elemento padre
-  useEffect(() => {
-    if (elRef.current) {
-      registerRef(productKey, elRef.current);
-    }
-    
-    return () => {
-      registerRef(productKey, null);
-    };
-  }, [productKey, registerRef]);
   
   // Total de todas las variantes
   const totalVariants = product.variants?.reduce((sum, v) => sum + (v.quantity || 0), 0) || 0;
   const totalQuantity = totalVariants > 0 ? totalVariants : product.quantity;
   
-  // Determinar si aplicamos las props de swipe
-  const swipeProps = (!isPaid && !isEditing) ? {
-    ...getMouseProps(),
-    ...getTouchProps()
-  } : {};
-  
-  // Usar el swipe local si estamos en control directo, sino usar el proporcionado por el padre
-  const effectiveSwipeX = localSwipeX !== 0 ? localSwipeX : swipeX;
-  
   return (
     <div 
       key={productKey} 
-      ref={elRef}
       data-product-key={productKey}
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-90' : 'opacity-100'}`}
       style={{ 
         minHeight: isEditing ? '120px' : '74px',
-        borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
-        touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
+        borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
       }}
+      ref={(ref) => registerRef(productKey, ref)}
     >
       {/* Botones de acción en el fondo - solo visibles cuando NO está en modo edición */}
       {!isEditing && (
@@ -143,38 +108,38 @@ export const ProductItem = ({
           }}
         >
           <div className="flex-1 flex items-stretch h-full">
-            <SwipeActionButton 
-              variant="warning"
-              icon={<Edit className="h-5 w-5" />}
+            <button 
+              className="product-action-button h-full w-full bg-amber-500 hover:bg-amber-600 text-white flex flex-col items-center justify-center transition-colors"
               onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
               disabled={isSaving || isPaid}
-              label="Editar producto"
-            />
+              aria-label="Editar producto"
+            >
+              <Edit className="h-5 w-5" />
+            </button>
           </div>
           <div className="flex-1 flex items-stretch h-full">
-            <SwipeActionButton 
-              variant="destructive"
-              icon={<Trash className="h-5 w-5" />}
+            <button 
+              className="product-action-button h-full w-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
               onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
               disabled={isSaving}
-              label="Eliminar producto"
-            />
+              aria-label="Eliminar producto"
+            >
+              <Trash className="h-5 w-5" />
+            </button>
           </div>
         </div>
       )}
       
       <div 
-        {...swipeProps}
         className={`flex justify-between items-center p-4 transition-transform bg-card 
-                  ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
         style={{ 
-          transform: `translateX(${isEditing ? 0 : effectiveSwipeX}px)`,
+          transform: `translateX(${isEditing ? 0 : swipeX}px)`,
           transition: 'transform 0.3s ease-out',
           height: '100%',
           position: 'relative',
-          zIndex: isEditing ? 20 : (effectiveSwipeX === 0 ? 10 : 5),
+          zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
           borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
         }}
       >
