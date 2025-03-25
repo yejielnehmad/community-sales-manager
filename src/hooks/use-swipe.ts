@@ -39,7 +39,6 @@ export function useSwipe(options: SwipeOptions = {}) {
     startXRef.current = clientX;
     currentXRef.current = clientX;
     isActiveRef.current = true;
-    setSwipeX(0);
     onSwipeStart?.();
   }, [disabled, onSwipeStart]);
 
@@ -52,7 +51,7 @@ export function useSwipe(options: SwipeOptions = {}) {
     // Solo permitir deslizamiento hacia la izquierda
     if (deltaX <= 0) {
       // Limitar el deslizamiento entre 0 y maxSwipe
-      const newSwipeX = Math.max(maxSwipe, Math.min(0, deltaX));
+      const newSwipeX = Math.max(maxSwipe, deltaX);
       setSwipeX(newSwipeX);
       
       // Llamar al callback onSwipeMove si existe
@@ -92,18 +91,42 @@ export function useSwipe(options: SwipeOptions = {}) {
 
   // Props para eventos de mouse con tipos correctos de React
   const getMouseProps = useCallback(() => ({
-    onMouseDown: (e: ReactMouseEvent) => handleSwipeStart(e.clientX),
-    onMouseMove: (e: ReactMouseEvent) => handleSwipeMove(e.clientX),
-    onMouseUp: () => handleSwipeEnd(),
-    onMouseLeave: () => handleSwipeEnd(),
+    onMouseDown: (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      handleSwipeStart(e.clientX);
+    },
+    onMouseMove: (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      handleSwipeMove(e.clientX);
+    },
+    onMouseUp: (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      handleSwipeEnd();
+    },
+    onMouseLeave: (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      handleSwipeEnd();
+    },
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
 
   // Props para eventos táctiles con tipos correctos de React
   const getTouchProps = useCallback(() => ({
-    onTouchStart: (e: ReactTouchEvent) => handleSwipeStart(e.touches[0].clientX),
-    onTouchMove: (e: ReactTouchEvent) => handleSwipeMove(e.touches[0].clientX),
-    onTouchEnd: () => handleSwipeEnd(),
-    onTouchCancel: () => handleSwipeEnd(),
+    onTouchStart: (e: ReactTouchEvent) => {
+      e.stopPropagation();
+      handleSwipeStart(e.touches[0].clientX);
+    },
+    onTouchMove: (e: ReactTouchEvent) => {
+      e.stopPropagation();
+      handleSwipeMove(e.touches[0].clientX);
+    },
+    onTouchEnd: (e: ReactTouchEvent) => {
+      e.stopPropagation();
+      handleSwipeEnd();
+    },
+    onTouchCancel: (e: ReactTouchEvent) => {
+      e.stopPropagation();
+      handleSwipeEnd();
+    },
   }), [handleSwipeStart, handleSwipeMove, handleSwipeEnd]);
 
   return {

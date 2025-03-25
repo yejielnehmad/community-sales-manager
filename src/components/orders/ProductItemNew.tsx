@@ -144,8 +144,7 @@ export const ProductItemNew = ({
       
       {/* Contenido del producto con capacidad de swipe */}
       <div 
-        {...getMouseProps()}
-        {...getTouchProps()}
+        {...((!isPaid && !isEditing) ? { ...getMouseProps(), ...getTouchProps() } : {})}
         className={`flex flex-col justify-between transition-transform bg-card ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
