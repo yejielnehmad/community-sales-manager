@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -197,6 +198,12 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                     </div>
                   )}
                   
+                  {item.price && (
+                    <div className="text-sm mt-1">
+                      Precio: <span className="font-medium">${item.price.toFixed(2)}</span>
+                    </div>
+                  )}
+                  
                   {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
                     <div className="mt-3 pt-3 border-t">
                       <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
@@ -208,7 +215,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                             className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
                             onClick={() => handleSelectAlternative(index, alt.id)}
                           >
-                            {alt.name}
+                            {alt.name} {alt.price ? `($${alt.price.toFixed(2)})` : ''}
                           </Badge>
                         ))}
                       </div>

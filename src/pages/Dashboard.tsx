@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag, Users, ClipboardList, Wallet, ChevronRight, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
-import { ProductPendingBalances } from "@/components/ProductPendingBalances";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type DashboardStat = {
@@ -140,12 +139,6 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
           </div>
         </div>
-
-        <Card className="rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
-          <CardContent className="p-4">
-            <ProductPendingBalances />
-          </CardContent>
-        </Card>
 
         <div className="space-y-3">
           <Collapsible 
