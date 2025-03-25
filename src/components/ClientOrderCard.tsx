@@ -1,11 +1,12 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash } from "lucide-react";
 import { Order } from "@/types";
 import { Switch } from "@/components/ui/switch";
 import { ProductItem } from "./ProductItem";
 import { Badge } from "@/components/ui/badge";
+import { useSwipe } from "@/hooks/use-swipe";
 
 interface ClientOrderCardProps {
   clientId: string;
