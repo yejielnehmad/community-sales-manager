@@ -12,12 +12,17 @@ interface PriceDisplayProps {
 
 /**
  * Componente para mostrar precios formateados con puntos como separadores de miles
- * v1.0.6
+ * v1.0.7
  */
 export function PriceDisplay({ value, className = "", noPrefix = false }: PriceDisplayProps) {
-  return (
-    <span className={className}>
-      {noPrefix ? formatPrice(value).replace('$', '') : formatPrice(value)}
-    </span>
-  );
+  try {
+    return (
+      <span className={className}>
+        {noPrefix ? formatPrice(value).replace('$', '') : formatPrice(value)}
+      </span>
+    );
+  } catch (error) {
+    console.error("Error al formatear precio en PriceDisplay:", error);
+    return <span className={className}>{noPrefix ? '0' : '$0'}</span>;
+  }
 }

@@ -10,17 +10,20 @@ interface PriceInputProps extends Omit<React.ComponentProps<typeof Input>, 'onCh
 
 /**
  * Input para precios que formatea automáticamente con puntos mientras se escribe
- * Versión 1.0.5
+ * Versión 1.0.6
  */
 export function PriceInput({ value, onChange, className, ...props }: PriceInputProps) {
   const [displayValue, setDisplayValue] = useState<string>("");
   const [isFocused, setIsFocused] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Actualizar el valor mostrado cuando cambia el valor o el estado de foco
+  // Actualizar el valor mostrado cuando cambia el valor externo
   useEffect(() => {
-    // Formatear el valor con puntos pero mantener el valor numérico internamente
-    setDisplayValue(formatNumber(value));
+    // Actualizar solo si el valor ha cambiado significativamente para evitar problemas de cursor
+    if (unformatNumber(displayValue) !== value) {
+      setDisplayValue(formatNumber(value));
+    }
   }, [value]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,58 +33,78 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
     if (!rawValue) {
       setDisplayValue("");
       onChange(0);
+      setError(null);
       return;
     }
     
-    // Eliminar todos los puntos para obtener solo los dígitos
+    // Eliminar todos los puntos para validar solo los dígitos
     const digitsOnly = rawValue.replace(/\./g, '');
     
     // Solo permitir dígitos
-    if (!/^\d*$/.test(digitsOnly)) {
+    if (!/^\d+$/.test(digitsOnly)) {
+      setError("Solo se permiten números");
       return;
     }
     
-    // Convertir a número
-    const numericValue = parseInt(digitsOnly, 10);
+    setError(null);
     
-    if (isNaN(numericValue)) {
-      return;
-    }
-    
-    // Formatear para mostrar con puntos mientras se escribe
-    const formattedValue = formatNumber(numericValue);
-    setDisplayValue(formattedValue);
-    
-    // Enviar el valor numérico al padre (sin formateo)
-    onChange(numericValue);
-    
-    // Mantener la posición del cursor ajustada después del formateo
-    setTimeout(() => {
-      if (inputRef.current) {
-        // Calcular posición ajustada del cursor
-        const cursorPos = e.target.selectionStart || 0;
-        const lengthDiff = formattedValue.length - rawValue.length;
-        const newCursorPos = Math.max(0, cursorPos + lengthDiff);
-        
-        // Solo establecer si es diferente para evitar saltos del cursor
-        if (inputRef.current.selectionStart !== newCursorPos) {
-          inputRef.current.selectionStart = newCursorPos;
-          inputRef.current.selectionEnd = newCursorPos;
-        }
+    try {
+      // Mantener la posición del cursor antes de formatear
+      const cursorPos = e.target.selectionStart || 0;
+      const dotsBefore = (rawValue.substring(0, cursorPos).match(/\./g) || []).length;
+      
+      // Convertir a número (usar parseInt para evitar problemas con números grandes)
+      const numericValue = parseInt(digitsOnly, 10);
+      
+      if (isNaN(numericValue)) {
+        setDisplayValue("");
+        onChange(0);
+        return;
       }
-    }, 0);
+      
+      // Formatear para mostrar con puntos mientras se escribe
+      const formattedValue = formatNumber(numericValue);
+      setDisplayValue(formattedValue);
+      
+      // Enviar el valor numérico al padre (sin formateo)
+      onChange(numericValue);
+      
+      // Ajustar la posición del cursor después del formateo
+      setTimeout(() => {
+        if (inputRef.current) {
+          // Calcular cuántos puntos hay en la nueva posición
+          const dotsAfter = (formattedValue.substring(0, cursorPos).match(/\./g) || []).length;
+          // Ajustar la posición del cursor teniendo en cuenta los puntos añadidos/eliminados
+          const newCursorPos = cursorPos + (dotsAfter - dotsBefore);
+          
+          inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    } catch (error) {
+      console.error("Error al procesar el precio:", error);
+      setError("Error al procesar el valor");
+    }
   };
 
   // Cuando el input recibe el foco
   const handleFocus = () => {
     setIsFocused(true);
+    setError(null);
   };
 
   // Cuando el input pierde el foco
   const handleBlur = () => {
     setIsFocused(false);
-    // Asegurar que el valor mostrado está correctamente formateado
-    setDisplayValue(formatNumber(value));
+    
+    try {
+      // Asegurar que el valor mostrado está correctamente formateado
+      const numericValue = unformatNumber(displayValue);
+      setDisplayValue(formatNumber(numericValue));
+      onChange(numericValue);
+    } catch (error) {
+      console.error("Error al formatear en blur:", error);
+      setError("Error al formatear el valor");
+    }
   };
 
   // Método para hacer focus en el input
@@ -99,20 +122,24 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
   }, []);
   
   return (
-    <div className="relative flex items-center">
-      <span className="absolute left-3 text-muted-foreground">$</span>
-      <Input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={displayValue}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        className={`pl-7 ${className}`}
-        {...props}
-      />
+    <div className="relative flex flex-col">
+      <div className="relative flex items-center">
+        <span className="absolute left-3 text-muted-foreground">$</span>
+        <Input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          className={`pl-7 ${error ? 'border-red-500' : ''} ${className}`}
+          {...props}
+        />
+      </div>
+      {error && (
+        <span className="text-xs text-red-500 mt-1">{error}</span>
+      )}
     </div>
   );
 }

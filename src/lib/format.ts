@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para formateo de valores
- * Versión 1.0.5
+ * Versión 1.0.6
  */
 
 /**
@@ -34,13 +34,16 @@ export function formatPrice(value: number | string): string {
 
 /**
  * Convierte un string con formato de número (con puntos) a número
+ * Maneja correctamente números de cualquier cantidad de dígitos
  */
 export function unformatNumber(value: string): number {
   if (!value) return 0;
   
   // Eliminar puntos y convertir a número
   const numericString = value.replace(/\./g, '');
-  const num = parseFloat(numericString);
+  
+  // Usar parseInt para números enteros grandes (evita notación científica)
+  const num = parseInt(numericString, 10);
   
   return isNaN(num) ? 0 : num;
 }
