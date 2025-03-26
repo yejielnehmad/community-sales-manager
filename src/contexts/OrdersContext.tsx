@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -472,7 +473,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           order.id === orderId 
             ? { ...order, amountPaid: newAmountPaid, balance: newBalance } 
             : order
-        ))
+        )
       }));
       
       toast({
@@ -1217,4 +1218,3 @@ export const useOrders = () => {
   }
   return context;
 };
-
