@@ -13,7 +13,7 @@ interface SwipeActionButtonProps {
 
 /**
  * Componente de botón para acciones de deslizamiento
- * v1.0.3
+ * v1.0.4
  */
 export const SwipeActionButton = ({
   className,

@@ -176,7 +176,7 @@ export const ProductItemNew = ({
               )}
             </div>
             
-            {/* Controles de edición simplificados */}
+            {/* Controles de edición simplificados - SOLO los controles necesarios */}
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <Button 

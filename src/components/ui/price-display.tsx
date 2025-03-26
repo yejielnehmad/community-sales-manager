@@ -1,5 +1,5 @@
 
-import { formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/utils";
 
 interface PriceDisplayProps {
   value: number | string;
@@ -12,7 +12,7 @@ interface PriceDisplayProps {
 
 /**
  * Componente para mostrar precios formateados con puntos como separadores de miles
- * v1.0.10
+ * v1.0.11
  */
 export function PriceDisplay({ value, className = "", noPrefix = false }: PriceDisplayProps) {
   try {
