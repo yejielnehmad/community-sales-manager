@@ -1,4 +1,3 @@
-
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -26,7 +25,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.2:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.3:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -141,22 +140,14 @@ export const fetchDatabaseContext = async () => {
   };
 };
 
-// Interfaz para la configuración de IA
-interface AIConfig {
-  checkPickupLocation?: boolean;
-  preferredVariants?: boolean;
-  additionalInstructions?: string;
-}
-
 /**
  * Función específica para analizar mensajes de clientes con contexto de la base de datos
  */
 export const analyzeCustomerMessage = async (
-  message: string, 
-  config?: AIConfig
+  message: string
 ): Promise<MessageAnalysis[]> => {
   try {
-    console.log("Analizando mensaje con configuración:", config);
+    console.log("Analizando mensaje...");
     
     // Obtenemos datos de la BD para darle contexto al modelo
     const dbContext = await fetchDatabaseContext();
@@ -174,29 +165,7 @@ export const analyzeCustomerMessage = async (
       `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
     ).join('\n');
 
-    // Instrucciones adicionales basadas en la configuración
-    let additionalInstructions = '';
-    
-    if (config?.checkPickupLocation) {
-      additionalInstructions += `
-      6. Determina si el cliente menciona una ubicación para retirar el pedido. Las opciones son "Once" o "Palermo". Si no se menciona, asume que es "Once".
-      `;
-    }
-    
-    if (config?.preferredVariants) {
-      additionalInstructions += `
-      7. Cuando sugieras variantes alternativas, prioriza aquellas que son más populares o comunes.
-      `;
-    }
-    
-    if (config?.additionalInstructions) {
-      additionalInstructions += `
-      8. Instrucciones adicionales específicas:
-      ${config.additionalInstructions}
-      `;
-    }
-
-    // Creamos el prompt para el modelo
+    // Creamos el prompt para el modelo con instrucciones mejoradas
     const prompt = `
     Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada pedido debe tener cliente y productos.
     Múltiples mensajes deben ser tratados como pedidos separados.
@@ -210,12 +179,15 @@ export const analyzeCustomerMessage = async (
     ${clientsContext}
     
     INSTRUCCIONES:
-    1. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
-    2. Identifica los productos solicitados con cantidades.
-    3. Si se menciona una variante específica, asóciala con el producto.
-    4. Si hay ambigüedad (ej. no se especifica variante pero el producto tiene variantes), marca como "duda".
-    5. Si no puedes identificar exactamente un producto o cliente, busca el más similar y propón alternativas.
-    ${additionalInstructions}
+    1. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
+    2. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
+    3. Identifica los productos solicitados con cantidades.
+    4. Si se menciona una variante específica, asóciala con el producto.
+    5. Si hay ambigüedad, incertidumbre o información faltante (cliente no identificado, producto no identificado, 
+       variante no especificada, cantidad no mencionada), marca como "duda".
+    6. NO asumas información que no está explícita en el mensaje. Si falta información, marca como "duda".
+    7. NO asumas productos habituales - si falta información, SIEMPRE marca como "duda".
+    8. Si hay varios pedidos de un mismo cliente, agrúpalos por cliente.
     
     Mensaje del cliente a analizar: "${message}"
     
@@ -247,7 +219,7 @@ export const analyzeCustomerMessage = async (
             ],
             "notes": "Notas o dudas sobre este ítem"
           }
-        ]${config?.checkPickupLocation ? ',\n        "pickupLocation": "Once|Palermo"' : ''}
+        ]
       }
     ]
     `;
