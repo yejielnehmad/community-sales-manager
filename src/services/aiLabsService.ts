@@ -32,17 +32,18 @@ export const generateMessageExample = async (): Promise<string> => {
       return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss marcos 5 g 5m 3 pastron netu 5 pañales g dos fiambre un rollo gracias";
     }
     
-    // Seleccionar algunos clientes aleatoriamente para el mensaje
+    // Seleccionar 4-5 clientes aleatoriamente para el mensaje
     const selectedClients = [];
-    const clientsCount = Math.min(Math.floor(Math.random() * 3) + 1, clients.length);
+    const clientsCount = Math.min(Math.floor(Math.random() * 2) + 4, clients.length); // 4-5 clientes
     
     for (let i = 0; i < clientsCount; i++) {
+      if (clients.length === 0) break;
       const randomIndex = Math.floor(Math.random() * clients.length);
       selectedClients.push(clients[randomIndex].name.split(' ')[0].toLowerCase()); // Usar solo el primer nombre en minúsculas
       clients.splice(randomIndex, 1); // Eliminar para evitar duplicados
     }
     
-    // Construir mensaje con formato informal
+    // Construir mensaje con formato informal con múltiples clientes
     let message = '';
     
     for (let i = 0; i < selectedClients.length; i++) {
@@ -50,7 +51,7 @@ export const generateMessageExample = async (): Promise<string> => {
       
       if (i > 0) {
         message += ' ';
-        // A veces añadir una separación más clara entre clientes
+        // Añadir una separación más clara entre clientes
         if (Math.random() > 0.5) {
           message += Math.random() > 0.5 ? '/ ' : '- ';
         }
@@ -88,9 +89,17 @@ export const generateMessageExample = async (): Promise<string> => {
         message += productName;
         
         // Añadir variantes como letras simples (m, g, etc)
-        if (Math.random() > 0.5) {
-          const variantLetters = ['m', 'g', 'p', 'c', 'x'];
-          message += ' ' + variantLetters[Math.floor(Math.random() * variantLetters.length)];
+        if (Math.random() > 0.5 && variants && variants.length > 0) {
+          // Buscar variantes para este producto
+          const productVariants = variants.filter(v => v.product_id === product.id);
+          
+          if (productVariants.length > 0) {
+            const randomVariant = productVariants[Math.floor(Math.random() * productVariants.length)];
+            message += ' ' + randomVariant.name.toLowerCase().charAt(0);
+          } else {
+            const variantLetters = ['m', 'g', 'p', 'c', 'x'];
+            message += ' ' + variantLetters[Math.floor(Math.random() * variantLetters.length)];
+          }
         }
         
         // Separadores entre productos
