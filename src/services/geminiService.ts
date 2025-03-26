@@ -26,7 +26,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.9:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.10:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -203,10 +203,11 @@ export const analyzeCustomerMessage = async (
        a) Un cliente no registrado (márquelo con matchConfidence "desconocido")
        b) Un producto mal escrito (intenta asociarlo)
        c) Una parte del mensaje sin relevancia
+    13. IMPORTANTE: Para evitar problemas de formato JSON, asegúrate de que el JSON que generes no tenga caracteres adicionales o comillas sin escapar correctamente.
        
     Mensaje del cliente a analizar: "${message}"
     
-    Responde SOLAMENTE en formato JSON con esta estructura exacta:
+    Responde SOLAMENTE en formato JSON con esta estructura exacta, sin comillas extra ni caracteres especiales:
     [
       {
         "client": {
@@ -251,20 +252,37 @@ export const analyzeCustomerMessage = async (
     }
 
     try {
-      // Solución al problema de JSON inválido: intentar limpiar y corregir errores comunes
-      jsonText = jsonText.replace(/,\s*]/g, ']'); // Eliminar comas finales
-      jsonText = jsonText.replace(/,\s*}/g, '}'); // Eliminar comas finales
+      // Mejora al procesamiento de JSON: limpieza más agresiva de caracteres problemáticos
+      jsonText = jsonText.replace(/,\s*]/g, ']'); // Eliminar comas finales en arrays
+      jsonText = jsonText.replace(/,\s*}/g, '}'); // Eliminar comas finales en objetos
       
-      // Intenta detectar y corregir strings sin terminar
-      const unterminated = jsonText.match(/"([^"]*?)(?=[,}])/g);
-      if (unterminated) {
-        for (const match of unterminated) {
-          if (!match.endsWith('"')) {
-            const fixedMatch = match + '"';
-            jsonText = jsonText.replace(match, fixedMatch);
-          }
+      // Limpiar comillas mal formateadas o extra
+      jsonText = jsonText.replace(/"([^"]*?)(?=[,}])/g, (match) => {
+        if (!match.endsWith('"')) {
+          return match + '"';
         }
-      }
+        return match;
+      });
+      
+      // Eliminar caracteres de control y espacios dentro de strings que no deberían tenerlos
+      jsonText = jsonText.replace(/"([^"]*)"/g, (match, p1) => {
+        const cleaned = p1.replace(/[\n\r\t]+/g, ' ').trim();
+        return `"${cleaned}"`;
+      });
+      
+      // Corregir comillas extras al inicio y final de valores
+      jsonText = jsonText.replace(/""([^"]*)""/g, '"$1"');
+      
+      // Eliminar caracteres extraños que puedan haberse colado
+      jsonText = jsonText.replace(/[^\x20-\x7E]+/g, '');
+      
+      // Corregir problemas con números seguidos de comillas
+      jsonText = jsonText.replace(/(\d+)"/g, '$1');
+      
+      // Corregir problemas con null seguidos de comillas
+      jsonText = jsonText.replace(/null"/g, 'null');
+      
+      console.log("JSON limpiado:", jsonText.substring(0, 200) + "...");
       
       const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
       console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
@@ -295,8 +313,8 @@ export const analyzeCustomerMessage = async (
       
       if (errorPosition && errorPosition[1]) {
         const pos = parseInt(errorPosition[1]);
-        const start = Math.max(0, pos - 20);
-        const end = Math.min(jsonText.length, pos + 20);
+        const start = Math.max(0, pos - 30);
+        const end = Math.min(jsonText.length, pos + 30);
         errorContext = `Contexto del error: "${jsonText.substring(start, pos)}[ERROR AQUÍ]${jsonText.substring(pos, end)}"`;
       }
       
