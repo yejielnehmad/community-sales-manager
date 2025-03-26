@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,10 @@ import {
   ChevronDown,
   ChevronUp,
   Clipboard,
-  Trash2
+  Trash2,
+  Settings,
+  Tag,
+  MapPin
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -38,6 +42,35 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { FormField, FormItem, FormLabel, FormControl, FormDescription, Form } from "@/components/ui/form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+
+// Esquema para la configuración de IA
+const aiConfigSchema = z.object({
+  checkPickupLocation: z.boolean().default(false),
+  preferredVariants: z.boolean().default(false),
+  additionalInstructions: z.string().optional(),
+});
+
+type AIConfigFormValues = z.infer<typeof aiConfigSchema>;
 
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -45,9 +78,50 @@ const MagicOrder = () => {
   const [progress, setProgress] = useState(0);
   const [orders, setOrders] = useState<OrderCardType[]>([]);
   const [showGenerator, setShowGenerator] = useState(false);
+  const [showAIConfig, setShowAIConfig] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
   const { toast } = useToast();
+
+  // Obtener la configuración guardada en localStorage o usar valores predeterminados
+  const getStoredConfig = () => {
+    const storedConfig = localStorage.getItem('magicOrderAIConfig');
+    if (storedConfig) {
+      try {
+        return JSON.parse(storedConfig);
+      } catch (e) {
+        console.error('Error parsing stored AI config:', e);
+      }
+    }
+    return {
+      checkPickupLocation: false,
+      preferredVariants: false,
+      additionalInstructions: "",
+    };
+  };
+
+  // Formulario de configuración de IA
+  const aiConfigForm = useForm<AIConfigFormValues>({
+    resolver: zodResolver(aiConfigSchema),
+    defaultValues: getStoredConfig(),
+  });
+
+  useEffect(() => {
+    // Cargar configuración guardada al iniciar
+    const storedConfig = getStoredConfig();
+    aiConfigForm.reset(storedConfig);
+  }, []);
+
+  const saveAIConfig = (values: AIConfigFormValues) => {
+    localStorage.setItem('magicOrderAIConfig', JSON.stringify(values));
+    setShowAIConfig(false);
+    toast({
+      title: "Configuración guardada",
+      description: "Las preferencias de IA se han guardado correctamente."
+    });
+    
+    console.log('Configuración de IA guardada:', values);
+  };
 
   const simulateProgress = () => {
     setProgress(0);
@@ -83,9 +157,13 @@ const MagicOrder = () => {
     const stopSimulation = simulateProgress();
 
     try {
+      // Obtener configuración actual
+      const aiConfig = aiConfigForm.getValues();
+      console.log('Analizando mensaje con configuración:', aiConfig);
+      
       let results;
       try {
-        results = await analyzeCustomerMessage(message);
+        results = await analyzeCustomerMessage(message, aiConfig);
       } catch (error) {
         console.error("Error inicial al analizar:", error);
         
@@ -104,7 +182,7 @@ const MagicOrder = () => {
             .replace(/\n+/g, ' ')
             .trim();
             
-          results = await analyzeCustomerMessage(cleanedMessage);
+          results = await analyzeCustomerMessage(cleanedMessage, aiConfig);
         } else {
           throw error;
         }
@@ -116,16 +194,22 @@ const MagicOrder = () => {
         client: result.client,
         items: result.items || [],
         isPaid: false,
-        status: 'pending' as const
+        status: 'pending' as const,
+        pickupLocation: result.pickupLocation
       }));
       
       setOrders(prevOrders => [...prevOrders, ...newOrders]);
       
       setMessage("");
       
+      const validOrders = newOrders.filter(order => 
+        order.items.some(item => item.status === 'duda') || 
+        order.client.matchConfidence !== 'alto'
+      );
+      
       toast({
         title: "Análisis completado",
-        description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} ${newOrders.length === 1 ? 'pedido' : 'pedidos'}`
+        description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} ${newOrders.length === 1 ? 'pedido' : 'pedidos'}, ${validOrders.length} requiere${validOrders.length === 1 ? '' : 'n'} atención`
       });
       
     } catch (error) {
@@ -166,15 +250,16 @@ const MagicOrder = () => {
     const updatedOrders = [...orders];
     updatedOrders[index] = updatedOrder;
     setOrders(updatedOrders);
+    console.log('Pedido actualizado en índice', index, updatedOrder);
   };
 
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
       setMessage(text);
-      setAlertMessage({
+      toast({
         title: "Texto copiado",
-        message: "El texto ha sido copiado del portapapeles"
+        description: "El texto ha sido copiado del portapapeles"
       });
     } catch (err) {
       setAlertMessage({
@@ -191,6 +276,8 @@ const MagicOrder = () => {
 
   const handleSaveOrder = async (orderIndex: number, order: OrderCardType) => {
     try {
+      console.log('Intentando guardar el pedido:', order);
+      
       if (!order.client.id) {
         setAlertMessage({
           title: "Error",
@@ -222,6 +309,9 @@ const MagicOrder = () => {
         return false;
       }
 
+      // Incluir ubicación de recogida si existe
+      const metadata = order.pickupLocation ? { pickupLocation: order.pickupLocation } : undefined;
+
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -231,7 +321,8 @@ const MagicOrder = () => {
             status: 'pending',
             total: total,
             amount_paid: order.isPaid ? total : 0,
-            balance: order.isPaid ? 0 : total
+            balance: order.isPaid ? 0 : total,
+            metadata: metadata
           }
         ])
         .select('id')
@@ -247,7 +338,8 @@ const MagicOrder = () => {
         variant_id: item.variant?.id || null,
         quantity: item.quantity,
         price: item.variant?.price || item.product.price || 0,
-        total: item.quantity * (item.variant?.price || item.product.price || 0)
+        total: item.quantity * (item.variant?.price || item.product.price || 0),
+        notes: item.notes
       }));
 
       const { error: itemsError } = await supabase
@@ -266,11 +358,12 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
 
-      setAlertMessage({
+      toast({
         title: "Pedido guardado",
-        message: `El pedido para ${order.client.name} se ha guardado correctamente`
+        description: `El pedido para ${order.client.name} se ha guardado correctamente`
       });
       
+      console.log('Pedido guardado exitosamente:', newOrder.id);
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
@@ -288,6 +381,8 @@ const MagicOrder = () => {
       updatedOrders.splice(orderToDelete.index, 1);
       setOrders(updatedOrders);
       setOrderToDelete(null);
+      
+      console.log('Pedido eliminado del índice:', orderToDelete.index);
     }
   };
 
@@ -298,6 +393,22 @@ const MagicOrder = () => {
       name: order.client.name
     });
   };
+
+  // Filtrar pedidos que requieren atención para mostrarlos primero
+  const sortedOrders = [...orders].sort((a, b) => {
+    const aRequiresAttention = a.items.some(item => item.status === 'duda') || a.client.matchConfidence !== 'alto';
+    const bRequiresAttention = b.items.some(item => item.status === 'duda') || b.client.matchConfidence !== 'alto';
+    
+    if (aRequiresAttention && !bRequiresAttention) return -1;
+    if (!aRequiresAttention && bRequiresAttention) return 1;
+    return 0;
+  });
+
+  // Contar pedidos que requieren atención
+  const ordersRequiringAttention = orders.filter(order => 
+    order.items.some(item => item.status === 'duda') || 
+    order.client.matchConfidence !== 'alto'
+  ).length;
 
   return (
     <AppLayout>
@@ -310,7 +421,109 @@ const MagicOrder = () => {
             </h1>
             <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
           </div>
+          
+          <div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowAIConfig(!showAIConfig)}
+              className="flex items-center gap-1"
+            >
+              <Settings size={16} />
+              Configuración IA
+            </Button>
+          </div>
         </div>
+
+        <Collapsible
+          open={showAIConfig}
+          onOpenChange={setShowAIConfig}
+        >
+          <CollapsibleContent>
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Configuración de la IA</CardTitle>
+                <CardDescription>
+                  Personaliza cómo la IA analiza los mensajes de los clientes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...aiConfigForm}>
+                  <form onSubmit={aiConfigForm.handleSubmit(saveAIConfig)} className="space-y-4">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="checkPickupLocation">
+                            <div className="flex items-center gap-2">
+                              <MapPin size={16} className="text-amber-600" />
+                              Detectar ubicación de retiro
+                            </div>
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Identifica si el pedido es para retirar en Once o Palermo
+                          </p>
+                        </div>
+                        <Switch
+                          id="checkPickupLocation"
+                          checked={aiConfigForm.watch("checkPickupLocation")}
+                          onCheckedChange={(checked) => 
+                            aiConfigForm.setValue("checkPickupLocation", checked)
+                          }
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="preferredVariants">
+                            <div className="flex items-center gap-2">
+                              <Tag size={16} className="text-primary" />
+                              Sugerir variantes preferidas
+                            </div>
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Prioriza variantes más populares o con más stock
+                          </p>
+                        </div>
+                        <Switch
+                          id="preferredVariants"
+                          checked={aiConfigForm.watch("preferredVariants")}
+                          onCheckedChange={(checked) => 
+                            aiConfigForm.setValue("preferredVariants", checked)
+                          }
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="additionalInstructions">
+                          Instrucciones adicionales para la IA
+                        </Label>
+                        <Textarea
+                          id="additionalInstructions"
+                          placeholder="Ej: Incluir notas sobre detalles de entrega, preferencias específicas..."
+                          {...aiConfigForm.register("additionalInstructions")}
+                          className="min-h-20"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setShowAIConfig(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit">
+                        Guardar configuración
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
 
         <Collapsible
           open={showGenerator}
@@ -401,10 +614,17 @@ const MagicOrder = () => {
         {orders.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <MessageSquareText className="h-5 w-5 text-primary" />
-                Pedidos Preliminares Identificados
-              </h2>
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <MessageSquareText className="h-5 w-5 text-primary" />
+                  Pedidos Preliminares
+                </h2>
+                {ordersRequiringAttention > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {ordersRequiringAttention} pedido{ordersRequiringAttention !== 1 ? 's' : ''} requiere{ordersRequiringAttention !== 1 ? 'n' : ''} atención
+                  </p>
+                )}
+              </div>
               <Button 
                 variant="outline" 
                 onClick={() => setOrders([])}
@@ -416,26 +636,45 @@ const MagicOrder = () => {
             <Separator />
             
             <div className="space-y-2">
-              {orders.map((order, index) => (
-                <div key={index} className="relative">
-                  <OrderCard 
-                    order={order}
-                    onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
-                    onSave={async (orderToSave) => handleSaveOrder(index, orderToSave)}
-                    isPreliminary={true}
-                  />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => handleDeleteOrder(index)}
-                    disabled={order.status === 'saved'}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Eliminar
-                  </Button>
-                </div>
-              ))}
+              {sortedOrders.map((order, index) => {
+                // Encontrar el índice original en el array orders
+                const originalIndex = orders.findIndex(o => 
+                  o.client.id === order.client.id && 
+                  JSON.stringify(o.items) === JSON.stringify(order.items)
+                );
+                
+                return (
+                  <div key={originalIndex} className="relative">
+                    <OrderCard 
+                      order={order}
+                      onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
+                      onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
+                      isPreliminary={true}
+                    />
+                    {(order.items.some(item => item.status === 'duda') || order.client.matchConfidence !== 'alto') && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => handleDeleteOrder(originalIndex)}
+                        disabled={order.status === 'saved'}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Eliminar
+                      </Button>
+                    )}
+                    
+                    {order.pickupLocation && (
+                      <Badge 
+                        className="absolute top-2 right-20 bg-primary/20 text-primary-foreground hover:bg-primary/30 border-0"
+                      >
+                        <MapPin size={12} className="mr-1" />
+                        Retiro: {order.pickupLocation}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

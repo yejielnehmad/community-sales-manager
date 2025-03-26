@@ -1,3 +1,4 @@
+
 export interface MessageItem {
   product: {
     id?: string;
@@ -34,6 +35,7 @@ export interface MessageClient {
 export interface MessageAnalysis {
   client: MessageClient;
   items: MessageItem[];
+  pickupLocation?: string;
 }
 
 export interface Order {
@@ -47,6 +49,7 @@ export interface Order {
   amountPaid: number;
   balance: number;
   deleted?: boolean;
+  pickupLocation?: string;
 }
 
 export interface OrderItem {
@@ -68,6 +71,7 @@ export interface OrderCard {
   isPaid: boolean;
   status: 'pending' | 'saved';
   isPreliminary?: boolean;
+  pickupLocation?: string;
 }
 
 export interface Client {

@@ -141,11 +141,23 @@ export const fetchDatabaseContext = async () => {
   };
 };
 
+// Interfaz para la configuración de IA
+interface AIConfig {
+  checkPickupLocation?: boolean;
+  preferredVariants?: boolean;
+  additionalInstructions?: string;
+}
+
 /**
  * Función específica para analizar mensajes de clientes con contexto de la base de datos
  */
-export const analyzeCustomerMessage = async (message: string): Promise<MessageAnalysis[]> => {
+export const analyzeCustomerMessage = async (
+  message: string, 
+  config?: AIConfig
+): Promise<MessageAnalysis[]> => {
   try {
+    console.log("Analizando mensaje con configuración:", config);
+    
     // Obtenemos datos de la BD para darle contexto al modelo
     const dbContext = await fetchDatabaseContext();
     
@@ -161,6 +173,28 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
     const clientsContext = dbContext.clients.map(c => 
       `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
     ).join('\n');
+
+    // Instrucciones adicionales basadas en la configuración
+    let additionalInstructions = '';
+    
+    if (config?.checkPickupLocation) {
+      additionalInstructions += `
+      6. Determina si el cliente menciona una ubicación para retirar el pedido. Las opciones son "Once" o "Palermo". Si no se menciona, asume que es "Once".
+      `;
+    }
+    
+    if (config?.preferredVariants) {
+      additionalInstructions += `
+      7. Cuando sugieras variantes alternativas, prioriza aquellas que son más populares o comunes.
+      `;
+    }
+    
+    if (config?.additionalInstructions) {
+      additionalInstructions += `
+      8. Instrucciones adicionales específicas:
+      ${config.additionalInstructions}
+      `;
+    }
 
     // Creamos el prompt para el modelo
     const prompt = `
@@ -181,6 +215,7 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
     3. Si se menciona una variante específica, asóciala con el producto.
     4. Si hay ambigüedad (ej. no se especifica variante pero el producto tiene variantes), marca como "duda".
     5. Si no puedes identificar exactamente un producto o cliente, busca el más similar y propón alternativas.
+    ${additionalInstructions}
     
     Mensaje del cliente a analizar: "${message}"
     
@@ -212,7 +247,7 @@ export const analyzeCustomerMessage = async (message: string): Promise<MessageAn
             ],
             "notes": "Notas o dudas sobre este ítem"
           }
-        ]
+        ]${config?.checkPickupLocation ? ',\n        "pickupLocation": "Once|Palermo"' : ''}
       }
     ]
     `;

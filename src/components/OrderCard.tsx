@@ -24,7 +24,8 @@ import {
   User, 
   Package, 
   Info,
-  CreditCard
+  CreditCard,
+  Tag
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +36,14 @@ import {
   TooltipTrigger 
 } from '@/components/ui/tooltip';
 import { PriceDisplay } from '@/components/ui/price-display';
+import { cn } from '@/lib/utils';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface OrderCardProps {
   order: OrderCardType;
@@ -56,6 +65,8 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
       ...order,
       items: updatedItems
     });
+    
+    console.log('Item actualizado:', updatedItem);
   };
 
   const handleTogglePaid = (checked: boolean) => {
@@ -63,15 +74,24 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
       ...order,
       isPaid: checked
     });
+    
+    console.log('Estado de pago actualizado:', checked);
   };
 
   const handleSaveOrder = async () => {
     setIsSaving(true);
+    console.log('Intentando guardar pedido:', order);
+    
     try {
       const success = await onSave(order);
       if (success) {
         setIsOpen(false);
+        console.log('Pedido guardado con éxito');
+      } else {
+        console.error('Error al guardar el pedido');
       }
+    } catch (error) {
+      console.error('Error en handleSaveOrder:', error);
     } finally {
       setIsSaving(false);
     }
@@ -92,21 +112,40 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           },
           price: selected.price || item.product.price || 0
         });
+        
+        console.log('Alternativa seleccionada:', selected);
       }
     }
   };
 
+  const handleUpdateQuantity = (itemIndex: number, quantity: number) => {
+    const item = order.items[itemIndex];
+    handleItemUpdate(itemIndex, {
+      ...item,
+      quantity: quantity
+    });
+    
+    console.log('Cantidad actualizada:', quantity);
+  };
+
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
+  const shouldShowCard = isPreliminary ? (hasUncertainItems || order.client.matchConfidence !== 'alto') : true;
+
+  // Si no se debe mostrar la tarjeta, no renderizar nada
+  if (!shouldShowCard) {
+    return null;
+  }
   
   return (
-    <Card className="mb-2 overflow-hidden transition-all duration-200 hover:shadow-md rounded-xl shadow-sm relative">
+    <Card className="mb-2 overflow-hidden transition-all duration-200 hover:shadow-md rounded-xl shadow-sm relative border-amber-200">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full text-left">
           <div className="p-4 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="font-medium text-lg">{order.client.name}</div>
               {order.client.matchConfidence && order.client.matchConfidence !== 'alto' && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                  <User className="h-3 w-3 mr-1" />
                   Coincidencia: {order.client.matchConfidence}
                 </Badge>
               )}
@@ -155,6 +194,12 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           <div className="text-sm text-muted-foreground flex items-center gap-1">
             <ShoppingCart size={14} />
             {order.items.length} {order.items.length === 1 ? 'producto' : 'productos'}
+            {hasUncertainItems && (
+              <span className="ml-2 text-amber-600">
+                <AlertCircle size={14} className="inline mr-1" />
+                Requiere atención
+              </span>
+            )}
           </div>
         </div>
 
@@ -163,88 +208,116 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
             <div className="space-y-3">
               {order.items.map((item, index) => {                
                 return (
-                  <div key={index} className="relative overflow-hidden">
-                    <div 
-                      className="border rounded-md transition-all overflow-hidden"
-                      style={{ 
-                        touchAction: 'pan-y'
-                      }}
-                    >
-                      <div className={`p-3`}>
-                        <div className="grid grid-cols-12 gap-1">
-                          <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center rounded-l-md">
-                            <div className="font-medium text-sm text-center">
-                              {item.product.name.split(' ')[0]}
-                            </div>
-                          </div>
-                          
-                          <div className="col-span-9 p-2">
-                            <div className="flex justify-between items-center">
-                              <div className="font-medium flex items-center gap-2">
-                                {item.product.name}
-                              </div>
-                              <div className="font-medium">
-                                x{item.quantity}
-                              </div>
-                            </div>
-                            
-                            {item.variant && (
-                              <div className="text-sm mt-1">
-                                <Badge variant="outline" className="ml-1">{item.variant.name}</Badge>
-                              </div>
-                            )}
-                            
-                            <div className="border-t my-1 border-gray-100"></div>
-                            
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-muted-foreground">Total:</span>
-                              <PriceDisplay 
-                                value={(item.price || item.variant?.price || item.product.price || 0) * (item.quantity || 1)} 
-                                className="font-medium"
-                              />
-                            </div>
+                  <div key={index} className={cn(
+                    "relative overflow-hidden rounded-md border",
+                    item.status === 'duda' ? "border-amber-300 bg-amber-50/30" : "border-gray-200"
+                  )}>
+                    <div className="p-3">
+                      <div className="grid grid-cols-12 gap-1">
+                        <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center rounded-l-md">
+                          <div className="font-medium text-sm text-center">
+                            {item.product.name.split(' ')[0]}
                           </div>
                         </div>
                         
-                        {item.notes && (
-                          <div className="flex items-center mt-2">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                    <Info className="h-3.5 w-3.5" />
-                                    <span>Nota: {item.notes}</span>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">
-                                  <div className="max-w-xs p-1 text-sm">
-                                    {item.notes}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                        <div className="col-span-9 p-2">
+                          <div className="flex justify-between items-center">
+                            <div className="font-medium flex items-center gap-2">
+                              {item.product.name}
+                              {item.status === 'duda' && (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                  <AlertCircle size={12} className="mr-1" />
+                                  Requiere confirmar
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <Select 
+                                value={item.quantity.toString()} 
+                                onValueChange={(value) => handleUpdateQuantity(index, parseInt(value))}
+                              >
+                                <SelectTrigger className="w-20 h-8">
+                                  <SelectValue placeholder="Cantidad" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                                    <SelectItem key={num} value={num.toString()}>
+                                      {num}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
-                        )}
+                          
+                          {item.variant && (
+                            <div className="text-sm mt-1">
+                              <Badge variant="outline" className="ml-1 flex items-center gap-1">
+                                <Tag size={12} />
+                                {item.variant.name}
+                              </Badge>
+                            </div>
+                          )}
+                          
+                          <div className="border-t my-1 border-gray-100"></div>
+                          
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Total:</span>
+                            <PriceDisplay 
+                              value={(item.price || item.variant?.price || item.product.price || 0) * (item.quantity || 1)} 
+                              className="font-medium"
+                            />
+                          </div>
+                        </div>
                       </div>
                       
-                      {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
-                        <div className="p-3 pt-0">
-                          <div className="text-sm font-medium mb-2">Opciones disponibles:</div>
-                          <div className="flex flex-wrap gap-2">
-                            {item.alternatives.map((alt) => (
-                              <Badge 
-                                key={alt.id} 
-                                variant={item.variant?.id === alt.id ? "default" : "outline"}
-                                className="cursor-pointer hover:bg-primary/90 hover:text-primary-foreground transition-colors"
-                                onClick={() => handleSelectAlternative(index, alt.id)}
-                              >
-                                {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
-                              </Badge>
-                            ))}
-                          </div>
+                      {item.notes && (
+                        <div className="flex items-center mt-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Info className="h-3.5 w-3.5" />
+                                  <span>Nota: {item.notes}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <div className="max-w-xs p-1 text-sm">
+                                  {item.notes}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       )}
                     </div>
+                    
+                    {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
+                      <div className="p-3 pt-0">
+                        <div className="text-sm font-medium mb-2 flex items-center">
+                          <Tag size={14} className="mr-1 text-amber-700" />
+                          Selecciona una variante:
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {item.alternatives.map((alt) => (
+                            <Badge 
+                              key={alt.id} 
+                              variant={item.variant?.id === alt.id ? "default" : "outline"}
+                              className={cn(
+                                "cursor-pointer transition-colors",
+                                item.variant?.id === alt.id 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "hover:bg-primary/10"
+                              )}
+                              onClick={() => handleSelectAlternative(index, alt.id)}
+                            >
+                              {alt.name} {alt.price !== undefined ? `($${alt.price.toFixed(2)})` : ''}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
