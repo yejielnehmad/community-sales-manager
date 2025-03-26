@@ -38,6 +38,10 @@ interface ClientOrderCardProps {
   setClientToDelete: (clientId: string) => void;
 }
 
+/**
+ * Tarjeta de orden de cliente con agrupación de productos
+ * v1.0.1
+ */
 export const ClientOrderCardNew = ({
   clientId,
   clientName,
@@ -69,7 +73,7 @@ export const ClientOrderCardNew = ({
   
   // Usar nuestro custom hook para el swipe con opciones mejoradas
   const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
-    maxSwipe: -55, // Reducido para el tamaño del botón de eliminar
+    maxSwipe: -70, // Ajustado para el botón de eliminar
     disabled: openClientId === clientId, // Deshabilitar cuando la tarjeta está abierta
     onSwipeEnd: (completed) => {
       if (!completed) {
@@ -250,8 +254,8 @@ export const ClientOrderCardNew = ({
       style={{ zIndex: 1 }}
     >
       <div 
-        className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden rounded-r-xl"
-        style={{ width: '55px', zIndex: 1 }}
+        className="absolute inset-y-0 right-0 flex items-center justify-center h-full overflow-hidden rounded-r-xl"
+        style={{ width: '70px', zIndex: 1 }}
       >
         <SwipeActionButton
           variant="destructive"

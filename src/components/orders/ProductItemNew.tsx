@@ -33,6 +33,10 @@ interface ProductItemProps {
   onToggleProductPaid: (productKey: string, orderId: string, itemId: string, isPaid: boolean) => void;
 }
 
+/**
+ * Componente para mostrar un elemento de producto con funcionalidad de deslizamiento
+ * v1.0.1
+ */
 export const ProductItemNew = ({
   productKey,
   product,
@@ -54,7 +58,7 @@ export const ProductItemNew = ({
   const elRef = useRef<HTMLDivElement>(null);
   
   const { swipeX, resetSwipe, getMouseProps, getTouchProps, isActive } = useSwipe({
-    maxSwipe: -70,
+    maxSwipe: -140, // Aumentado para que quepan ambos botones lado a lado
     disabled: isPaid || isEditing,
     onSwipeEnd: (completed) => {
       if (!completed) {
@@ -110,17 +114,16 @@ export const ProductItemNew = ({
     >
       {!isEditing && (
         <div 
-          className="absolute inset-y-0 right-0 flex h-full"
+          className="absolute inset-y-0 right-0 flex items-center h-full overflow-hidden"
           style={{ 
-            width: '70px',
-            zIndex: 1,
-            overflow: 'hidden',
+            width: '140px', // Ancho para ambos botones
             borderTopRightRadius: isFirstItem ? '1rem' : '0',
-            borderBottomRightRadius: isLastItem ? '1rem' : '0'
+            borderBottomRightRadius: isLastItem ? '1rem' : '0',
+            zIndex: 1
           }}
         >
-          {/* Contenedor para el botón Editar */}
-          <div className="w-1/2 h-full relative">
+          {/* Botones de acción lado a lado */}
+          <div className="flex-1 h-full">
             <SwipeActionButton 
               variant="warning"
               icon={<Edit className="h-5 w-5" />}
@@ -129,9 +132,7 @@ export const ProductItemNew = ({
               label="Editar producto"
             />
           </div>
-          
-          {/* Contenedor para el botón Eliminar */}
-          <div className="w-1/2 h-full relative">
+          <div className="flex-1 h-full">
             <SwipeActionButton 
               variant="destructive"
               icon={<Trash className="h-5 w-5" />}
@@ -176,7 +177,7 @@ export const ProductItemNew = ({
               )}
             </div>
             
-            {/* Controles de edición simplificados - SOLO los controles necesarios */}
+            {/* Controles de edición simplificados */}
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <Button 
@@ -243,7 +244,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price pr-4">
+                      <div className="font-medium font-price pr-6">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -254,7 +255,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price pr-4">
+                      <div className="font-medium font-price pr-6">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -265,7 +266,7 @@ export const ProductItemNew = ({
                       Total:
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''} pr-3`}>
+                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''} pr-6`}>
                         <PriceDisplay value={Math.round(calculateTotal())} />
                       </span>
                       <Switch
