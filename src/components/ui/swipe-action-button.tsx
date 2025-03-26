@@ -13,7 +13,7 @@ interface SwipeActionButtonProps {
 
 /**
  * Componente de botón para acciones de deslizamiento
- * v1.0.2
+ * v1.0.3
  */
 export const SwipeActionButton = ({
   className,
@@ -42,6 +42,7 @@ export const SwipeActionButton = ({
     <button 
       className={cn(
         "h-full w-full flex items-center justify-center transition-colors",
+        "absolute inset-0", // Asegura que cubra todo el espacio disponible
         variantClasses[variant],
         disabled && "opacity-50 cursor-not-allowed",
         className

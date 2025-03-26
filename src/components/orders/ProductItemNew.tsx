@@ -110,30 +110,36 @@ export const ProductItemNew = ({
     >
       {!isEditing && (
         <div 
-          className="absolute inset-y-0 right-0 flex items-stretch h-full"
+          className="absolute inset-y-0 right-0 flex h-full"
           style={{ 
             width: '70px',
-            borderRadius: isLastItem ? '0 0 1rem 0' : '0',
             zIndex: 1,
-            overflow: 'hidden'
+            overflow: 'hidden',
+            borderTopRightRadius: isFirstItem ? '1rem' : '0',
+            borderBottomRightRadius: isLastItem ? '1rem' : '0'
           }}
         >
-          <SwipeActionButton 
-            variant="warning"
-            icon={<Edit className="h-5 w-5" />}
-            onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
-            disabled={isSaving || isPaid}
-            label="Editar producto"
-            className="flex-1"
-          />
-          <SwipeActionButton 
-            variant="destructive"
-            icon={<Trash className="h-5 w-5" />}
-            onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
-            disabled={isSaving}
-            label="Eliminar producto"
-            className="flex-1"
-          />
+          {/* Contenedor para el botón Editar */}
+          <div className="w-1/2 h-full relative">
+            <SwipeActionButton 
+              variant="warning"
+              icon={<Edit className="h-5 w-5" />}
+              onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
+              disabled={isSaving || isPaid}
+              label="Editar producto"
+            />
+          </div>
+          
+          {/* Contenedor para el botón Eliminar */}
+          <div className="w-1/2 h-full relative">
+            <SwipeActionButton 
+              variant="destructive"
+              icon={<Trash className="h-5 w-5" />}
+              onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
+              disabled={isSaving}
+              label="Eliminar producto"
+            />
+          </div>
         </div>
       )}
       
@@ -156,21 +162,22 @@ export const ProductItemNew = ({
         }}
       >
         {isEditing ? (
-          <div className="flex-1 flex flex-col gap-2 w-full p-3">
-            <div className="flex-1">
-              <div className="font-semibold text-sm flex items-center gap-2">
-                <div className="bg-primary/10 p-1 rounded-full">
-                  <Package className="h-3 w-3 text-primary" />
-                </div>
-                {product.name}
+          // Modo de edición simplificado
+          <div className="flex-1 flex flex-col p-3">
+            <div className="font-semibold text-sm flex items-center gap-2 mb-4">
+              <div className="bg-primary/10 p-1 rounded-full">
+                <Package className="h-3 w-3 text-primary" />
               </div>
+              {product.name}
               {product.variant && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {product.variant}
-                </div>
+                <span className="text-xs text-muted-foreground">
+                  ({product.variant})
+                </span>
               )}
             </div>
-            <div className="flex items-center justify-between edit-controls">
+            
+            {/* Controles de edición simplificados */}
+            <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <Button 
                   variant="outline" 
@@ -204,7 +211,7 @@ export const ProductItemNew = ({
                   <Check className="h-3 w-3" />
                 </Button>
               </div>
-              <div className="flex gap-2 edit-controls">
+              <div className="flex gap-2">
                 <Button 
                   variant="default" 
                   size="sm" 
@@ -236,7 +243,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price pr-2">
+                      <div className="font-medium font-price pr-4">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -247,7 +254,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price pr-2">
+                      <div className="font-medium font-price pr-4">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -258,7 +265,7 @@ export const ProductItemNew = ({
                       Total:
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''} pr-1`}>
+                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''} pr-3`}>
                         <PriceDisplay value={Math.round(calculateTotal())} />
                       </span>
                       <Switch
