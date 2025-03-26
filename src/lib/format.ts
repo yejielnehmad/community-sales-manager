@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para formateo de valores
- * Versión 1.0.6
+ * Versión 1.0.7
  */
 
 /**

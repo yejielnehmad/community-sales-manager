@@ -37,7 +37,7 @@ export const SwipeActionButton = ({
   return (
     <button 
       className={cn(
-        "h-full w-full flex items-center justify-center transition-colors rounded-xl",
+        "h-full w-full flex items-center justify-center transition-colors",
         variantClasses[variant],
         disabled && "opacity-50 cursor-not-allowed",
         className

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -109,31 +110,30 @@ export const ProductItemNew = ({
     >
       {!isEditing && (
         <div 
-          className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
+          className="absolute inset-y-0 right-0 flex items-stretch h-full"
           style={{ 
             width: '70px',
             borderRadius: isLastItem ? '0 0 1rem 0' : '0',
-            zIndex: 1
+            zIndex: 1,
+            overflow: 'hidden'
           }}
         >
-          <div className="flex-1 flex items-stretch h-full">
-            <SwipeActionButton 
-              variant="warning"
-              icon={<Edit className="h-5 w-5" />}
-              onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
-              disabled={isSaving || isPaid}
-              label="Editar producto"
-            />
-          </div>
-          <div className="flex-1 flex items-stretch h-full">
-            <SwipeActionButton 
-              variant="destructive"
-              icon={<Trash className="h-5 w-5" />}
-              onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
-              disabled={isSaving}
-              label="Eliminar producto"
-            />
-          </div>
+          <SwipeActionButton 
+            variant="warning"
+            icon={<Edit className="h-5 w-5" />}
+            onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
+            disabled={isSaving || isPaid}
+            label="Editar producto"
+            className="flex-1"
+          />
+          <SwipeActionButton 
+            variant="destructive"
+            icon={<Trash className="h-5 w-5" />}
+            onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
+            disabled={isSaving}
+            label="Eliminar producto"
+            className="flex-1"
+          />
         </div>
       )}
       
@@ -234,7 +234,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price">
+                      <div className="font-medium font-price pr-1">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -245,7 +245,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price">
+                      <div className="font-medium font-price pr-1">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
