@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { getProductIcon } from "@/services/productIconService";
 import { PriceDisplay } from "@/components/ui/price-display";
+import { logUserAction } from "@/lib/debug-utils";
 
 export interface ProductVariant {
   id?: string;
@@ -30,6 +31,37 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
   const IconComponent = getProductIcon(product.name);
   
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    logUserAction('Editar producto', { 
+      productId: product.id, 
+      productName: product.name 
+    });
+    
+    onEdit(product);
+  };
+  
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    logUserAction('Eliminar producto', { 
+      productId: product.id, 
+      productName: product.name 
+    });
+    
+    onDelete(product.id);
+  };
+  
+  const toggleExpanded = () => {
+    logUserAction(`${expanded ? 'Ocultar' : 'Mostrar'} variantes`, { 
+      productId: product.id,
+      variantsCount: product.variants.length 
+    });
+    
+    setExpanded(!expanded);
+  };
+  
   return (
     <Card className="product-card">
       <CardHeader className="p-0 pb-2 space-y-1">
@@ -42,22 +74,18 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
           </div>
           <div className="flex gap-1">
             <Button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(product);
-              }} 
+              onClick={handleEdit} 
               className="btn-edit"
               size="sm"
+              aria-label={`Editar ${product.name}`}
             >
               <Edit className="h-3 w-3" />
             </Button>
             <Button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(product.id);
-              }} 
+              onClick={handleDelete} 
               className="btn-delete"
               size="sm"
+              aria-label={`Eliminar ${product.name}`}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -74,7 +102,7 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
             variant="outline" 
             size="sm" 
             className="text-xs w-full justify-between" 
-            onClick={() => setExpanded(!expanded)}
+            onClick={toggleExpanded}
           >
             {expanded ? (
               <>

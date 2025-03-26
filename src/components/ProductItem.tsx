@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,8 @@ import { Edit, Trash, Loader2, Check, X, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
+import { logUserAction, logOperation, logError } from "@/lib/debug-utils";
+import { cn } from "@/lib/utils";
 
 interface ProductItemProps {
   productKey: string;
@@ -64,39 +65,48 @@ export const ProductItem = ({
   const currentQuantity = productQuantities[productKey] || product.quantity;
   const elRef = useRef<HTMLDivElement>(null);
   
-  // Usar nuestro custom hook para el swipe
   const { swipeX: localSwipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
     maxSwipe: -70,
-    disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
+    disabled: isPaid || isEditing,
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
       }
     }
   });
-  
-  // Manejar el cambio del switch con animación
+
   const handleSwitchChange = (checked: boolean) => {
     setIsAnimating(true);
+    
+    logUserAction('Marcar producto como ' + (checked ? 'pagado' : 'no pagado'), { 
+      productKey, 
+      productName: product.name,
+      previousState: isPaid,
+      newState: checked
+    });
+    
     onToggleProductPaid(productKey, product.orderId, product.id || '', checked);
     
-    // Desactivar la animación después de 500ms
     setTimeout(() => {
       setIsAnimating(false);
     }, 500);
   };
 
-  // Restaurar el scroll cuando se abre el editor
   useEffect(() => {
     if (isEditing) {
+      logUserAction('Iniciando edición de producto', { 
+        productKey, 
+        productName: product.name, 
+        currentQuantity 
+      });
+      
       window.scrollTo({
         top: window.scrollY,
         behavior: 'smooth'
       });
     }
-  }, [isEditing]);
+  }, [isEditing, productKey, product.name, currentQuantity]);
 
-  // Referencia para el elemento padre
   useEffect(() => {
     if (elRef.current) {
       registerRef(productKey, elRef.current);
@@ -107,18 +117,47 @@ export const ProductItem = ({
     };
   }, [productKey, registerRef]);
   
-  // Total de todas las variantes
   const totalVariants = product.variants?.reduce((sum, v) => sum + (v.quantity || 0), 0) || 0;
   const totalQuantity = totalVariants > 0 ? totalVariants : product.quantity;
   
-  // Determinar si aplicamos las props de swipe
   const swipeProps = (!isPaid && !isEditing) ? {
     ...getMouseProps(),
     ...getTouchProps()
   } : {};
   
-  // Usar el swipe local si estamos en control directo, sino usar el proporcionado por el padre
   const effectiveSwipeX = localSwipeX !== 0 ? localSwipeX : swipeX;
+  
+  const handleQuantityChange = (newQuantity: number) => {
+    const validatedQuantity = Math.max(1, newQuantity);
+    
+    logUserAction('Cambiar cantidad de producto', { 
+      productKey, 
+      productName: product.name,
+      previousQuantity: currentQuantity,
+      newQuantity: validatedQuantity
+    });
+    
+    onQuantityChange(productKey, validatedQuantity);
+  };
+  
+  const handleSave = () => {
+    logUserAction('Guardar cambios de producto', { 
+      productKey, 
+      productName: product.name,
+      newQuantity: currentQuantity
+    });
+    
+    onSaveProductChanges(productKey, product.orderId, product.id || '');
+  };
+  
+  const handleDelete = () => {
+    logUserAction('Eliminar producto', { 
+      productKey, 
+      productName: product.name
+    });
+    
+    onDeleteProduct(productKey, product.orderId, product.id || '');
+  };
   
   return (
     <div 
@@ -129,10 +168,9 @@ export const ProductItem = ({
       style={{ 
         minHeight: isEditing ? '120px' : '74px',
         borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0',
-        touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
+        touchAction: 'pan-y'
       }}
     >
-      {/* Botones de acción en el fondo - solo visibles cuando NO está en modo edición */}
       {!isEditing && (
         <div 
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
@@ -149,15 +187,17 @@ export const ProductItem = ({
               onClick={() => onEditProduct(productKey, product.quantity, isPaid)}
               disabled={isSaving || isPaid}
               label="Editar producto"
+              testId={`edit-${productKey}`}
             />
           </div>
           <div className="flex-1 flex items-stretch h-full">
             <SwipeActionButton 
               variant="destructive"
               icon={<Trash className="h-5 w-5" />}
-              onClick={() => onDeleteProduct(productKey, product.orderId, product.id || '')}
+              onClick={handleDelete}
               disabled={isSaving}
               label="Eliminar producto"
+              testId={`delete-${productKey}`}
             />
           </div>
         </div>
@@ -165,10 +205,12 @@ export const ProductItem = ({
       
       <div 
         {...swipeProps}
-        className={`flex justify-between items-center p-4 transition-transform bg-card rounded-xl
-                  ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
-                  ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
-                  ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
+        className={cn(
+          "flex justify-between items-center p-4 transition-transform bg-card rounded-xl",
+          !isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : '',
+          isEditing ? 'border-primary/30 bg-primary/5' : '',
+          isPaid ? 'bg-green-50/50 border-green-100' : ''
+        )}
         style={{ 
           transform: `translateX(${isEditing ? 0 : effectiveSwipeX}px)`,
           transition: 'transform 0.3s ease-out',
@@ -199,7 +241,7 @@ export const ProductItem = ({
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 rounded-full"
-                  onClick={() => onQuantityChange(productKey, currentQuantity - 1)}
+                  onClick={() => handleQuantityChange(currentQuantity - 1)}
                   disabled={isSaving || currentQuantity <= 1}
                   aria-label="Reducir cantidad"
                 >
@@ -208,8 +250,16 @@ export const ProductItem = ({
                 <Input
                   type="number"
                   value={currentQuantity}
-                  onChange={(e) => onQuantityChange(productKey, parseInt(e.target.value) || 1)}
-                  className="w-12 h-8 mx-1 text-center p-0"
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value)) {
+                      handleQuantityChange(value);
+                    }
+                  }}
+                  className={cn(
+                    "w-12 h-8 mx-1 text-center p-0",
+                    (currentQuantity <= 0) && "input-error"
+                  )}
                   disabled={isSaving}
                   aria-label="Cantidad"
                   min="1"
@@ -218,7 +268,7 @@ export const ProductItem = ({
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 rounded-full"
-                  onClick={() => onQuantityChange(productKey, currentQuantity + 1)}
+                  onClick={() => handleQuantityChange(currentQuantity + 1)}
                   disabled={isSaving}
                   aria-label="Aumentar cantidad"
                 >
@@ -230,7 +280,7 @@ export const ProductItem = ({
                   variant="default" 
                   size="sm" 
                   className="h-8 rounded-full px-3"
-                  onClick={() => onSaveProductChanges(productKey, product.orderId, product.id || '')}
+                  onClick={handleSave}
                   disabled={isSaving}
                 >
                   {isSaving ? (
@@ -253,7 +303,6 @@ export const ProductItem = ({
                 {product.name}
               </div>
               
-              {/* Mostrar variantes agrupadas */}
               {product.variants && product.variants.length > 0 ? (
                 <div className="flex flex-wrap gap-1 mt-1">
                   {product.variants.map((variant, idx) => (

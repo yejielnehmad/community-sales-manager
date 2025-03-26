@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import type {
@@ -5,8 +6,8 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -90,8 +91,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -168,6 +167,42 @@ function toast({ ...props }: Toast) {
   }
 }
 
+/**
+ * Toast específico para errores
+ * v1.0.0
+ */
+function error(title: string, description?: string) {
+  return toast({
+    variant: "destructive",
+    title: title,
+    description: description,
+  })
+}
+
+/**
+ * Toast específico para éxitos
+ * v1.0.0
+ */
+function success(title: string, description?: string) {
+  return toast({
+    variant: "success",
+    title: title,
+    description: description,
+  })
+}
+
+/**
+ * Toast específico para advertencias
+ * v1.0.0
+ */
+function warning(title: string, description?: string) {
+  return toast({
+    variant: "warning",
+    title: title,
+    description: description,
+  })
+}
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -184,6 +219,9 @@ function useToast() {
   return {
     ...state,
     toast,
+    error,
+    success,
+    warning,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }

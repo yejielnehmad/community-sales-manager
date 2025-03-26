@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { cn } from "@/lib/utils";
+import { logUserAction } from "@/lib/debug-utils";
 
 interface SwipeActionButtonProps {
   className?: string;
@@ -9,11 +10,12 @@ interface SwipeActionButtonProps {
   icon: React.ReactNode;
   label: string;
   variant?: 'destructive' | 'warning' | 'default';
+  testId?: string;
 }
 
 /**
  * Componente de botón para acciones de deslizamiento
- * v1.0.5
+ * v1.0.6
  */
 export const SwipeActionButton = ({
   className,
@@ -21,7 +23,8 @@ export const SwipeActionButton = ({
   disabled = false,
   icon,
   label,
-  variant = 'default'
+  variant = 'default',
+  testId
 }: SwipeActionButtonProps) => {
   const variantClasses = {
     destructive: "bg-red-500 hover:bg-red-600 text-white",
@@ -34,6 +37,8 @@ export const SwipeActionButton = ({
     e.stopPropagation();
     
     if (!disabled) {
+      // Registro de la acción del usuario
+      logUserAction(`Botón ${label} pulsado`, { variant });
       onClick();
     }
   };
@@ -49,7 +54,7 @@ export const SwipeActionButton = ({
       onClick={handleClick}
       disabled={disabled}
       aria-label={label}
-      data-testid="swipe-action-button"
+      data-testid={testId || "swipe-action-button"}
     >
       {icon}
     </button>

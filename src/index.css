@@ -141,26 +141,59 @@
   }
 }
 
-/* Estilos para garantizar posicionamiento correcto de componentes modales */
+.form-error {
+  @apply border-red-500 focus:ring-red-500;
+}
+
+.error-text {
+  @apply text-red-500 text-xs mt-1;
+}
+
+.input-error {
+  @apply border-red-500 bg-red-50/50 focus:ring-red-500;
+}
+
+.validation-error {
+  @apply bg-red-50/30 border-red-200 text-red-600 rounded-md px-2 py-1 text-xs my-1;
+}
+
+.floating-error {
+  @apply fixed bottom-4 left-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50 shadow-lg;
+}
+
+.floating-success {
+  @apply fixed bottom-4 left-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50 shadow-lg;
+}
+
+.error-tooltip {
+  @apply absolute z-10 p-2 text-xs bg-red-100 text-red-800 rounded shadow-md;
+  max-width: 200px;
+}
+
+.debug-outline {
+  @apply outline outline-1 outline-blue-400;
+}
+
+.debug-box {
+  @apply bg-blue-50/30 text-xs p-1 text-blue-800 border border-blue-200 rounded;
+}
+
 .dialog-content,
 .popover-content,
 .alert-dialog-content {
   z-index: 999 !important;
 }
 
-/* Asegurar que el contenido de la página esté por debajo de barras de navegación */
 .app-main-content {
   z-index: 1;
 }
 
-/* Prevenir que tarjetas floten sobre cabeceras */
 .top-bar,
 .app-header {
   z-index: 40 !important; 
   position: relative;
 }
 
-/* Mejoras para el swipe */
 .swipe-item {
   transition: transform 0.25s ease-out;
   border-radius: 0.75rem;
@@ -172,7 +205,6 @@
   transition: none;
 }
 
-/* Mejoras para los botones de acción al deslizar */
 .swipe-action-btn {
   position: absolute;
   top: 0;
@@ -184,13 +216,11 @@
   border-radius: 0;
 }
 
-/* Redondeo de esquinas al deslizar */
 .swipe-item[style*="translateX"] {
   border-top-right-radius: 1rem;
   border-bottom-right-radius: 1rem;
 }
 
-/* Mejoras tipográficas */
 .font-product-name {
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -206,7 +236,6 @@
   letter-spacing: -0.02em;
 }
 
-/* Switches modernos */
 .switch-modern[data-state=checked] {
   background-color: #000 !important;
 }
