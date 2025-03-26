@@ -25,7 +25,9 @@ import {
   Package, 
   Info,
   CreditCard,
-  Tag
+  Tag,
+  AlertTriangle,
+  HelpCircle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +57,7 @@ interface OrderCardProps {
 
 /**
  * Componente de tarjeta de pedido
- * v1.0.2
+ * v1.0.3
  */
 export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simplified = false }: OrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -137,55 +139,108 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simp
 
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
-  // Estilo simplificado para las tarjetas preliminares
-  if (simplified) {
+  // Nuevo estilo simplificado para las tarjetas preliminares
+  if (simplified && isPreliminary) {
     return (
       <Card className={cn(
-        "mb-2 overflow-hidden transition-all duration-200 hover:shadow-sm border-l-4 rounded-l-none",
+        "overflow-hidden transition-all duration-200 mb-2 border",
         hasUncertainItems || order.client.matchConfidence !== 'alto' 
-          ? "border-l-amber-400" 
-          : "border-l-green-400",
-        "shadow-none hover:shadow-sm"
+          ? "border-amber-300" 
+          : "border-green-300",
+        "shadow-none hover:shadow-sm rounded-md"
       )}>
-        <div className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="font-medium">{order.client.name}</div>
-            {order.client.matchConfidence && order.client.matchConfidence !== 'alto' && (
-              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                <User className="h-3 w-3 mr-1" />
-                ¿Cliente?
-              </Badge>
-            )}
+        <Collapsible defaultOpen={hasUncertainItems}>
+          <div className="grid grid-cols-12 border-b">
+            <div className="col-span-3 border-r p-2 flex items-center justify-center bg-primary/5">
+              <div className="font-medium text-sm">
+                {order.client.name}
+              </div>
+            </div>
+            
+            <CollapsibleTrigger className="col-span-8 text-left p-2 flex items-center">
+              <div className="flex-1">
+                {hasUncertainItems && (
+                  <div className="flex items-center text-amber-700 text-sm">
+                    <HelpCircle className="h-4 w-4 mr-1 text-amber-500" />
+                    {order.items.find(item => item.status === 'duda')?.notes || '¿Qué variante de producto?'}
+                  </div>
+                )}
+                {!hasUncertainItems && (
+                  <div className="flex items-center text-green-700 text-sm">
+                    <Check className="h-4 w-4 mr-1 text-green-500" />
+                    Pedido completo
+                  </div>
+                )}
+              </div>
+            </CollapsibleTrigger>
+            
+            <div className="col-span-1 flex items-center justify-center border-l">
+              <CollapsibleTrigger className="h-full w-full flex items-center justify-center">
+                <ChevronDown className="h-4 w-4 transition-transform ui-open:rotate-180" />
+              </CollapsibleTrigger>
+            </div>
           </div>
           
-          <div className="mt-2 text-sm text-muted-foreground">
-            <div className="flex flex-wrap gap-1">
-              {order.items.map((item, idx) => (
-                <div key={idx} className={cn(
-                  "py-1 px-2 rounded-md text-xs flex items-center gap-1",
-                  item.status === 'duda' ? "bg-amber-50 text-amber-800" : "bg-muted/30"
+          <CollapsibleContent>
+            <div className="p-3 space-y-3">
+              {order.items.map((item, index) => (
+                <div key={index} className={cn(
+                  "p-2 rounded-md text-sm",
+                  item.status === 'duda' ? "bg-amber-50" : "bg-green-50"
                 )}>
-                  {item.status === 'duda' && <AlertCircle className="h-3 w-3" />}
-                  <span>{item.quantity}x {item.product.name}</span>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-medium">{item.quantity}x </span>
+                      <span>{item.product.name}</span>
+                      {item.variant && (
+                        <span className="text-muted-foreground ml-1">
+                          ({item.variant.name})
+                        </span>
+                      )}
+                    </div>
+                    
+                    {item.status === 'duda' ? (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                        <AlertCircle size={12} className="mr-1" />
+                        Duda
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <Check size={12} className="mr-1" />
+                        OK
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {item.status === 'duda' && item.alternatives && item.alternatives.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs font-medium mb-1 text-amber-700">
+                        Selecciona una variante:
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {item.alternatives.map((alt) => (
+                          <Badge 
+                            key={alt.id} 
+                            variant={item.variant?.id === alt.id ? "default" : "outline"}
+                            className={cn(
+                              "cursor-pointer transition-colors text-xs",
+                              item.variant?.id === alt.id 
+                                ? "bg-primary text-primary-foreground" 
+                                : "hover:bg-primary/10"
+                            )}
+                            onClick={() => handleSelectAlternative(index, alt.id)}
+                          >
+                            {alt.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
-          
-          {order.pickupLocation && (
-            <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
-              <Package className="h-3 w-3" />
-              Retiro: {order.pickupLocation}
-            </div>
-          )}
-          
-          {hasUncertainItems && (
-            <div className="mt-2 text-xs text-amber-600 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              Requiere confirmar productos
-            </div>
-          )}
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
     );
   }
