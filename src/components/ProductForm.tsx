@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -14,8 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { PriceInput } from "@/components/ui/price-input";
 import { useToast } from "@/hooks/use-toast";
 import { logValidation, logOperation, logError, logUserAction } from "@/lib/debug-utils";
+import { cn } from "@/lib/utils";
 
-// Esquema de validación más estricto
 const productSchema = z.object({
   name: z.string()
     .min(1, "El nombre es requerido")
@@ -47,7 +46,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
   const [variantErrors, setVariantErrors] = useState<{[key: number]: {name?: string, price?: string}}>({}); 
   const [submitting, setSubmitting] = useState(false);
   
-  // Referencias
   const newVariantRef = useRef<HTMLInputElement>(null);
   const { toast, error, success } = useToast();
 
@@ -59,7 +57,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     },
   });
 
-  // Log de inicialización
   useEffect(() => {
     logUserAction('Formulario de producto abierto', { 
       isEditing: !!initialData?.id,
@@ -78,11 +75,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
   }, [initialData?.id, variants.length]);
 
   const handleAddVariant = () => {
-    // Agregar la nueva variante al inicio del array
     setVariants([{ name: "", price: 0 }, ...variants]);
     logUserAction('Variante de producto agregada', { variantsCount: variants.length + 1 });
     
-    // Hacer focus al primer input de la nueva variante después del render
     setTimeout(() => {
       if (newVariantRef.current) {
         newVariantRef.current.focus();
@@ -95,17 +90,14 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
       logUserAction('Variante de producto eliminada', { variantName: variants[index].name });
       setVariants(variants.filter((_, i) => i !== index));
       
-      // Eliminar los errores para este índice
       const newErrors = {...variantErrors};
       delete newErrors[index];
       setVariantErrors(newErrors);
     } else {
-      // No permitir eliminar la única variante, mostrar mensaje
       error("No se puede eliminar", "Debe haber al menos una variante");
     }
   };
 
-  // Corregimos esta función para que maneje correctamente los tipos
   const handleVariantChange = (index: number, field: keyof ProductVariant, value: string | number) => {
     const newVariants = [...variants];
     if (field === 'name') {
@@ -115,7 +107,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     }
     setVariants(newVariants);
     
-    // Limpiar error si existe
     if (variantErrors[index] && variantErrors[index][field]) {
       const newErrors = {...variantErrors};
       delete newErrors[index][field];
@@ -126,7 +117,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     }
   };
 
-  // Validar todas las variantes
   const validateVariants = (): boolean => {
     const newErrors: {[key: number]: {name?: string, price?: string}} = {};
     let hasErrors = false;
@@ -153,14 +143,11 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
   const handleFormSubmit = (data: ProductFormValues) => {
     setSubmitting(true);
     
-    // Registrar intento
     logUserAction('Intento de guardar producto', { 
       productName: data.name, 
       variantsCount: variants.length 
     });
     
-    // Validar formulario principal (ya hecho por react-hook-form)
-    // Validar variantes manualmente
     const variantsValid = validateVariants();
     
     if (!variantsValid) {
@@ -170,7 +157,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
     }
     
     try {
-      // Registrar éxito de validación
       logOperation('validación_producto', 'success', { 
         productName: data.name,
         variantsCount: variants.length
@@ -181,7 +167,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
         variants
       });
       
-      // Registrar operación
       logOperation('guardar_producto', 'success', { 
         productName: data.name,
         variantsCount: variants.length,
@@ -283,7 +268,6 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                         <FormItem>
                           <FormLabel className="text-xs">Nombre</FormLabel>
                           <Input
-                            // Asignar la referencia solo al primer elemento cuando se agrega una nueva variante
                             ref={index === 0 ? newVariantRef : undefined}
                             value={variant.name}
                             onChange={(e) => handleVariantChange(index, 'name', e.target.value)}
