@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para formateo de valores
- * Versión 1.0.2
+ * Versión 1.0.3
  */
 
 /**
@@ -39,7 +39,8 @@ export function unformatNumber(value: string): number {
   if (!value) return 0;
   
   // Eliminar puntos y convertir a número
-  const num = parseFloat(value.replace(/\./g, ''));
+  const numericString = value.replace(/\./g, '');
+  const num = parseFloat(numericString);
   
   return isNaN(num) ? 0 : num;
 }

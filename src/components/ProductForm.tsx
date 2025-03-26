@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -38,6 +38,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
   const [variants, setVariants] = useState<ProductVariant[]>(
     initialData?.variants || [{ name: "", price: 0 }]
   );
+  
+  // Referencia al nuevo input de variante
+  const newVariantRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -59,7 +62,15 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
   }, []);
 
   const handleAddVariant = () => {
-    setVariants([...variants, { name: "", price: 0 }]);
+    // Agregar la nueva variante al inicio del array
+    setVariants([{ name: "", price: 0 }, ...variants]);
+    
+    // Hacer focus al primer input de la nueva variante después del render
+    setTimeout(() => {
+      if (newVariantRef.current) {
+        newVariantRef.current.focus();
+      }
+    }, 0);
   };
 
   const handleRemoveVariant = (index: number) => {
@@ -162,6 +173,8 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                         <FormItem>
                           <FormLabel className="text-xs">Nombre</FormLabel>
                           <Input
+                            // Asignar la referencia solo al primer elemento cuando se agrega una nueva variante
+                            ref={index === 0 ? newVariantRef : undefined}
                             value={variant.name}
                             onChange={(e) => handleVariantChange(index, 'name', e.target.value)}
                             placeholder="Ej: Talle M"

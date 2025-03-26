@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { formatNumber, unformatNumber } from "@/lib/format";
 
@@ -10,10 +10,11 @@ interface PriceInputProps extends Omit<React.ComponentProps<typeof Input>, 'onCh
 
 /**
  * Input para precios que formatea automáticamente con puntos mientras se escribe
- * Versión 1.0.2
+ * Versión 1.0.3
  */
 export function PriceInput({ value, onChange, className, ...props }: PriceInputProps) {
   const [displayValue, setDisplayValue] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
   
   // Actualizar el valor mostrado cuando cambia el valor
   useEffect(() => {
@@ -44,11 +45,26 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
     // Enviar el valor numérico al padre
     onChange(numericValue);
   };
+
+  // Método para hacer focus en el input
+  const focus = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+  
+  // Exponer el método focus
+  useEffect(() => {
+    if (inputRef.current) {
+      (inputRef.current as any).focus = focus;
+    }
+  }, []);
   
   return (
     <div className="relative flex items-center">
       <span className="absolute left-3 text-muted-foreground">$</span>
       <Input
+        ref={inputRef}
         type="text"
         inputMode="numeric"
         pattern="[0-9]*"
