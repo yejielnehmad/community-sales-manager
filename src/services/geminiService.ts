@@ -1,3 +1,4 @@
+
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -25,7 +26,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.8:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.10:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -90,6 +91,44 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
 };
 
 /**
+ * Función para limpiar y extraer JSON de la respuesta
+ */
+const extractJsonFromResponse = (text: string): string => {
+  // Eliminar posibles comentarios y marcadores de código
+  let jsonText = text.trim();
+  
+  // Eliminar backticks y marcadores de código
+  if (jsonText.includes("```")) {
+    // Extraer contenido entre los primeros backticks
+    const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match && match[1]) {
+      jsonText = match[1].trim();
+    } else {
+      // Si no podemos extraer correctamente, intentamos quitar todos los backticks
+      jsonText = jsonText.replace(/```(?:json)?|```/g, "").trim();
+    }
+  }
+  
+  // Eliminar caracteres problemáticos
+  jsonText = jsonText
+    .replace(/[\u2018\u2019]/g, "'") // Reemplazar comillas simples tipográficas
+    .replace(/[\u201C\u201D]/g, '"') // Reemplazar comillas dobles tipográficas
+    .replace(/\n+/g, ' ') // Reemplazar saltos de línea múltiples por espacio
+    .trim();
+  
+  // Verificar si el texto empieza y termina con corchetes para array JSON
+  if (!jsonText.startsWith('[') || !jsonText.endsWith(']')) {
+    // Intentar encontrar el array JSON dentro del texto
+    const arrayMatch = jsonText.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (arrayMatch) {
+      jsonText = arrayMatch[0];
+    }
+  }
+  
+  return jsonText;
+};
+
+/**
  * Función para obtener productos y clientes de la base de datos
  */
 export const fetchDatabaseContext = async () => {
@@ -143,139 +182,153 @@ export const analyzeCustomerMessage = async (
   try {
     console.log("Analizando mensaje...");
     
-    const dbContext = await fetchDatabaseContext();
+    // Intentar hasta 3 veces en caso de error
+    let attempts = 0;
+    const maxAttempts = 3;
     
-    const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
-    
-    const productsContext = dbContext.products.map(p => {
-      const variantsText = p.variants && p.variants.length 
-        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
-        : 'Sin variantes';
-      
-      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
-    }).join('\n');
-    
-    const clientsContext = dbContext.clients.map(c => 
-      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
-    ).join('\n');
-
-    const variantToProductMap = {};
-    dbContext.products.forEach(product => {
-      if (product.variants && product.variants.length) {
-        product.variants.forEach(variant => {
-          variantToProductMap[variant.name.toLowerCase()] = {
-            productId: product.id,
-            productName: product.name,
-            variantId: variant.id,
-            variantName: variant.name
-          };
-        });
-      }
-    });
-
-    const prompt = `
-    Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada línea puede ser un pedido distinto.
-    Múltiples mensajes deben ser tratados como pedidos separados.
-    
-    CONTEXTO (productos y clientes existentes en la base de datos):
-    
-    PRODUCTOS:
-    ${productsContext}
-    
-    CLIENTES:
-    ${clientsContext}
-    
-    INSTRUCCIONES:
-    1. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
-    2. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
-    3. Si un nombre no coincide con ningún cliente en la base de datos y está sin productos asociados, inclúyelo con matchConfidence "desconocido" para que la interfaz lo marque.
-    4. Identifica los productos solicitados con cantidades.
-    5. Si se menciona una variante específica, asóciala con el producto correspondiente, aunque no se haya mencionado el producto explícitamente.
-    6. Si hay ambigüedad, incertidumbre o información faltante (cliente no identificado, producto no identificado, 
-       variante no especificada, cantidad no mencionada), marca como "duda".
-    7. NO asumas información que no está explícita en el mensaje. Si falta información, marca como "duda".
-    8. Las respuestas suelen ser muy cortas y pueden contener: nombre del cliente, cantidad, producto, y a veces una expresión de agradecimiento (esto último ignóralo).
-    9. Adapta tu análisis al estilo informal de los mensajes, que pueden estar mal escritos, sin puntuación o con palabras incompletas.
-    10. Por ejemplo, mensajes como "shelo 3 maples" o "4 pavita para moshi gracias" son muy comunes.
-    11. Cada línea del mensaje puede referirse a un pedido diferente de un cliente diferente.
-    12. Cuando aparece un nombre que no coincide con ningún cliente, evalúa en el contexto si podría ser:
-       a) Un cliente no registrado (márquelo con matchConfidence "desconocido")
-       b) Un producto mal escrito (intenta asociarlo)
-       c) Una parte del mensaje sin relevancia
-       
-    Mensaje del cliente a analizar: "${message}"
-    
-    Responde SOLAMENTE en formato JSON con esta estructura exacta:
-    [
-      {
-        "client": {
-          "id": "ID del cliente si lo encontraste exactamente",
-          "name": "Nombre del cliente",
-          "matchConfidence": "alto|medio|bajo|desconocido"
-        },
-        "items": [
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        console.log(`Intento #${attempts} de analizar mensaje`);
+        
+        const dbContext = await fetchDatabaseContext();
+        
+        // Preparar el contexto para el prompt
+        const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
+        
+        const productsContext = dbContext.products.map(p => {
+          const variantsText = p.variants && p.variants.length 
+            ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
+            : 'Sin variantes';
+          
+          return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
+        }).join('\n');
+        
+        const clientsContext = dbContext.clients.map(c => 
+          `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
+        ).join('\n');
+        
+        const prompt = `
+        Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada línea puede ser un pedido distinto.
+        Múltiples mensajes deben ser tratados como pedidos separados.
+        
+        CONTEXTO (productos y clientes existentes en la base de datos):
+        
+        PRODUCTOS:
+        ${productsContext}
+        
+        CLIENTES:
+        ${clientsContext}
+        
+        INSTRUCCIONES IMPORTANTES:
+        1. Debes devolver ÚNICAMENTE un array JSON válido. NO incluyas explicaciones, comentarios ni texto adicional.
+        2. Tu respuesta DEBE ser un array JSON que cumpla exactamente con el esquema indicado.
+        3. No incluyas caracteres de markdown como \`\`\` alrededor del JSON.
+        4. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
+        5. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
+        6. Si un nombre no coincide con ningún cliente y está sin productos asociados, inclúyelo con matchConfidence "desconocido".
+        7. Identifica los productos solicitados con cantidades.
+        8. Si hay ambigüedad o información faltante, marca como "duda".
+        9. Las respuestas suelen ser muy cortas y contener: nombre del cliente, cantidad y producto.
+        10. Adapta tu análisis al estilo informal de los mensajes (pueden estar mal escritos o abreviados).
+        
+        Mensaje a analizar: "${message}"
+        
+        Responde EXCLUSIVAMENTE con un array JSON válido con esta estructura:
+        [
           {
-            "product": {
-              "id": "ID del producto si lo encontraste exactamente",
-              "name": "Nombre del producto"
+            "client": {
+              "id": "ID del cliente o null",
+              "name": "Nombre del cliente",
+              "matchConfidence": "alto|medio|bajo|desconocido"
             },
-            "quantity": número,
-            "variant": {
-              "id": "ID de la variante si la encontraste exactamente",
-              "name": "Nombre de la variante"
-            },
-            "status": "confirmado|duda",
-            "alternatives": [
+            "items": [
               {
-                "id": "ID de la alternativa",
-                "name": "Nombre de la alternativa"
+                "product": {
+                  "id": "ID del producto o null",
+                  "name": "Nombre del producto"
+                },
+                "quantity": número,
+                "variant": {
+                  "id": "ID de la variante o null",
+                  "name": "Nombre de la variante"
+                },
+                "status": "confirmado|duda",
+                "alternatives": [],
+                "notes": "Notas o dudas sobre este ítem"
               }
             ],
-            "notes": "Notas o dudas sobre este ítem"
+            "unmatchedText": "Texto no asociado a cliente o producto"
           }
-        ],
-        "unmatchedText": "Texto que no pudiste asociar a un cliente o producto conocido"
-      }
-    ]
-    `;
-
-    const responseText = await callGeminiAPI(prompt);
-    
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith("```json")) {
-      jsonText = jsonText.replace(/```json\n/, "").replace(/\n```$/, "");
-    } else if (jsonText.startsWith("```")) {
-      jsonText = jsonText.replace(/```\n/, "").replace(/\n```$/, "");
-    }
-
-    try {
-      const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
-      console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
-      
-      if (!Array.isArray(parsedResult)) {
-        throw new GeminiError("El formato de los datos analizados no es válido (no es un array)", {
-          apiResponse: jsonText
-        });
-      }
-      
-      const processedResult = parsedResult.filter(result => {
-        if (result.client.matchConfidence === "desconocido" && 
-            (!result.items || result.items.length === 0 || 
-             result.items.every(item => !item.product.id))) {
-          console.log(`Nombre no reconocido: ${result.client.name}`);
-          return false;
+        ]`;
+        
+        const responseText = await callGeminiAPI(prompt);
+        let jsonText = extractJsonFromResponse(responseText);
+        
+        try {
+          // Intentar analizar el JSON
+          const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
+          console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
+          
+          if (!Array.isArray(parsedResult)) {
+            throw new Error("El formato de los datos analizados no es válido (no es un array)");
+          }
+          
+          // Filtrar resultados inválidos
+          const processedResult = parsedResult.filter(result => {
+            // Asegurarse de que hay un cliente válido
+            if (!result.client || typeof result.client !== 'object') {
+              return false;
+            }
+            
+            // Asegurarse de que items es un array
+            if (!Array.isArray(result.items)) {
+              result.items = [];
+            }
+            
+            // Filtrar elementos que son solo nombres no reconocidos sin productos
+            if (result.client.matchConfidence === "desconocido" && 
+                (!result.items || result.items.length === 0 || 
+                 result.items.every(item => !item.product.id))) {
+              console.log(`Nombre no reconocido: ${result.client.name}`);
+              return false;
+            }
+            
+            return true;
+          });
+          
+          return processedResult;
+        } catch (parseError: any) {
+          console.error("Error al analizar JSON (intento #" + attempts + "):", parseError);
+          console.error("Texto JSON recibido:", jsonText);
+          
+          // Si no es el último intento, intentamos de nuevo
+          if (attempts < maxAttempts) {
+            console.log("Reintentando análisis con formato mejorado...");
+            continue;
+          }
+          
+          throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
+            apiResponse: jsonText
+          });
         }
-        return true;
-      });
-      
-      return processedResult;
-    } catch (parseError: any) {
-      console.error("Error al analizar JSON:", parseError, "Texto recibido:", jsonText);
-      throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
-        apiResponse: jsonText
-      });
+      } catch (attemptError) {
+        // Si es el último intento, propagamos el error
+        if (attempts >= maxAttempts) {
+          throw attemptError;
+        }
+        
+        console.log(`Error en intento #${attempts}, reintentando...`, attemptError);
+        // Esperar un segundo antes de reintentar
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
+    
+    // Este código no debería ejecutarse, pero por si acaso
+    throw new GeminiError("Error al analizar el mensaje después de múltiples intentos");
+    
   } catch (error) {
+    console.error("Error final en analyzeCustomerMessage:", error);
     if (error instanceof GeminiError) {
       throw error;
     }

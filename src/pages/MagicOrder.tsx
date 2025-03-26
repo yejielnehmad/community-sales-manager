@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.7
+ * v1.0.10
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -65,6 +64,7 @@ const MagicOrder = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Cargar clientes y productos al iniciar
@@ -117,16 +117,16 @@ const MagicOrder = () => {
     setProgress(0);
     const duration = 8000; // 8 segundos para el análisis simulado
     const interval = 20; // actualizar cada 20ms
-    const steps = duration / interval;
+    const totalSteps = duration / interval;
     let currentStep = 0;
     
     const timer = setInterval(() => {
       currentStep++;
       // Función sigmoide para que sea más lento al principio y al final
-      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - steps/2)));
+      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - totalSteps/2)));
       setProgress(progressValue);
       
-      if (currentStep >= steps) {
+      if (currentStep >= totalSteps) {
         clearInterval(timer);
       }
     }, interval);
@@ -145,30 +145,11 @@ const MagicOrder = () => {
 
     setIsAnalyzing(true);
     setUnmatchedNames([]);
+    setAnalysisError(null);
     const stopSimulation = simulateProgress();
 
     try {
-      let results;
-      try {
-        results = await analyzeCustomerMessage(message);
-      } catch (error) {
-        console.error("Error inicial al analizar:", error);
-        
-        if (error instanceof GeminiError && 
-            error.message && 
-            error.message.includes("JSON")) {
-          
-          const cleanedMessage = message
-            .replace(/[\u2018\u2019]/g, "'")
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/\n+/g, ' ')
-            .trim();
-            
-          results = await analyzeCustomerMessage(cleanedMessage);
-        } else {
-          throw error;
-        }
-      }
+      const results = await analyzeCustomerMessage(message);
       
       setProgress(100);
       
@@ -220,17 +201,24 @@ const MagicOrder = () => {
         status: 'pending' as const
       }));
       
-      setOrders(prevOrders => [...prevOrders, ...newOrders]);
-      setMessage("");
-      setShowOrderSummary(true);
+      if (newOrders.length === 0) {
+        setAlertMessage({
+          title: "No se encontraron pedidos",
+          message: "No se pudo identificar ningún pedido en el mensaje. Intenta con un formato más claro, por ejemplo: 'nombre 2 producto'"
+        });
+      } else {
+        setOrders(prevOrders => [...prevOrders, ...newOrders]);
+        setMessage("");
+        setShowOrderSummary(true);
+      }
       
     } catch (error) {
       console.error("Error al analizar el mensaje:", error);
       
+      let errorTitle = "Error de análisis";
+      let errorMessage = "Error al analizar el mensaje";
+      
       if (error instanceof GeminiError) {
-        let errorTitle = "Error de análisis";
-        let errorMessage = "Error al analizar el mensaje";
-        
         if (error.status) {
           errorMessage = `Error HTTP ${error.status}: ${error.message}`;
         } else if (error.apiResponse) {
@@ -238,17 +226,15 @@ const MagicOrder = () => {
         } else {
           errorMessage = error.message;
         }
-        
-        setAlertMessage({
-          title: errorTitle,
-          message: errorMessage
-        });
       } else {
-        setAlertMessage({
-          title: "Error",
-          message: (error as Error).message || "Error al analizar el mensaje"
-        });
+        errorMessage = (error as Error).message || "Error desconocido al analizar el mensaje";
       }
+      
+      setAnalysisError(errorMessage);
+      setAlertMessage({
+        title: errorTitle,
+        message: errorMessage
+      });
     } finally {
       setTimeout(() => {
         setIsAnalyzing(false);
@@ -519,6 +505,26 @@ const MagicOrder = () => {
             </Button>
           )}
         </div>
+
+        {/* Mostrar error de análisis si existe */}
+        {analysisError && (
+          <Card className="bg-red-50 border-red-200">
+            <CardHeader className="py-3">
+              <CardTitle className="text-red-800 text-base flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Error en el análisis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-2">
+              <p className="text-red-700 text-sm">
+                {analysisError}
+              </p>
+              <p className="text-xs text-red-600 italic mt-2">
+                Intenta con un mensaje más simple o contacta al soporte si el problema persiste.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Collapsible
           open={showGenerator}
