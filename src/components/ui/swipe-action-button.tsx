@@ -11,6 +11,10 @@ interface SwipeActionButtonProps {
   variant?: 'destructive' | 'warning' | 'default';
 }
 
+/**
+ * Componente de botón para acciones de deslizamiento
+ * v1.0.2
+ */
 export const SwipeActionButton = ({
   className,
   onClick,

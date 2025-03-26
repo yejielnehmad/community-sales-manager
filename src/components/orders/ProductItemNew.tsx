@@ -150,7 +150,9 @@ export const ProductItemNew = ({
           height: '100%',
           position: 'relative',
           zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
-          borderRadius: isFirstItem ? '1rem 1rem 0 0' : isLastItem ? '0 0 1rem 1rem' : '0'
+          borderRadius: isFirstItem ? '1rem 1rem 0 0' : isLastItem ? '0 0 1rem 1rem' : '0',
+          borderTopRightRadius: swipeX < 0 ? '1rem' : (isFirstItem ? '1rem' : '0'),
+          borderBottomRightRadius: swipeX < 0 ? '1rem' : (isLastItem ? '1rem' : '0')
         }}
       >
         {isEditing ? (
@@ -234,7 +236,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price pr-1">
+                      <div className="font-medium font-price pr-2">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -245,7 +247,7 @@ export const ProductItemNew = ({
                         <span className="font-bold font-product-variant">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium font-price pr-1">
+                      <div className="font-medium font-price pr-2">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -256,7 +258,7 @@ export const ProductItemNew = ({
                       Total:
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''}`}>
+                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''} pr-1`}>
                         <PriceDisplay value={Math.round(calculateTotal())} />
                       </span>
                       <Switch
