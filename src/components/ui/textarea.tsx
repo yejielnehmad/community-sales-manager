@@ -17,13 +17,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           className={cn(
             "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-            clearable && "pr-10",
+            clearable && props.value && "pr-10",
             className
           )}
           ref={ref}
           {...props}
         />
-        {clearable && (
+        {clearable && props.value && (
           <Button
             type="button"
             variant="ghost"
@@ -31,6 +31,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             className="absolute right-2 top-2 h-7 w-7 rounded-full opacity-70 hover:opacity-100 transition-opacity"
             onClick={onClear}
             tabIndex={-1}
+            aria-label="Borrar texto"
           >
             <X className="h-4 w-4" />
           </Button>

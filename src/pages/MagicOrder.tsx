@@ -20,8 +20,7 @@ import {
   RefreshCcw,
   User,
   Package,
-  HelpCircle,
-  Plus
+  HelpCircle
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -92,6 +91,22 @@ const SimpleOrderCard = ({
     return variantMap;
   }, [products]);
   
+  // Mapa inverso de variantes a productos para asignación automática
+  const variantToProductMap = useMemo(() => {
+    const map: Record<string, { productId: string, productName: string }> = {};
+    products.forEach(product => {
+      if (product.variants && product.variants.length) {
+        product.variants.forEach(variant => {
+          map[variant.id] = {
+            productId: product.id,
+            productName: product.name
+          };
+        });
+      }
+    });
+    return map;
+  }, [products]);
+  
   // Handler para actualizar cliente
   const handleClientUpdate = (clientId: string) => {
     const selectedClient = clients.find(c => c.id === clientId);
@@ -140,11 +155,57 @@ const SimpleOrderCard = ({
   
   // Handler para actualizar variante
   const handleVariantUpdate = (itemIndex: number, variantId: string) => {
-    if (!order.items[itemIndex].product.id) return;
+    const productInfo = variantToProductMap[variantId];
+    const variants = order.items[itemIndex].product.id 
+      ? productVariantsMap[order.items[itemIndex].product.id] 
+      : null;
     
-    const variants = productVariantsMap[order.items[itemIndex].product.id];
-    const selectedVariant = variants?.find(v => v.id === variantId);
+    let selectedVariant;
     
+    // Si ya tenemos un producto seleccionado, buscamos la variante entre sus variantes
+    if (variants) {
+      selectedVariant = variants.find(v => v.id === variantId);
+    } else {
+      // Si no hay producto seleccionado pero tenemos un mapa de variante->producto, buscar todas las variantes
+      products.forEach(product => {
+        if (product.variants) {
+          const variant = product.variants.find(v => v.id === variantId);
+          if (variant) {
+            selectedVariant = variant;
+            
+            // Asignar automáticamente el producto basado en la variante seleccionada
+            const updatedItems = [...order.items];
+            updatedItems[itemIndex] = {
+              ...updatedItems[itemIndex],
+              product: {
+                id: product.id,
+                name: product.name,
+                price: product.price
+              },
+              variant: {
+                id: variant.id,
+                name: variant.name,
+                price: variant.price
+              },
+              status: updatedItems[itemIndex].quantity ? 'confirmado' as const : 'duda' as const
+            };
+            
+            const updatedOrder = {
+              ...order,
+              items: updatedItems
+            };
+            onUpdate(updatedOrder);
+          }
+        }
+      });
+    }
+    
+    // Si ya encontramos la variante y actualizamos todo junto (producto + variante), salimos
+    if (!variants && selectedVariant) {
+      return;
+    }
+    
+    // Caso normal: actualizar solo la variante cuando ya hay un producto seleccionado
     if (selectedVariant) {
       const updatedItems = [...order.items];
       updatedItems[itemIndex] = {
@@ -154,7 +215,7 @@ const SimpleOrderCard = ({
           name: selectedVariant.name,
           price: selectedVariant.price
         },
-        status: updatedItems[itemIndex].quantity ? 'confirmado' : 'duda'
+        status: updatedItems[itemIndex].quantity ? 'confirmado' as const : 'duda' as const
       };
       
       const updatedOrder = {
@@ -171,27 +232,12 @@ const SimpleOrderCard = ({
     updatedItems[itemIndex] = {
       ...updatedItems[itemIndex],
       quantity,
-      status: updatedItems[itemIndex].product.id ? 'confirmado' : 'duda'
+      status: updatedItems[itemIndex].product.id ? 'confirmado' as const : 'duda' as const
     };
     
     const updatedOrder = {
       ...order,
       items: updatedItems
-    };
-    onUpdate(updatedOrder);
-  };
-  
-  // Agregamos un producto vacío
-  const handleAddEmptyProduct = () => {
-    const updatedItems = [...order.items, {
-      product: { name: "Seleccionar producto" },
-      quantity: 1,
-      status: 'duda' as const
-    }];
-    
-    const updatedOrder = {
-      ...order,
-      items: updatedItems as MessageItem[]
     };
     onUpdate(updatedOrder);
   };
@@ -352,19 +398,6 @@ const SimpleOrderCard = ({
               </li>
             );
           })}
-          
-          {/* Botón para agregar un producto */}
-          <li>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full mt-2 border-dashed"
-              onClick={handleAddEmptyProduct}
-            >
-              <Plus size={16} className="mr-1" />
-              Agregar producto
-            </Button>
-          </li>
         </ul>
       </CardContent>
     </Card>
@@ -374,7 +407,7 @@ const SimpleOrderCard = ({
 
 /**
  * Página Mensaje Mágico
- * v1.0.5
+ * v1.0.6
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -785,7 +818,7 @@ const MagicOrder = () => {
       return acc;
     }, {} as Record<string, { clientName: string, orders: OrderCardType[], indices: number[] }>);
   }, [orders]);
-  
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">

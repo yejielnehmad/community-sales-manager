@@ -25,7 +25,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.3:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.4:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -165,9 +165,24 @@ export const analyzeCustomerMessage = async (
       `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
     ).join('\n');
 
+    // Mapa de variantes a productos para la lógica de asignación automática
+    const variantToProductMap = {};
+    dbContext.products.forEach(product => {
+      if (product.variants && product.variants.length) {
+        product.variants.forEach(variant => {
+          variantToProductMap[variant.name.toLowerCase()] = {
+            productId: product.id,
+            productName: product.name,
+            variantId: variant.id,
+            variantName: variant.name
+          };
+        });
+      }
+    });
+
     // Creamos el prompt para el modelo con instrucciones mejoradas
     const prompt = `
-    Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada pedido debe tener cliente y productos.
+    Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada línea puede ser un pedido distinto.
     Múltiples mensajes deben ser tratados como pedidos separados.
     
     CONTEXTO (productos y clientes existentes en la base de datos):
@@ -182,12 +197,14 @@ export const analyzeCustomerMessage = async (
     1. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
     2. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
     3. Identifica los productos solicitados con cantidades.
-    4. Si se menciona una variante específica, asóciala con el producto.
+    4. Si se menciona una variante específica, asóciala con el producto correspondiente, aunque no se haya mencionado el producto explícitamente.
     5. Si hay ambigüedad, incertidumbre o información faltante (cliente no identificado, producto no identificado, 
        variante no especificada, cantidad no mencionada), marca como "duda".
     6. NO asumas información que no está explícita en el mensaje. Si falta información, marca como "duda".
-    7. NO asumas productos habituales - si falta información, SIEMPRE marca como "duda".
-    8. Si hay varios pedidos de un mismo cliente, agrúpalos por cliente.
+    7. Las respuestas suelen ser muy cortas y pueden contener: nombre del cliente, cantidad, producto, y a veces una expresión de agradecimiento (esto último ignóralo).
+    8. Adapta tu análisis al estilo informal de los mensajes, que pueden estar mal escritos, sin puntuación o con palabras incompletas.
+    9. Por ejemplo, mensajes como "shelo 3 maples" o "4 pavita para moshi gracias" son muy comunes.
+    10. Cada línea del mensaje puede referirse a un pedido diferente de un cliente diferente.
     
     Mensaje del cliente a analizar: "${message}"
     
