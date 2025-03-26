@@ -119,7 +119,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                   <FormItem>
                     <FormLabel>Nombre del Producto</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nombre del producto" {...field} />
+                      <Input placeholder="Nombre del producto" {...field} className="rounded-xl" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -133,7 +133,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                   <FormItem>
                     <FormLabel>Descripción (opcional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Descripción del producto" {...field} />
+                      <Textarea placeholder="Descripción del producto" {...field} className="rounded-xl" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -148,7 +148,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                     variant="outline" 
                     size="sm" 
                     onClick={handleAddVariant}
-                    className="text-xs flex items-center gap-1"
+                    className="text-xs flex items-center gap-1 rounded-xl"
                   >
                     <Plus className="h-3 w-3" />
                     Agregar
@@ -156,7 +156,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                 </div>
                 
                 {variants.map((variant, index) => (
-                  <Card key={index} className="p-3">
+                  <Card key={index} className="p-3 rounded-xl">
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <FormItem>
@@ -165,7 +165,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                             value={variant.name}
                             onChange={(e) => handleVariantChange(index, 'name', e.target.value)}
                             placeholder="Ej: Talle M"
-                            className="text-sm"
+                            className="text-sm rounded-xl"
                           />
                         </FormItem>
                       </div>
@@ -175,7 +175,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                           <PriceInput
                             value={variant.price}
                             onChange={(value) => handleVariantChange(index, 'price', value)}
-                            className="text-sm"
+                            className="text-sm rounded-xl"
                           />
                         </FormItem>
                       </div>
@@ -183,7 +183,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 mt-5"
+                        className="h-8 w-8 mt-5 rounded-full"
                         onClick={() => handleRemoveVariant(index)}
                         disabled={variants.length === 1}
                       >
@@ -195,7 +195,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }: ProductFormProp
               </div>
 
               <div className="pt-6 pb-4">
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full rounded-xl">
                   {initialData?.id ? "Actualizar" : "Crear"} Producto
                 </Button>
               </div>

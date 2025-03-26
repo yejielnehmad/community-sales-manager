@@ -42,7 +42,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
   const menuItems = [
     { path: "/", label: "Inicio", icon: <Home className="h-5 w-5" /> },
     { path: "/clients", label: "Clientes", icon: <Users className="h-5 w-5" /> },
-    { path: "/products", label: "Productos", icon: <ShoppingBag className="h-5 w-5" /> },
+    { path: "/products", label: "Catálogo", icon: <ShoppingBag className="h-5 w-5" /> },
     { path: "/orders", label: "Pedidos", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/magic-order", label: "Mensaje Mágico", icon: <Wand className="h-5 w-5" /> },
   ];

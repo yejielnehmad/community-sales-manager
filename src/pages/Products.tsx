@@ -250,6 +250,7 @@ const Products = () => {
       });
       
       handleCloseForm();
+      // Actualizamos la lista de productos inmediatamente después de la actualización
       fetchProducts();
     } catch (error) {
       console.error("Error updating product:", error);
@@ -327,7 +328,7 @@ const Products = () => {
     <AppLayout>
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary mb-3">Productos</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary mb-3">Catálogo</h1>
           <div className="flex items-center gap-2 mb-4">
             <div className="relative flex-1">
               <Input

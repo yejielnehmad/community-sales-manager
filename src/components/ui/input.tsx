@@ -5,9 +5,15 @@ import { cn } from "@/lib/utils"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
-    // Si es un campo de tipo number y no se especifica el paso, establecer step en 1
+    // Si es un campo de tipo number, asegurarse de que solo se permitan números
     const inputProps = type === "number" 
-      ? { step: props.step || "1", min: props.min || "0", ...props }
+      ? { 
+          step: props.step || "1", 
+          min: props.min || "0", 
+          inputMode: "numeric", 
+          pattern: "[0-9]*",
+          ...props 
+        }
       : props;
       
     return (

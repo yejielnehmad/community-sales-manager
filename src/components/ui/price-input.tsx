@@ -49,6 +49,8 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
       <span className="absolute left-3 text-muted-foreground">$</span>
       <Input
         type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
         value={displayValue}
         onChange={handleChange}
         className={`pl-7 ${className}`}

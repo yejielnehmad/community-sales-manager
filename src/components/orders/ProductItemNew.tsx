@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -53,29 +52,25 @@ export const ProductItemNew = ({
   const currentQuantity = productQuantities[productKey] || product.quantity;
   const elRef = useRef<HTMLDivElement>(null);
   
-  // Hook de swipe con optimizaciones para rendimiento
   const { swipeX, resetSwipe, getMouseProps, getTouchProps, isActive } = useSwipe({
     maxSwipe: -70,
-    disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
+    disabled: isPaid || isEditing,
     onSwipeEnd: (completed) => {
       if (!completed) {
         resetSwipe();
       }
     }
   });
-  
-  // Manejar el cambio del switch con animación
+
   const handleSwitchChange = (checked: boolean) => {
     setIsAnimating(true);
     onToggleProductPaid(productKey, product.orderId, product.id || '', checked);
     
-    // Desactivar la animación después de 500ms
     setTimeout(() => {
       setIsAnimating(false);
     }, 500);
   };
 
-  // Restaurar el scroll cuando se abre el editor
   useEffect(() => {
     if (isEditing) {
       window.scrollTo({
@@ -85,24 +80,21 @@ export const ProductItemNew = ({
     }
   }, [isEditing]);
   
-  // Calcular el total basado en el precio y la cantidad actual
   const calculateTotal = () => {
     if (isEditing) {
       return product.price * currentQuantity;
     }
     return product.price * product.quantity;
   };
-  
-  // Extraer el nombre y las variantes para el diseño según la imagen
-  const productName = product.name.split(' ')[0] || product.name; // Ejemplo: "Leche" de "Leche Entera"
+
+  const productName = product.name.split(' ')[0] || product.name;
   const variantName = product.variant || (product.name.includes(' ') ? product.name.substring(productName.length).trim() : '');
-  
-  // Determinar si aplicamos las props de swipe
+
   const swipeProps = (!isPaid && !isEditing) ? {
     ...getMouseProps(),
     ...getTouchProps()
   } : {};
-  
+
   return (
     <div 
       key={productKey} 
@@ -110,18 +102,17 @@ export const ProductItemNew = ({
       data-product-key={productKey}
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
-        minHeight: isEditing ? '120px' : '64px', // Altura reducida para hacerla más compacta
-        borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0',
-        touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
+        minHeight: isEditing ? '120px' : '64px',
+        borderRadius: isFirstItem ? '1rem 1rem 0 0' : isLastItem ? '0 0 1rem 1rem' : '0',
+        touchAction: 'pan-y'
       }}
     >
-      {/* Botones de acción en el fondo - solo visibles cuando NO está en modo edición */}
       {!isEditing && (
         <div 
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
             width: '70px',
-            borderRadius: isLastItem ? '0 0 0.75rem 0' : '0',
+            borderRadius: isLastItem ? '0 0 1rem 0' : '0',
             zIndex: 1
           }}
         >
@@ -155,11 +146,11 @@ export const ProductItemNew = ({
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
           transform: `translateX(${isEditing ? 0 : swipeX}px)`,
-          transition: isActive ? 'none' : 'transform 0.3s ease-out', // Eliminar transición durante el arrastre activo para mejor rendimiento
+          transition: isActive ? 'none' : 'transform 0.3s ease-out',
           height: '100%',
           position: 'relative',
           zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
-          borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0'
+          borderRadius: isFirstItem ? '1rem 1rem 0 0' : isLastItem ? '0 0 1rem 1rem' : '0'
         }}
       >
         {isEditing ? (
@@ -191,9 +182,11 @@ export const ProductItemNew = ({
                 </Button>
                 <Input
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={currentQuantity}
                   onChange={(e) => onQuantityChange(productKey, parseInt(e.target.value) || 1)}
-                  className="w-12 h-7 mx-1 text-center p-0"
+                  className="w-12 h-7 mx-1 text-center p-0 rounded-xl"
                   disabled={isSaving}
                   aria-label="Cantidad"
                   min="1"
@@ -229,21 +222,16 @@ export const ProductItemNew = ({
           </div>
         ) : (
           <>
-            {/* Nuevo diseño según la imagen proporcionada */}
-            <div className="border border-amber-200 bg-amber-50/50 rounded-md m-2 overflow-hidden">
+            <div className="border border-amber-200 bg-amber-50/50 rounded-xl m-2 overflow-hidden">
               <div className="grid grid-cols-12 gap-0">
-                {/* Nombre del producto (columna izquierda) */}
                 <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center border-r border-amber-200">
-                  <div className="font-semibold text-sm text-center font-product-name">{productName}</div>
+                  <div className="font-bold text-sm text-center font-product-name">{productName}</div>
                 </div>
-                
-                {/* Variantes y detalles (columna derecha) */}
                 <div className="col-span-9 p-2">
-                  {/* Variante 1 (si existe) */}
                   {variantName && (
                     <div className="flex justify-between items-center text-sm mb-1">
                       <div className="flex items-center">
-                        <span className="font-medium font-product-variant">{variantName}</span>
+                        <span className="font-bold font-product-variant">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
                       <div className="font-medium font-price">
@@ -251,12 +239,10 @@ export const ProductItemNew = ({
                       </div>
                     </div>
                   )}
-                  
-                  {/* Si no hay variante, mostrar el producto principal */}
                   {!variantName && (
                     <div className="flex justify-between items-center text-sm mb-1">
                       <div className="flex items-center">
-                        <span className="font-medium font-product-variant">{product.name}</span>
+                        <span className="font-bold font-product-variant">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
                       <div className="font-medium font-price">
@@ -264,17 +250,13 @@ export const ProductItemNew = ({
                       </div>
                     </div>
                   )}
-                  
-                  {/* Línea divisoria */}
                   <div className="border-t border-amber-200 my-1"></div>
-                  
-                  {/* Total */}
                   <div className="flex justify-between items-center">
                     <div className="text-sm font-medium text-muted-foreground">
                       Total:
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-semibold text-sm font-price ${isPaid ? 'text-green-600' : ''}`}>
+                      <span className={`font-bold text-sm font-price ${isPaid ? 'text-green-600' : ''}`}>
                         <PriceDisplay value={Math.round(calculateTotal())} />
                       </span>
                       <Switch
