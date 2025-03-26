@@ -74,6 +74,10 @@ const aiConfigSchema = z.object({
 
 type AIConfigFormValues = z.infer<typeof aiConfigSchema>;
 
+/**
+ * Página Mensaje Mágico
+ * v1.0.3
+ */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -84,6 +88,7 @@ const MagicOrder = () => {
   const [showOrderSummary, setShowOrderSummary] = useState(true);
   const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
+  const [isSavingAllOrders, setIsSavingAllOrders] = useState(false);
   const { toast } = useToast();
 
   // Obtener la configuración guardada en localStorage o usar valores predeterminados
@@ -381,6 +386,68 @@ const MagicOrder = () => {
     }
   };
 
+  const handleSaveAllOrders = async () => {
+    setIsSavingAllOrders(true);
+    
+    try {
+      // Filtrar pedidos que se pueden guardar (no tienen dudas)
+      const validOrders = orders.filter(order => 
+        order.status !== 'saved' && 
+        !order.items.some(item => item.status === 'duda') && 
+        order.client.matchConfidence === 'alto'
+      );
+      
+      if (validOrders.length === 0) {
+        toast({
+          title: "No hay pedidos para guardar",
+          description: "No hay pedidos listos para guardar. Asegúrate de resolver todas las dudas pendientes.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      // Guardar cada pedido válido
+      for (let i = 0; i < validOrders.length; i++) {
+        const orderIndex = orders.findIndex(o => o === validOrders[i]);
+        if (orderIndex >= 0) {
+          const success = await handleSaveOrder(orderIndex, validOrders[i]);
+          if (success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        }
+      }
+      
+      // Mostrar resultado
+      if (successCount > 0) {
+        toast({
+          title: "Pedidos guardados",
+          description: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`,
+          variant: "success"
+        });
+      } else if (errorCount > 0) {
+        toast({
+          title: "Error al guardar pedidos",
+          description: `No se pudo guardar ningún pedido. Revisa los errores e intenta nuevamente.`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error al guardar todos los pedidos:", error);
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al intentar guardar los pedidos",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingAllOrders(false);
+    }
+  };
+
   const handleConfirmDeleteOrder = () => {
     if (orderToDelete !== null) {
       const updatedOrders = [...orders];
@@ -418,6 +485,13 @@ const MagicOrder = () => {
 
   // Contar pedidos confirmados (sin problemas)
   const ordersConfirmed = orders.filter(order => 
+    !order.items.some(item => item.status === 'duda') && 
+    order.client.matchConfidence === 'alto'
+  ).length;
+  
+  // Contar pedidos no guardados pero listos para guardar
+  const ordersSaveable = orders.filter(order => 
+    order.status !== 'saved' &&
     !order.items.some(item => item.status === 'duda') && 
     order.client.matchConfidence === 'alto'
   ).length;
@@ -650,6 +724,26 @@ const MagicOrder = () => {
               </div>
               
               <div className="flex gap-2">
+                {ordersSaveable > 0 && (
+                  <Button 
+                    onClick={handleSaveAllOrders}
+                    disabled={isSavingAllOrders}
+                    className="flex items-center gap-1"
+                  >
+                    {isSavingAllOrders ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Guardar {ordersSaveable} pedido{ordersSaveable !== 1 ? 's' : ''}
+                      </>
+                    )}
+                  </Button>
+                )}
+                
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -705,8 +799,7 @@ const MagicOrder = () => {
                             <OrderCard 
                               order={order}
                               onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
-                              onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
-                              isPreliminary={true}
+                              simplified={true}
                             />
                             
                             {order.status !== 'saved' && (
@@ -716,18 +809,8 @@ const MagicOrder = () => {
                                 className="absolute top-2 right-2"
                                 onClick={() => handleDeleteOrder(originalIndex)}
                               >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Eliminar
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                            )}
-                            
-                            {order.pickupLocation && (
-                              <Badge 
-                                className="absolute top-2 right-20 bg-primary/20 text-primary-foreground hover:bg-primary/30 border-0"
-                              >
-                                <MapPin size={12} className="mr-1" />
-                                Retiro: {order.pickupLocation}
-                              </Badge>
                             )}
                           </div>
                         );
@@ -759,8 +842,7 @@ const MagicOrder = () => {
                             <OrderCard 
                               order={order}
                               onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
-                              onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
-                              isPreliminary={true}
+                              simplified={true}
                             />
                             
                             {order.status !== 'saved' && (
@@ -770,18 +852,8 @@ const MagicOrder = () => {
                                 className="absolute top-2 right-2"
                                 onClick={() => handleDeleteOrder(originalIndex)}
                               >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Eliminar
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                            )}
-                            
-                            {order.pickupLocation && (
-                              <Badge 
-                                className="absolute top-2 right-20 bg-primary/20 text-primary-foreground hover:bg-primary/30 border-0"
-                              >
-                                <MapPin size={12} className="mr-1" />
-                                Retiro: {order.pickupLocation}
-                              </Badge>
                             )}
                           </div>
                         );
@@ -831,3 +903,4 @@ const MagicOrder = () => {
 };
 
 export default MagicOrder;
+

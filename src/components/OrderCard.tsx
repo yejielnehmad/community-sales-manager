@@ -48,11 +48,16 @@ import {
 interface OrderCardProps {
   order: OrderCardType;
   onUpdate: (updatedOrder: OrderCardType) => void;
-  onSave: (order: OrderCardType) => Promise<boolean>;
+  onSave?: (order: OrderCardType) => Promise<boolean>;
   isPreliminary?: boolean;
+  simplified?: boolean;
 }
 
-export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: OrderCardProps) => {
+/**
+ * Componente de tarjeta de pedido
+ * v1.0.2
+ */
+export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simplified = false }: OrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -79,6 +84,8 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   };
 
   const handleSaveOrder = async () => {
+    if (!onSave) return;
+    
     setIsSaving(true);
     console.log('Intentando guardar pedido:', order);
     
@@ -130,7 +137,60 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
 
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
-  // Ya no filtramos las tarjetas, mostramos todas independientemente de si tienen problemas o no
+  // Estilo simplificado para las tarjetas preliminares
+  if (simplified) {
+    return (
+      <Card className={cn(
+        "mb-2 overflow-hidden transition-all duration-200 hover:shadow-sm border-l-4 rounded-l-none",
+        hasUncertainItems || order.client.matchConfidence !== 'alto' 
+          ? "border-l-amber-400" 
+          : "border-l-green-400",
+        "shadow-none hover:shadow-sm"
+      )}>
+        <div className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="font-medium">{order.client.name}</div>
+            {order.client.matchConfidence && order.client.matchConfidence !== 'alto' && (
+              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                <User className="h-3 w-3 mr-1" />
+                ¿Cliente?
+              </Badge>
+            )}
+          </div>
+          
+          <div className="mt-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-1">
+              {order.items.map((item, idx) => (
+                <div key={idx} className={cn(
+                  "py-1 px-2 rounded-md text-xs flex items-center gap-1",
+                  item.status === 'duda' ? "bg-amber-50 text-amber-800" : "bg-muted/30"
+                )}>
+                  {item.status === 'duda' && <AlertCircle className="h-3 w-3" />}
+                  <span>{item.quantity}x {item.product.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {order.pickupLocation && (
+            <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+              <Package className="h-3 w-3" />
+              Retiro: {order.pickupLocation}
+            </div>
+          )}
+          
+          {hasUncertainItems && (
+            <div className="mt-2 text-xs text-amber-600 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Requiere confirmar productos
+            </div>
+          )}
+        </div>
+      </Card>
+    );
+  }
+  
+  // Vista normal/completa
   return (
     <Card className={cn(
       "mb-2 overflow-hidden transition-all duration-200 hover:shadow-md rounded-xl shadow-sm relative",
@@ -325,7 +385,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
           </CardContent>
           
           <CardFooter className="justify-end pt-0">
-            {!isPreliminary && order.status !== 'saved' && (
+            {!isPreliminary && order.status !== 'saved' && onSave && (
               <Button 
                 onClick={handleSaveOrder}
                 disabled={isSaving || hasUncertainItems}
@@ -333,22 +393,6 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
               >
                 {isSaving ? (
                   <>Guardando...</>
-                ) : (
-                  <>
-                    <Check size={16} className="mr-1" />
-                    Guardar Pedido
-                  </>
-                )}
-              </Button>
-            )}
-            {isPreliminary && order.status !== 'saved' && (
-              <Button 
-                onClick={handleSaveOrder}
-                disabled={isSaving || hasUncertainItems}
-                className="transition-all duration-200 hover:scale-105"
-              >
-                {isSaving ? (
-                  <>Confirmando...</>
                 ) : (
                   <>
                     <Check size={16} className="mr-1" />

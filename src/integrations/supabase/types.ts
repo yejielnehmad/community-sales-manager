@@ -102,6 +102,7 @@ export type Database = {
           created_at: string | null
           date: string | null
           id: string
+          metadata: Json | null
           status: string
           total: number
           updated_at: string | null
@@ -113,6 +114,7 @@ export type Database = {
           created_at?: string | null
           date?: string | null
           id?: string
+          metadata?: Json | null
           status?: string
           total?: number
           updated_at?: string | null
@@ -124,6 +126,7 @@ export type Database = {
           created_at?: string | null
           date?: string | null
           id?: string
+          metadata?: Json | null
           status?: string
           total?: number
           updated_at?: string | null
