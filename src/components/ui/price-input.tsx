@@ -10,7 +10,7 @@ interface PriceInputProps extends Omit<React.ComponentProps<typeof Input>, 'onCh
 
 /**
  * Input para precios que formatea automáticamente con puntos mientras se escribe
- * Versión 1.0.4
+ * Versión 1.0.5
  */
 export function PriceInput({ value, onChange, className, ...props }: PriceInputProps) {
   const [displayValue, setDisplayValue] = useState<string>("");
@@ -19,16 +19,9 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
   
   // Actualizar el valor mostrado cuando cambia el valor o el estado de foco
   useEffect(() => {
-    // Si el input está enfocado, mostramos el valor sin formato
-    // Si no está enfocado, aplicamos el formato con puntos
-    if (isFocused) {
-      // Cuando está enfocado, mostramos el valor sin puntos
-      setDisplayValue(value.toString());
-    } else {
-      // Cuando no está enfocado, mostramos el valor con formato
-      setDisplayValue(formatNumber(value));
-    }
-  }, [value, isFocused]);
+    // Formatear el valor con puntos pero mantener el valor numérico internamente
+    setDisplayValue(formatNumber(value));
+  }, [value]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
@@ -40,30 +33,54 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
       return;
     }
     
+    // Eliminar todos los puntos para obtener solo los dígitos
+    const digitsOnly = rawValue.replace(/\./g, '');
+    
     // Solo permitir dígitos
-    if (!/^\d*$/.test(rawValue)) {
+    if (!/^\d*$/.test(digitsOnly)) {
       return;
     }
     
-    // Actualizar el valor mostrado sin formatear
-    setDisplayValue(rawValue);
+    // Convertir a número
+    const numericValue = parseInt(digitsOnly, 10);
     
-    // Convertir a número y enviar el valor numérico al padre
-    const numericValue = parseInt(rawValue, 10);
-    onChange(isNaN(numericValue) ? 0 : numericValue);
+    if (isNaN(numericValue)) {
+      return;
+    }
+    
+    // Formatear para mostrar con puntos mientras se escribe
+    const formattedValue = formatNumber(numericValue);
+    setDisplayValue(formattedValue);
+    
+    // Enviar el valor numérico al padre (sin formateo)
+    onChange(numericValue);
+    
+    // Mantener la posición del cursor ajustada después del formateo
+    setTimeout(() => {
+      if (inputRef.current) {
+        // Calcular posición ajustada del cursor
+        const cursorPos = e.target.selectionStart || 0;
+        const lengthDiff = formattedValue.length - rawValue.length;
+        const newCursorPos = Math.max(0, cursorPos + lengthDiff);
+        
+        // Solo establecer si es diferente para evitar saltos del cursor
+        if (inputRef.current.selectionStart !== newCursorPos) {
+          inputRef.current.selectionStart = newCursorPos;
+          inputRef.current.selectionEnd = newCursorPos;
+        }
+      }
+    }, 0);
   };
 
   // Cuando el input recibe el foco
   const handleFocus = () => {
     setIsFocused(true);
-    // Mostrar el valor sin formato cuando recibe el foco
-    setDisplayValue(value.toString());
   };
 
   // Cuando el input pierde el foco
   const handleBlur = () => {
     setIsFocused(false);
-    // Aplicar formato con puntos cuando pierde el foco
+    // Asegurar que el valor mostrado está correctamente formateado
     setDisplayValue(formatNumber(value));
   };
 
