@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -22,8 +21,11 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     productPaidStatus: {},
     swipeStates: {},
     clientSwipeStates: {},
+    variantSwipeStates: {},
     editingProduct: null,
+    editingVariant: null,
     productQuantities: {},
+    variantQuantities: {},
     openClientId: null,
     _pendingOpenClientId: null,
     orderToDelete: null,
@@ -31,7 +33,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     isSaving: false,
     isDeleting: false,
     productItemRefs: {},
-    clientItemRefs: {}
+    clientItemRefs: {},
+    touchEnabled: false,
+    lastInteraction: 0
   });
   
   const touchStartXRef = useRef<number | null>(null);
@@ -259,6 +263,18 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, []);
 
+  const handleVariantSwipe = useCallback((variantKey: string, deltaX: number) => {
+    const newSwipeX = Math.max(-70, Math.min(0, deltaX));
+    
+    setItemState(prev => ({
+      ...prev,
+      variantSwipeStates: {
+        ...prev.variantSwipeStates,
+        [variantKey]: newSwipeX
+      }
+    }));
+  }, []);
+
   const handleClientSwipe = useCallback((clientId: string, deltaX: number) => {
     const newSwipeX = Math.max(-70, Math.min(0, deltaX));
     
@@ -297,6 +313,32 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const completeVariantSwipeAnimation = useCallback((variantKey: string) => {
+    setItemState(prev => {
+      const currentSwipe = prev.variantSwipeStates[variantKey] || 0;
+      
+      if (currentSwipe < -35) {
+        return {
+          ...prev,
+          variantSwipeStates: {
+            ...prev.variantSwipeStates,
+            [variantKey]: -70
+          }
+        };
+      } 
+      else if (currentSwipe > -35 && currentSwipe < 0) {
+        return {
+          ...prev,
+          variantSwipeStates: {
+            ...prev.variantSwipeStates,
+            [variantKey]: 0
+          }
+        };
+      }
+      return prev;
+    });
+  }, []);
+
   const completeClientSwipeAnimation = useCallback((clientId: string) => {
     setItemState(prev => {
       const currentSwipe = prev.clientSwipeStates[clientId] || 0;
@@ -327,6 +369,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setItemState(prev => {
       const newSwipeStates = { ...prev.swipeStates };
       const newClientSwipeStates = { ...prev.clientSwipeStates };
+      const newVariantSwipeStates = { ...prev.variantSwipeStates };
       
       Object.keys(newSwipeStates).forEach(key => {
         if (key !== exceptKey) {
@@ -340,10 +383,17 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         }
       });
       
+      Object.keys(newVariantSwipeStates).forEach(key => {
+        if (key !== exceptKey) {
+          newVariantSwipeStates[key] = 0;
+        }
+      });
+      
       return {
         ...prev,
         swipeStates: newSwipeStates,
-        clientSwipeStates: newClientSwipeStates
+        clientSwipeStates: newClientSwipeStates,
+        variantSwipeStates: newVariantSwipeStates
       };
     });
   }, []);
@@ -422,7 +472,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           order.id === orderId 
             ? { ...order, amountPaid: newAmountPaid, balance: newBalance } 
             : order
-        )
+        ))
       }));
       
       toast({
@@ -665,12 +715,44 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+  const handleEditVariant = (variantKey: string, currentQuantity: number, isPaid: boolean) => {
+    if (isPaid) {
+      toast({
+        title: "Variante pagada",
+        description: "No se puede editar una variante que ya está pagada",
+        variant: "default"
+      });
+      return;
+    }
+
+    closeAllSwipes();
+    
+    setItemState(prev => ({
+      ...prev,
+      editingVariant: variantKey,
+      variantQuantities: {
+        ...prev.variantQuantities,
+        [variantKey]: currentQuantity
+      }
+    }));
+  };
+
   const handleQuantityChange = (productKey: string, newQuantity: number) => {
     setItemState(prev => ({
       ...prev,
       productQuantities: {
         ...prev.productQuantities,
         [productKey]: Math.max(1, newQuantity)
+      }
+    }));
+  };
+
+  const handleVariantQuantityChange = (variantKey: string, newQuantity: number) => {
+    setItemState(prev => ({
+      ...prev,
+      variantQuantities: {
+        ...prev.variantQuantities,
+        [variantKey]: Math.max(1, newQuantity)
       }
     }));
   };
@@ -854,6 +936,84 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const saveVariantChanges = async (variantKey: string, orderId: string, itemId: string) => {
+    const newQuantity = itemState.variantQuantities[variantKey] || 1;
+    
+    setItemState(prev => ({ ...prev, isSaving: true }));
+    
+    try {
+      const { data: itemData, error: itemError } = await supabase
+        .from('order_items')
+        .select('price, is_paid')
+        .eq('id', itemId)
+        .single();
+      
+      if (itemError) throw itemError;
+      
+      const price = itemData?.price || 0;
+      const total = price * newQuantity;
+      
+      const { error } = await supabase
+        .from('order_items')
+        .update({ 
+          quantity: newQuantity,
+          total: total
+        })
+        .eq('id', itemId);
+        
+      if (error) throw error;
+      
+      await updateOrderTotal(orderId);
+      
+      // Actualizar estado local para reflejar la nueva cantidad
+      setState(prev => ({
+        ...prev,
+        orders: prev.orders.map(order => {
+          if (order.id === orderId) {
+            return {
+              ...order,
+              items: order.items.map(item => {
+                if (item.id === itemId) {
+                  return {
+                    ...item,
+                    quantity: newQuantity,
+                    total: price * newQuantity
+                  };
+                }
+                return item;
+              })
+            };
+          }
+          return order;
+        })
+      }));
+      
+      toast({
+        title: "Variante actualizada",
+        description: `Cantidad actualizada a ${newQuantity}`,
+        variant: "default"
+      });
+      
+    } catch (error: any) {
+      console.error("Error al actualizar la variante:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al actualizar la variante",
+        variant: "destructive",
+      });
+    } finally {
+      setItemState(prev => ({ 
+        ...prev, 
+        isSaving: false,
+        editingVariant: null,
+        variantSwipeStates: Object.keys(prev.variantSwipeStates).reduce((acc, key) => {
+          acc[key] = 0;
+          return acc;
+        }, {} as {[key: string]: number})
+      }));
+    }
+  };
+
   const deleteProduct = async (productKey: string, orderId: string, itemId: string) => {
     setItemState(prev => ({ ...prev, isSaving: true }));
     try {
@@ -915,6 +1075,57 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       }));
     }
   };
+
+  const deleteVariant = async (variantKey: string, orderId: string, itemId: string) => {
+    setItemState(prev => ({ ...prev, isSaving: true }));
+    try {
+      const { error } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('id', itemId);
+        
+      if (error) throw error;
+      
+      await updateOrderTotal(orderId);
+      
+      // Actualizar el estado local
+      setState(prev => ({
+        ...prev,
+        orders: prev.orders.map(order => {
+          if (order.id === orderId) {
+            return {
+              ...order,
+              items: order.items.filter(item => item.id !== itemId)
+            };
+          }
+          return order;
+        })
+      }));
+      
+      toast({
+        title: "Variante eliminada",
+        description: "La variante ha sido eliminada del pedido",
+        variant: "default"
+      });
+      
+    } catch (error: any) {
+      console.error("Error al eliminar la variante:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al eliminar la variante",
+        variant: "destructive",
+      });
+    } finally {
+      setItemState(prev => ({ 
+        ...prev, 
+        isSaving: false,
+        variantSwipeStates: {
+          ...prev.variantSwipeStates,
+          [variantKey]: 0
+        }
+      }));
+    }
+  };
   
   const toggleClient = (clientId: string) => {
     setItemState(prev => {
@@ -970,15 +1181,21 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       handleDeleteOrder,
       handleDeleteClientOrders,
       handleEditProduct,
+      handleEditVariant,
       handleQuantityChange,
+      handleVariantQuantityChange,
       saveProductChanges,
+      saveVariantChanges,
       deleteProduct,
+      deleteVariant,
       toggleClient,
       setOrderToDelete,
       setClientToDelete,
       handleProductSwipe,
+      handleVariantSwipe,
       handleClientSwipe,
       completeSwipeAnimation,
+      completeVariantSwipeAnimation,
       completeClientSwipeAnimation,
       closeAllSwipes,
       registerProductRef,
@@ -1000,3 +1217,4 @@ export const useOrders = () => {
   }
   return context;
 };
+

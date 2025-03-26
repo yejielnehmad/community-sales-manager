@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck } from "lucide-react";
@@ -21,14 +20,21 @@ interface ClientOrderCardProps {
   handleToggleAllProducts: (clientId: string, isPaid: boolean) => void;
   productPaidStatus: { [key: string]: boolean };
   swipeStates: { [key: string]: number };
+  variantSwipeStates: { [key: string]: number };
   editingProduct: string | null;
+  editingVariant: string | null;
   productQuantities: { [key: string]: number };
+  variantQuantities: { [key: string]: number };
   isSaving: boolean;
   handleToggleProductPaid: (productKey: string, orderId: string, itemId: string, isPaid: boolean) => void;
   handleEditProduct: (productKey: string, currentQuantity: number, isPaid: boolean) => void;
+  handleEditVariant: (variantKey: string, currentQuantity: number, isPaid: boolean) => void;
   handleQuantityChange: (productKey: string, newQuantity: number) => void;
+  handleVariantQuantityChange: (variantKey: string, newQuantity: number) => void;
   saveProductChanges: (productKey: string, orderId: string, itemId: string) => void;
+  saveVariantChanges: (variantKey: string, orderId: string, itemId: string) => void;
   deleteProduct: (productKey: string, orderId: string, itemId: string) => void;
+  deleteVariant: (variantKey: string, orderId: string, itemId: string) => void;
   setClientToDelete: (clientId: string) => void;
 }
 
@@ -41,21 +47,24 @@ export const ClientOrderCardNew = ({
   handleToggleAllProducts,
   productPaidStatus,
   swipeStates,
+  variantSwipeStates,
   editingProduct,
+  editingVariant,
   productQuantities,
+  variantQuantities,
   isSaving,
   handleToggleProductPaid,
   handleEditProduct,
+  handleEditVariant,
   handleQuantityChange,
+  handleVariantQuantityChange,
   saveProductChanges,
+  saveVariantChanges,
   deleteProduct,
+  deleteVariant,
   setClientToDelete
 }: ClientOrderCardProps) => {
-  // Estado local para variantes editándose
-  const [editingVariant, setEditingVariant] = useState<string | null>(null);
-  const [variantQuantities, setVariantQuantities] = useState<{[key: string]: number}>({});
-  
-  // Estado local para controlar la animación del switch principal
+  // Estado calculado para saber si todos los productos están pagados
   const [isPaidAnimating, setIsPaidAnimating] = useState(false);
   
   // Usar nuestro custom hook para el swipe con opciones mejoradas
@@ -236,46 +245,25 @@ export const ClientOrderCardNew = ({
       return; // No permitir editar variantes pagadas
     }
     
-    setEditingVariant(variantId);
-    setVariantQuantities(prev => ({
-      ...prev,
-      [variantId]: quantity
-    }));
+    
   };
 
   const handleVariantQuantityChange = (variantId: string, newQuantity: number) => {
-    setVariantQuantities(prev => ({
-      ...prev,
-      [variantId]: Math.max(1, newQuantity)
-    }));
+    
   };
 
   const handleSaveVariantChanges = (variantId: string, orderId: string, itemId?: string) => {
-    if (!itemId) return;
     
-    const quantity = variantQuantities[variantId] || 1;
-    // Usamos las mismas funciones que el componente principal
-    handleQuantityChange(variantId, quantity);
-    saveProductChanges(variantId, orderId, itemId);
-    
-    // Resetear estado de edición
-    setEditingVariant(null);
   };
 
   const handleDeleteVariant = (variantId: string, orderId: string, itemId?: string) => {
-    if (!itemId) return;
-    // Usamos la misma función de eliminación que el componente principal
-    deleteProduct(variantId, orderId, itemId);
+    
   };
   
   // Resetear swipe cuando cambia el estado de apertura
   useEffect(() => {
     resetSwipe();
-    // También resetear cualquier edición de variantes cuando se cierra el cliente
-    if (openClientId !== clientId) {
-      setEditingVariant(null);
-    }
-  }, [openClientId, resetSwipe, clientId]);
+  }, [openClientId, resetSwipe]);
   
   return (
     <div 
@@ -415,8 +403,8 @@ export const ClientOrderCardNew = ({
                                     itemId={variant.id}
                                     onEditVariant={handleEditVariant}
                                     onQuantityChange={handleVariantQuantityChange}
-                                    onSaveVariantChanges={handleSaveVariantChanges}
-                                    onDeleteVariant={handleDeleteVariant}
+                                    onSaveVariantChanges={saveVariantChanges}
+                                    onDeleteVariant={deleteVariant}
                                     editingQuantity={editingQty}
                                   />
                                   

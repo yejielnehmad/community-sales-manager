@@ -25,8 +25,11 @@ export const OrdersList = () => {
   const {
     productPaidStatus,
     swipeStates,
+    variantSwipeStates,
     editingProduct,
+    editingVariant,
     productQuantities,
+    variantQuantities,
     openClientId,
     orderToDelete,
     clientToDelete,
@@ -41,15 +44,21 @@ export const OrdersList = () => {
     handleDeleteOrder,
     handleDeleteClientOrders,
     handleEditProduct,
+    handleEditVariant,
     handleQuantityChange,
+    handleVariantQuantityChange,
     saveProductChanges,
+    saveVariantChanges,
     deleteProduct,
+    deleteVariant,
     toggleClient,
     setOrderToDelete,
     setClientToDelete,
     handleProductSwipe,
+    handleVariantSwipe,
     handleClientSwipe,
     completeSwipeAnimation,
+    completeVariantSwipeAnimation,
     completeClientSwipeAnimation,
     closeAllSwipes,
     registerProductRef,
@@ -110,14 +119,21 @@ export const OrdersList = () => {
               handleToggleAllProducts={handleToggleAllProducts}
               productPaidStatus={productPaidStatus}
               swipeStates={swipeStates}
+              variantSwipeStates={variantSwipeStates}
               editingProduct={editingProduct}
+              editingVariant={editingVariant}
               productQuantities={productQuantities}
+              variantQuantities={variantQuantities}
               isSaving={isSaving}
               handleToggleProductPaid={handleToggleProductPaid}
               handleEditProduct={handleEditProduct}
+              handleEditVariant={handleEditVariant}
               handleQuantityChange={handleQuantityChange}
+              handleVariantQuantityChange={handleVariantQuantityChange}
               saveProductChanges={saveProductChanges}
+              saveVariantChanges={saveVariantChanges}
               deleteProduct={deleteProduct}
+              deleteVariant={deleteVariant}
               setClientToDelete={setClientToDelete}
             />
           ))}
