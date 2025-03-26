@@ -1,14 +1,17 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Package, DollarSign, CheckCircle, Search } from "lucide-react";
+import { ArrowLeft, Package, DollarSign, CheckCircle, Search, Edit, Trash, X, Plus, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getProductIcon } from "@/services/productIconService";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { SwipeActionButton } from "@/components/ui/swipe-action-button";
+import { useSwipe } from "@/hooks/use-swipe";
 
 interface ProductDetailParams {
   productId: string;
@@ -21,7 +24,9 @@ interface OrderDetail {
   isPaid: boolean;
   orderId: string;
   balance: number;
-  clientId: string; // Añadiendo la propiedad clientId que faltaba
+  clientId: string; 
+  variant?: string;
+  variantId?: string;
 }
 
 interface ClientOrders {
@@ -32,9 +37,16 @@ interface ClientOrders {
     orderId: string;
     quantity: number;
     isPaid: boolean;
+    variant?: string;
+    variantId?: string;
   }[];
   totalQuantity: number;
   balance: number;
+}
+
+interface EditingItem {
+  itemId: string;
+  quantity: number;
 }
 
 const ProductDetails = () => {
@@ -47,6 +59,19 @@ const ProductDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [swipeStates, setSwipeStates] = useState<{[key: string]: number}>({});
+  const { toast } = useToast();
+
+  // Referencias para elementos con swipe
+  const itemRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
+
+  const registerItemRef = (key: string, ref: HTMLDivElement | null) => {
+    if (itemRefs.current) {
+      itemRefs.current[key] = ref;
+    }
+  };
 
   useEffect(() => {
     if (productId) {
@@ -65,6 +90,13 @@ const ProductDetails = () => {
     }
   }, [searchQuery, clientOrders]);
 
+  // Restablecer todas las posiciones de swipe cuando cambia el elemento en edición
+  useEffect(() => {
+    if (editingItem) {
+      setSwipeStates({});
+    }
+  }, [editingItem]);
+
   const fetchProductDetails = async () => {
     setIsLoading(true);
     try {
@@ -81,7 +113,7 @@ const ProductDetails = () => {
       // Fetch order details for this product
       const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select('id, order_id, quantity, is_paid')
+        .select('id, order_id, quantity, is_paid, variant_id')
         .eq('product_id', productId);
 
       if (orderItemsError) throw orderItemsError;
@@ -108,19 +140,38 @@ const ProductDetails = () => {
 
           if (clientsError) throw clientsError;
 
+          // Fetch variants if needed
+          const variantIds = orderItems
+            .filter(item => item.variant_id)
+            .map(item => item.variant_id);
+          
+          let variants: any[] = [];
+          if (variantIds.length > 0) {
+            const { data: variantsData, error: variantsError } = await supabase
+              .from('product_variants')
+              .select('id, name')
+              .in('id', variantIds);
+            
+            if (variantsError) throw variantsError;
+            variants = variantsData || [];
+          }
+
           // Combine all data
           const details: OrderDetail[] = orderItems.map(item => {
             const order = orders.find(o => o.id === item.order_id);
             const client = clients?.find(c => c.id === order?.client_id);
+            const variant = item.variant_id ? variants.find(v => v.id === item.variant_id) : null;
             
             return {
               id: item.id,
               orderId: item.order_id,
               clientName: client?.name || 'Cliente desconocido',
-              clientId: client?.id || '', // Asegurando que siempre haya un valor
+              clientId: client?.id || '', 
               quantity: Number(item.quantity),
               isPaid: item.is_paid === true,
-              balance: order?.balance || 0
+              balance: order?.balance || 0,
+              variant: variant?.name,
+              variantId: item.variant_id
             };
           });
 
@@ -146,7 +197,9 @@ const ProductDetails = () => {
               id: detail.id,
               orderId: detail.orderId,
               quantity: detail.quantity,
-              isPaid: detail.isPaid
+              isPaid: detail.isPaid,
+              variant: detail.variant,
+              variantId: detail.variantId
             });
             
             clientOrdersMap[detail.clientId].totalQuantity += detail.quantity;
@@ -162,6 +215,11 @@ const ProductDetails = () => {
       }
     } catch (error) {
       console.error('Error fetching product details:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los detalles del producto",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +227,7 @@ const ProductDetails = () => {
 
   const handlePaymentToggle = async (client: ClientOrders, isPaid: boolean) => {
     try {
+      setIsSaving(true);
       // Actualizar todos los items de este cliente para este producto
       for (const item of client.orderItems) {
         // Actualizar el estado de pago del item
@@ -236,9 +295,240 @@ const ProductDetails = () => {
         ));
         return updated;
       });
+
+      toast({
+        title: isPaid ? "Marcado como pagado" : "Marcado como pendiente",
+        description: `Pedido de ${client.clientName} ${isPaid ? "pagado" : "pendiente"}`,
+        variant: isPaid ? "default" : "destructive"
+      });
     } catch (error) {
       console.error('Error updating payment status:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado de pago",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleEditItem = (itemId: string, currentQuantity: number) => {
+    // Cerrar cualquier swipe abierto
+    setSwipeStates({});
+    
+    // Establecer el ítem en edición
+    setEditingItem({
+      itemId,
+      quantity: currentQuantity
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+  };
+
+  const handleQuantityChange = (newQuantity: number) => {
+    if (!editingItem) return;
+    
+    // Asegurar que la cantidad sea al menos 1
+    const validQuantity = Math.max(1, newQuantity);
+    
+    setEditingItem({
+      ...editingItem,
+      quantity: validQuantity
+    });
+  };
+
+  const handleSaveItemChanges = async () => {
+    if (!editingItem) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Actualizar la cantidad en la base de datos
+      const { error } = await supabase
+        .from('order_items')
+        .update({ quantity: editingItem.quantity })
+        .eq('id', editingItem.itemId);
+      
+      if (error) throw error;
+      
+      // Actualizar los totales de la orden
+      const item = orderDetails.find(item => item.id === editingItem.itemId);
+      if (item) {
+        // Obtener precio del item
+        const { data: itemData, error: itemError } = await supabase
+          .from('order_items')
+          .select('price')
+          .eq('id', editingItem.itemId)
+          .single();
+        
+        if (itemError) throw itemError;
+        
+        // Obtener todos los items de esta orden para recalcular el total
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select('price, quantity, is_paid')
+          .eq('order_id', item.orderId);
+        
+        if (itemsError) throw itemsError;
+        
+        // Calcular nuevos totales
+        let newTotal = 0;
+        let newAmountPaid = 0;
+        
+        orderItems?.forEach(orderItem => {
+          const itemTotal = (orderItem.price || 0) * (
+            orderItem.id === editingItem.itemId 
+              ? editingItem.quantity 
+              : (orderItem.quantity || 0)
+          );
+          newTotal += itemTotal;
+          
+          if (orderItem.is_paid) {
+            const paidAmount = (orderItem.price || 0) * (
+              orderItem.id === editingItem.itemId 
+                ? editingItem.quantity 
+                : (orderItem.quantity || 0)
+            );
+            newAmountPaid += paidAmount;
+          }
+        });
+        
+        // Redondear para evitar problemas de precisión
+        newTotal = Math.round(newTotal * 100) / 100;
+        newAmountPaid = Math.round(newAmountPaid * 100) / 100;
+        const newBalance = Math.max(0, newTotal - newAmountPaid);
+        
+        // Actualizar orden
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            total: newTotal,
+            amount_paid: newAmountPaid,
+            balance: newBalance
+          })
+          .eq('id', item.orderId);
+        
+        if (updateError) throw updateError;
+        
+        // Actualizar item
+        const { error: itemUpdateError } = await supabase
+          .from('order_items')
+          .update({
+            total: itemData.price * editingItem.quantity
+          })
+          .eq('id', editingItem.itemId);
+        
+        if (itemUpdateError) throw itemUpdateError;
+      }
+      
+      // Actualizar estado local
+      await fetchProductDetails();
+      
+      // Cerrar modo edición
+      setEditingItem(null);
+      
+      toast({
+        title: "Cambios guardados",
+        description: "La cantidad ha sido actualizada correctamente",
+      });
+    } catch (error) {
+      console.error("Error al guardar cambios:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los cambios",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string, orderId: string) => {
+    try {
+      setIsSaving(true);
+      
+      // Obtener información del item actual
+      const { data: itemData, error: itemError } = await supabase
+        .from('order_items')
+        .select('price, quantity, is_paid')
+        .eq('id', itemId)
+        .single();
+      
+      if (itemError) throw itemError;
+      
+      // Eliminar el item
+      const { error } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('id', itemId);
+      
+      if (error) throw error;
+      
+      // Recalcular totales de la orden
+      const { data: remainingItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('price, quantity, is_paid')
+        .eq('order_id', orderId);
+      
+      if (itemsError) throw itemsError;
+      
+      // Calcular nuevos totales
+      let newTotal = 0;
+      let newAmountPaid = 0;
+      
+      remainingItems?.forEach(item => {
+        const itemTotal = (item.price || 0) * (item.quantity || 0);
+        newTotal += itemTotal;
+        
+        if (item.is_paid) {
+          newAmountPaid += itemTotal;
+        }
+      });
+      
+      // Redondear para evitar problemas de precisión
+      newTotal = Math.round(newTotal * 100) / 100;
+      newAmountPaid = Math.round(newAmountPaid * 100) / 100;
+      const newBalance = Math.max(0, newTotal - newAmountPaid);
+      
+      // Actualizar orden
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          total: newTotal,
+          amount_paid: newAmountPaid,
+          balance: newBalance
+        })
+        .eq('id', orderId);
+      
+      if (updateError) throw updateError;
+      
+      // Actualizar estado local
+      await fetchProductDetails();
+      
+      toast({
+        title: "Variante eliminada",
+        description: "La variante ha sido eliminada correctamente",
+      });
+    } catch (error) {
+      console.error("Error al eliminar variante:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la variante",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSwipe = (itemId: string, swipeX: number) => {
+    setSwipeStates(prev => ({
+      ...prev,
+      [itemId]: swipeX
+    }));
   };
 
   const ProductIcon = getProductIcon(productName);
@@ -255,6 +545,174 @@ const ProductDetails = () => {
   };
 
   const iconColor = getIconColor(productName);
+
+  // Componente para el ítem de variante con swipe
+  const VariantItem = ({ item, clientId, isPaid }: { item: any, clientId: string, isPaid: boolean }) => {
+    const itemId = item.id;
+    const swipeX = swipeStates[itemId] || 0;
+    const isEditing = editingItem?.itemId === itemId;
+    
+    // Hook para swipe
+    const { swipeX: localSwipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
+      maxSwipe: -70,
+      disabled: isPaid || isEditing,
+      onSwipeEnd: (completed) => {
+        if (!completed) {
+          resetSwipe();
+        } else {
+          handleSwipe(itemId, localSwipeX);
+        }
+      }
+    });
+    
+    // Determinar si aplicamos las props de swipe
+    const swipeProps = (!isPaid && !isEditing) ? {
+      ...getMouseProps(),
+      ...getTouchProps()
+    } : {};
+    
+    // Usar swipe local si está activo
+    const effectiveSwipeX = localSwipeX !== 0 ? localSwipeX : swipeX;
+    
+    return (
+      <div 
+        ref={(ref) => registerItemRef(itemId, ref)}
+        className="relative overflow-hidden mb-2 last:mb-0"
+      >
+        {/* Botones de acción en el fondo */}
+        {!isEditing && (
+          <div 
+            className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
+            style={{ 
+              width: '70px',
+              zIndex: 1
+            }}
+          >
+            <div className="flex-1 flex items-stretch h-full">
+              <SwipeActionButton 
+                variant="warning"
+                icon={<Edit className="h-4 w-4" />}
+                onClick={() => handleEditItem(itemId, item.quantity)}
+                disabled={isSaving || isPaid}
+                label="Editar variante"
+              />
+            </div>
+            <div className="flex-1 flex items-stretch h-full">
+              <SwipeActionButton 
+                variant="destructive"
+                icon={<Trash className="h-4 w-4" />}
+                onClick={() => handleDeleteItem(itemId, item.orderId)}
+                disabled={isSaving}
+                label="Eliminar variante"
+              />
+            </div>
+          </div>
+        )}
+        
+        {/* Contenido del ítem */}
+        <div 
+          {...swipeProps}
+          className={`transition-transform rounded-lg
+                    ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
+                    ${isEditing ? 'bg-primary/5 border border-primary/30' : 'bg-gray-50 dark:bg-gray-800'}`}
+          style={{ 
+            transform: `translateX(${isEditing ? 0 : effectiveSwipeX}px)`,
+            transition: 'transform 0.3s ease-out',
+            zIndex: isEditing ? 20 : (effectiveSwipeX === 0 ? 10 : 5)
+          }}
+        >
+          {isEditing ? (
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">{item.variant || productName}</span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-full"
+                    onClick={() => handleQuantityChange(editingItem.quantity - 1)}
+                    disabled={isSaving || editingItem.quantity <= 1}
+                    aria-label="Reducir cantidad"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                  <Input
+                    type="number"
+                    value={editingItem.quantity}
+                    onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                    className="w-12 h-8 mx-1 text-center p-0"
+                    disabled={isSaving}
+                    aria-label="Cantidad"
+                    min="1"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-full"
+                    onClick={() => handleQuantityChange(editingItem.quantity + 1)}
+                    disabled={isSaving}
+                    aria-label="Aumentar cantidad"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 px-2 rounded-full"
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancelar
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="h-8 px-3 rounded-full"
+                    onClick={handleSaveItemChanges}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-1" />
+                    )}
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 flex justify-between items-center">
+              <div>
+                <div className="flex items-center gap-2">
+                  {item.variant ? (
+                    <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
+                      {item.variant}
+                    </Badge>
+                  ) : (
+                    <span className="font-medium">{productName}</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Cantidad: {item.quantity}
+                </div>
+              </div>
+              <div className={`text-sm ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
+                {isPaid ? 'Pagado' : 'Pendiente'}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <AppLayout>
@@ -339,17 +797,17 @@ const ProductDetails = () => {
                       </div>
                     </div>
                     
-                    {client.orderItems.length > 1 && (
-                      <div className="mt-2 pl-2">
+                    {client.orderItems.length > 0 && (
+                      <div className="mt-3 pl-2">
                         <Separator className="my-2" />
-                        <div className="text-sm text-muted-foreground">
-                          {client.orderItems.map((item, index) => (
-                            <div key={item.id} className="flex justify-between items-center py-1">
-                              <span>Cantidad: {item.quantity}</span>
-                              <span className={item.isPaid ? "text-green-500" : ""}>
-                                {item.isPaid ? "Pagado" : "Pendiente"}
-                              </span>
-                            </div>
+                        <div className="text-sm">
+                          {client.orderItems.map((item) => (
+                            <VariantItem 
+                              key={item.id} 
+                              item={item} 
+                              clientId={client.clientId}
+                              isPaid={item.isPaid} 
+                            />
                           ))}
                         </div>
                       </div>
@@ -370,4 +828,3 @@ const ProductDetails = () => {
 };
 
 export default ProductDetails;
-
