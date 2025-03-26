@@ -241,7 +241,7 @@ const ProductDetails = () => {
         // Obtener todos los items de esta orden para recalcular el total pagado
         const { data: orderItems, error: itemsError } = await supabase
           .from('order_items')
-          .select('price, quantity, is_paid')
+          .select('price, quantity, is_paid, id')
           .eq('order_id', item.orderId);
 
         if (itemsError) throw itemsError;
@@ -369,7 +369,7 @@ const ProductDetails = () => {
         // Obtener todos los items de esta orden para recalcular el total
         const { data: orderItems, error: itemsError } = await supabase
           .from('order_items')
-          .select('price, quantity, is_paid')
+          .select('price, quantity, is_paid, id')
           .eq('order_id', item.orderId);
         
         if (itemsError) throw itemsError;
@@ -470,7 +470,7 @@ const ProductDetails = () => {
       // Recalcular totales de la orden
       const { data: remainingItems, error: itemsError } = await supabase
         .from('order_items')
-        .select('price, quantity, is_paid')
+        .select('price, quantity, is_paid, id')
         .eq('order_id', orderId);
       
       if (itemsError) throw itemsError;
