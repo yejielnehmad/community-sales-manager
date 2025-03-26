@@ -96,7 +96,7 @@
 }
 
 .card-hover {
-  @apply transition-all hover:shadow-lg hover:scale-[1.01] hover:border-blue-300;
+  @apply transition-all hover:shadow-lg hover:scale-[1.01] hover:border-blue-300 rounded-xl;
 }
 
 .btn-modern {
@@ -161,3 +161,42 @@
   position: relative;
 }
 
+/* Mejoras para el swipe */
+.swipe-item {
+  transition: transform 0.25s ease-out;
+  border-radius: 0.75rem;
+}
+
+.swipe-item-active {
+  transition: none;
+}
+
+/* Mejoras tipográficas */
+.font-product-name {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.font-product-variant {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.font-price {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Switches modernos */
+.switch-modern[data-state=checked] {
+  background-color: #000 !important;
+}
+
+.switch-modern[data-state=unchecked] {
+  background-color: #e5e7eb !important;
+}
+
+.switch-modern .switch-thumb {
+  transform: scale(0.9);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}

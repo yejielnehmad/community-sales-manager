@@ -128,7 +128,7 @@ export const ProductItem = ({
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-90' : 'opacity-100'}`}
       style={{ 
         minHeight: isEditing ? '120px' : '74px',
-        borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
+        borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0',
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
     >
@@ -138,7 +138,7 @@ export const ProductItem = ({
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
             width: '70px',
-            borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
+            borderRadius: isLastItem ? '0 0 0.75rem 0' : '0',
             zIndex: 1
           }}
         >
@@ -165,7 +165,7 @@ export const ProductItem = ({
       
       <div 
         {...swipeProps}
-        className={`flex justify-between items-center p-4 transition-transform bg-card 
+        className={`flex justify-between items-center p-4 transition-transform bg-card rounded-xl
                   ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50/50 border-green-100' : ''}`}
@@ -175,7 +175,7 @@ export const ProductItem = ({
           height: '100%',
           position: 'relative',
           zIndex: isEditing ? 20 : (effectiveSwipeX === 0 ? 10 : 5),
-          borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
+          borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0'
         }}
       >
         {isEditing ? (
@@ -246,7 +246,7 @@ export const ProductItem = ({
         ) : (
           <>
             <div className="flex-1">
-              <div className="font-medium text-sm flex items-center gap-2">
+              <div className="font-semibold text-sm flex items-center gap-2 text-gray-800">
                 <div className={`p-1 rounded-full ${isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
                   <Package className={`h-3 w-3 ${isPaid ? 'text-green-600' : 'text-primary'}`} />
                 </div>
@@ -262,23 +262,23 @@ export const ProductItem = ({
                       variant={isPaid ? "outline" : "secondary"} 
                       className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}
                     >
-                      {variant.variant} ({variant.quantity})
+                      <span className="font-medium">{variant.variant}</span> ({variant.quantity})
                     </Badge>
                   ))}
                 </div>
               ) : product.variant ? (
                 <div className="text-xs text-muted-foreground mt-1">
                   <Badge variant={isPaid ? "outline" : "secondary"} className={`font-normal ${isPaid ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>
-                    {product.variant}
+                    <span className="font-medium">{product.variant}</span>
                   </Badge>
                 </div>
               ) : null}
               
-              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
                 <div>
                   {totalQuantity} {totalQuantity === 1 ? 'unidad' : 'unidades'}
                 </div>
-                <div className={`font-medium ${isPaid ? 'text-green-600' : 'text-foreground'}`}>
+                <div className={`font-semibold ${isPaid ? 'text-green-600' : 'text-gray-800'}`}>
                   ${product.price.toFixed(2)}
                 </div>
               </div>
@@ -288,7 +288,7 @@ export const ProductItem = ({
                 checked={isPaid}
                 onCheckedChange={handleSwitchChange}
                 disabled={isSaving}
-                className={`data-[state=checked]:bg-green-500 h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
+                className={`data-[state=checked]:bg-black h-4 w-7 ${isAnimating ? 'animate-pulse' : ''}`}
                 aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
               />
             </div>

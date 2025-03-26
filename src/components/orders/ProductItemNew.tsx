@@ -111,7 +111,7 @@ export const ProductItemNew = ({
       className={`relative overflow-hidden transition-all duration-200 ${isPaid ? 'opacity-100' : 'opacity-100'}`}
       style={{ 
         minHeight: isEditing ? '120px' : '64px', // Altura reducida para hacerla más compacta
-        borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0',
+        borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0',
         touchAction: 'pan-y' // Permitir scroll vertical pero capturar horizontal
       }}
     >
@@ -121,7 +121,7 @@ export const ProductItemNew = ({
           className="absolute inset-y-0 right-0 flex items-stretch h-full overflow-hidden"
           style={{ 
             width: '70px',
-            borderRadius: isLastItem ? '0 0 0.5rem 0' : '0',
+            borderRadius: isLastItem ? '0 0 0.75rem 0' : '0',
             zIndex: 1
           }}
         >
@@ -148,7 +148,8 @@ export const ProductItemNew = ({
       
       <div 
         {...swipeProps}
-        className={`flex flex-col justify-between transition-transform bg-card 
+        className={`flex flex-col justify-between transition-transform bg-card swipe-item
+                  ${isActive ? 'swipe-item-active' : ''}
                   ${!isPaid && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
                   ${isEditing ? 'border-primary/30 bg-primary/5' : ''}
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
@@ -158,13 +159,13 @@ export const ProductItemNew = ({
           height: '100%',
           position: 'relative',
           zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),
-          borderRadius: isFirstItem ? '0.5rem 0.5rem 0 0' : isLastItem ? '0 0 0.5rem 0.5rem' : '0'
+          borderRadius: isFirstItem ? '0.75rem 0.75rem 0 0' : isLastItem ? '0 0 0.75rem 0.75rem' : '0'
         }}
       >
         {isEditing ? (
           <div className="flex-1 flex flex-col gap-2 w-full p-3">
             <div className="flex-1">
-              <div className="font-medium text-sm flex items-center gap-2">
+              <div className="font-semibold text-sm flex items-center gap-2">
                 <div className="bg-primary/10 p-1 rounded-full">
                   <Package className="h-3 w-3 text-primary" />
                 </div>
@@ -233,7 +234,7 @@ export const ProductItemNew = ({
               <div className="grid grid-cols-12 gap-0">
                 {/* Nombre del producto (columna izquierda) */}
                 <div className="col-span-3 bg-primary/5 p-2 flex items-center justify-center border-r border-amber-200">
-                  <div className="font-medium text-sm text-center">{productName}</div>
+                  <div className="font-semibold text-sm text-center font-product-name">{productName}</div>
                 </div>
                 
                 {/* Variantes y detalles (columna derecha) */}
@@ -242,10 +243,10 @@ export const ProductItemNew = ({
                   {variantName && (
                     <div className="flex justify-between items-center text-sm mb-1">
                       <div className="flex items-center">
-                        <span className="font-medium">{variantName}</span>
+                        <span className="font-medium font-product-variant">{variantName}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium">
+                      <div className="font-medium font-price">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -255,10 +256,10 @@ export const ProductItemNew = ({
                   {!variantName && (
                     <div className="flex justify-between items-center text-sm mb-1">
                       <div className="flex items-center">
-                        <span className="font-medium">{product.name}</span>
+                        <span className="font-medium font-product-variant">{product.name}</span>
                         <span className="text-muted-foreground ml-1">x {product.quantity}</span>
                       </div>
-                      <div className="font-medium">
+                      <div className="font-medium font-price">
                         <PriceDisplay value={Math.round(product.price)} />
                       </div>
                     </div>
@@ -273,14 +274,14 @@ export const ProductItemNew = ({
                       Total:
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-medium text-sm ${isPaid ? 'text-green-600' : ''}`}>
+                      <span className={`font-semibold text-sm font-price ${isPaid ? 'text-green-600' : ''}`}>
                         <PriceDisplay value={Math.round(calculateTotal())} />
                       </span>
                       <Switch
                         checked={isPaid}
                         onCheckedChange={handleSwitchChange}
                         disabled={isSaving}
-                        className={`data-[state=checked]:bg-green-500 h-4 w-6 focus-visible:ring-0`}
+                        className={`data-[state=checked]:bg-black h-4 w-6 focus-visible:ring-0 switch-modern`}
                         aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
                       />
                     </div>
