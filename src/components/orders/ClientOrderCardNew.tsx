@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck } from "lucide-react";
 import { Order } from '@/types';
 import { Switch } from "@/components/ui/switch";
 import { ProductItemNew } from "./ProductItemNew";
@@ -10,6 +10,7 @@ import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
 import { PriceDisplay } from "@/components/ui/price-display";
 import { Separator } from "@/components/ui/separator";
+import { ProductVariantItem } from './ProductVariantItem';
 
 interface ClientOrderCardProps {
   clientId: string;
@@ -50,6 +51,10 @@ export const ClientOrderCardNew = ({
   deleteProduct,
   setClientToDelete
 }: ClientOrderCardProps) => {
+  // Estado local para variantes editándose
+  const [editingVariant, setEditingVariant] = useState<string | null>(null);
+  const [variantQuantities, setVariantQuantities] = useState<{[key: string]: number}>({});
+  
   // Estado local para controlar la animación del switch principal
   const [isPaidAnimating, setIsPaidAnimating] = useState(false);
   
@@ -224,11 +229,53 @@ export const ClientOrderCardNew = ({
       });
     }
   };
+
+  // Funciones para manejar las variantes con swipe
+  const handleEditVariant = (variantId: string, quantity: number, isPaid: boolean) => {
+    if (isPaid) {
+      return; // No permitir editar variantes pagadas
+    }
+    
+    setEditingVariant(variantId);
+    setVariantQuantities(prev => ({
+      ...prev,
+      [variantId]: quantity
+    }));
+  };
+
+  const handleVariantQuantityChange = (variantId: string, newQuantity: number) => {
+    setVariantQuantities(prev => ({
+      ...prev,
+      [variantId]: Math.max(1, newQuantity)
+    }));
+  };
+
+  const handleSaveVariantChanges = (variantId: string, orderId: string, itemId?: string) => {
+    if (!itemId) return;
+    
+    const quantity = variantQuantities[variantId] || 1;
+    // Usamos las mismas funciones que el componente principal
+    handleQuantityChange(variantId, quantity);
+    saveProductChanges(variantId, orderId, itemId);
+    
+    // Resetear estado de edición
+    setEditingVariant(null);
+  };
+
+  const handleDeleteVariant = (variantId: string, orderId: string, itemId?: string) => {
+    if (!itemId) return;
+    // Usamos la misma función de eliminación que el componente principal
+    deleteProduct(variantId, orderId, itemId);
+  };
   
   // Resetear swipe cuando cambia el estado de apertura
   useEffect(() => {
     resetSwipe();
-  }, [openClientId, resetSwipe]);
+    // También resetear cualquier edición de variantes cuando se cierra el cliente
+    if (openClientId !== clientId) {
+      setEditingVariant(null);
+    }
+  }, [openClientId, resetSwipe, clientId]);
   
   return (
     <div 
@@ -349,24 +396,31 @@ export const ClientOrderCardNew = ({
                           <div className="space-y-1">
                             {group.variants?.map((variant, variantIndex) => {
                               const isLastVariant = variantIndex === group.variants!.length - 1;
+                              const variantId = `${variant.name}_${variant.variant}_${variant.orderId}`;
+                              const isEditingThisVariant = editingVariant === variantId;
+                              const editingQty = variantQuantities[variantId] || variant.quantity;
                               
                               return (
                                 <div key={`${variant.name}_${variant.variant}_${variantIndex}`}>
-                                  <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-1">
-                                      {group.isPaid && <CircleCheck size={10} className="text-green-500" />}
-                                      <span className="text-xs font-medium">
-                                        {variant.variant} x {variant.quantity}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs font-medium">
-                                        <PriceDisplay value={Math.round(variant.price)} />
-                                      </span>
-                                    </div>
-                                  </div>
+                                  <ProductVariantItem
+                                    variantId={variantId}
+                                    name={variant.name}
+                                    variant={variant.variant}
+                                    quantity={variant.quantity}
+                                    price={variant.price}
+                                    isPaid={variant.isPaid}
+                                    isSaving={isSaving}
+                                    isEditing={isEditingThisVariant}
+                                    orderId={variant.orderId}
+                                    itemId={variant.id}
+                                    onEditVariant={handleEditVariant}
+                                    onQuantityChange={handleVariantQuantityChange}
+                                    onSaveVariantChanges={handleSaveVariantChanges}
+                                    onDeleteVariant={handleDeleteVariant}
+                                    editingQuantity={editingQty}
+                                  />
                                   
-                                  {!isLastVariant && (
+                                  {!isLastVariant && !isEditingThisVariant && (
                                     <Separator className="my-1 h-[0.5px] bg-gray-200" />
                                   )}
                                 </div>

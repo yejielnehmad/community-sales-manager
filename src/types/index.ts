@@ -1,3 +1,4 @@
+
 export interface MessageItem {
   product: {
     id?: string;
@@ -121,8 +122,11 @@ export interface OrderItemState {
   productPaidStatus: { [key: string]: boolean };
   swipeStates: { [key: string]: number };
   clientSwipeStates: { [key: string]: number };
+  variantSwipeStates: { [key: string]: number };
   editingProduct: string | null;
+  editingVariant: string | null;
   productQuantities: { [key: string]: number };
+  variantQuantities: { [key: string]: number };
   openClientId: string | null;
   _pendingOpenClientId?: string | null;
   orderToDelete: string | null;
@@ -146,15 +150,21 @@ export interface OrdersContextProps {
     handleDeleteOrder: () => Promise<void>;
     handleDeleteClientOrders: () => Promise<void>;
     handleEditProduct: (productKey: string, currentQuantity: number, isPaid: boolean) => void;
+    handleEditVariant: (variantKey: string, currentQuantity: number, isPaid: boolean) => void;
     handleQuantityChange: (productKey: string, newQuantity: number) => void;
+    handleVariantQuantityChange: (variantKey: string, newQuantity: number) => void;
     saveProductChanges: (productKey: string, orderId: string, itemId: string) => Promise<void>;
+    saveVariantChanges: (variantKey: string, orderId: string, itemId: string) => Promise<void>;
     deleteProduct: (productKey: string, orderId: string, itemId: string) => Promise<void>;
+    deleteVariant: (variantKey: string, orderId: string, itemId: string) => Promise<void>;
     toggleClient: (clientId: string) => void;
     setOrderToDelete: (orderId: string | null) => void;
     setClientToDelete: (clientId: string | null) => void;
     handleProductSwipe: (productKey: string, deltaX: number) => void;
+    handleVariantSwipe: (variantKey: string, deltaX: number) => void;
     handleClientSwipe: (clientId: string, deltaX: number) => void;
     completeSwipeAnimation: (productKey: string) => void;
+    completeVariantSwipeAnimation: (variantKey: string) => void;
     completeClientSwipeAnimation: (clientId: string) => void;
     closeAllSwipes: (exceptKey?: string) => void;
     registerProductRef: (key: string, ref: HTMLDivElement | null) => void;
