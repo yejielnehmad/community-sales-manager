@@ -157,7 +157,7 @@ export const ClientOrderCardNew = ({
             variants: [],
             totalUnits: 0,
             totalPrice: 0,
-            isPaid: true // Inicializamos como pagado y lo cambiaremos si alguna variante no está pagada
+            isPaid: true
           };
         }
         
@@ -168,7 +168,6 @@ export const ClientOrderCardNew = ({
         
         const isPaid = productPaidStatus[itemUniqueKey] === true;
         
-        // Si alguna variante no está pagada, el producto completo no está pagado
         if (!isPaid) {
           productMap[groupKey].isPaid = false;
         }
@@ -239,27 +238,6 @@ export const ClientOrderCardNew = ({
     }
   };
 
-  // Funciones para manejar las variantes con swipe
-  const handleEditVariant = (variantId: string, quantity: number, isPaid: boolean) => {
-    if (isPaid) {
-      return; // No permitir editar variantes pagadas
-    }
-    
-    
-  };
-
-  const handleVariantQuantityChange = (variantId: string, newQuantity: number) => {
-    
-  };
-
-  const handleSaveVariantChanges = (variantId: string, orderId: string, itemId?: string) => {
-    
-  };
-
-  const handleDeleteVariant = (variantId: string, orderId: string, itemId?: string) => {
-    
-  };
-  
   // Resetear swipe cuando cambia el estado de apertura
   useEffect(() => {
     resetSwipe();
