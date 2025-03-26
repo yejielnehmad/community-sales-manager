@@ -21,6 +21,7 @@ interface OrderDetail {
   isPaid: boolean;
   orderId: string;
   balance: number;
+  clientId: string; // Añadiendo la propiedad clientId que faltaba
 }
 
 interface ClientOrders {
@@ -116,7 +117,7 @@ const ProductDetails = () => {
               id: item.id,
               orderId: item.order_id,
               clientName: client?.name || 'Cliente desconocido',
-              clientId: client?.id || '',
+              clientId: client?.id || '', // Asegurando que siempre haya un valor
               quantity: Number(item.quantity),
               isPaid: item.is_paid === true,
               balance: order?.balance || 0
@@ -369,3 +370,4 @@ const ProductDetails = () => {
 };
 
 export default ProductDetails;
+
