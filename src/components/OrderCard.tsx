@@ -57,7 +57,7 @@ interface OrderCardProps {
 
 /**
  * Componente de tarjeta de pedido
- * v1.0.3
+ * v1.0.6
  */
 export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simplified = false }: OrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -139,7 +139,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simp
 
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
   
-  // Nuevo estilo simplificado para las tarjetas preliminares
+  // Nuevo estilo simplificado para las tarjetas preliminares, siguiendo el diseño de la imagen
   if (simplified && isPreliminary) {
     return (
       <Card className={cn(
@@ -152,7 +152,8 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simp
         <Collapsible defaultOpen={hasUncertainItems}>
           <div className="grid grid-cols-12 border-b">
             <div className="col-span-3 border-r p-2 flex items-center justify-center bg-primary/5">
-              <div className="font-medium text-sm">
+              <div className="font-medium text-sm flex items-center gap-1">
+                <User className="h-4 w-4 text-primary/70" />
                 {order.client.name}
               </div>
             </div>
@@ -162,7 +163,8 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false, simp
                 {hasUncertainItems && (
                   <div className="flex items-center text-amber-700 text-sm">
                     <HelpCircle className="h-4 w-4 mr-1 text-amber-500" />
-                    {order.items.find(item => item.status === 'duda')?.notes || '¿Qué variante de producto?'}
+                    {order.items.find(item => item.status === 'duda')?.notes || 
+                      `¿Qué variante de ${order.items.find(item => item.status === 'duda')?.product.name || 'producto'}?`}
                   </div>
                 )}
                 {!hasUncertainItems && (

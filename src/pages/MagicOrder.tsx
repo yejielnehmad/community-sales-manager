@@ -26,9 +26,8 @@ import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
-import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageAlternative, MessageClient } from "@/types";
-import { generateMessageExample } from "@/services/aiLabsService";
-import {
+import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
+import { 
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -44,366 +43,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { SimpleOrderCardNew } from "@/components/SimpleOrderCardNew";
 import { Badge } from "@/components/ui/badge";
-import { FormField, FormItem, FormLabel, FormControl, FormDescription, Form } from "@/components/ui/form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-
-/**
- * Componente para la tarjeta de pedido simplificada
- */
-const SimpleOrderCard = ({ 
-  order, 
-  clients, 
-  products, 
-  onUpdate, 
-  index,
-  onDelete
-}: { 
-  order: OrderCardType, 
-  clients: any[], 
-  products: any[],
-  onUpdate: (updatedOrder: OrderCardType) => void,
-  index: number,
-  onDelete: () => void
-}) => {
-  // Verificamos si hay información faltante
-  const hasMissingInfo = !order.client.id || order.items.some(item => !item.product.id || item.status === 'duda' || !item.quantity);
-  const hasClientProblem = !order.client.id || order.client.matchConfidence !== 'alto';
-  
-  // Agrupar las variantes por producto
-  const productVariantsMap = useMemo(() => {
-    const variantMap: Record<string, any[]> = {};
-    products.forEach(product => {
-      if (product.variants && product.variants.length) {
-        variantMap[product.id] = product.variants;
-      }
-    });
-    return variantMap;
-  }, [products]);
-  
-  // Mapa inverso de variantes a productos para asignación automática
-  const variantToProductMap = useMemo(() => {
-    const map: Record<string, { productId: string, productName: string }> = {};
-    products.forEach(product => {
-      if (product.variants && product.variants.length) {
-        product.variants.forEach(variant => {
-          map[variant.id] = {
-            productId: product.id,
-            productName: product.name
-          };
-        });
-      }
-    });
-    return map;
-  }, [products]);
-  
-  // Handler para actualizar cliente
-  const handleClientUpdate = (clientId: string) => {
-    const selectedClient = clients.find(c => c.id === clientId);
-    if (selectedClient) {
-      const updatedOrder = {
-        ...order,
-        client: {
-          id: selectedClient.id,
-          name: selectedClient.name,
-          matchConfidence: 'alto' as 'alto' | 'medio' | 'bajo'
-        }
-      };
-      onUpdate(updatedOrder);
-    }
-  };
-  
-  // Handler para actualizar producto
-  const handleProductUpdate = (itemIndex: number, productId: string) => {
-    const selectedProduct = products.find(p => p.id === productId);
-    if (selectedProduct) {
-      const updatedItems = [...order.items];
-      
-      // Si el producto tiene variantes y no se ha seleccionado una, mantenemos el estado de duda
-      const hasVariants = productVariantsMap[productId] && productVariantsMap[productId].length > 0;
-      
-      updatedItems[itemIndex] = {
-        ...updatedItems[itemIndex],
-        product: {
-          id: selectedProduct.id,
-          name: selectedProduct.name,
-          price: selectedProduct.price
-        },
-        status: hasVariants && !updatedItems[itemIndex].variant?.id ? 'duda' as const : 'confirmado' as const,
-        notes: hasVariants && !updatedItems[itemIndex].variant?.id ? 
-          "Falta seleccionar una variante" : 
-          updatedItems[itemIndex].notes
-      };
-      
-      const updatedOrder = {
-        ...order,
-        items: updatedItems
-      };
-      onUpdate(updatedOrder);
-    }
-  };
-  
-  // Handler para actualizar variante
-  const handleVariantUpdate = (itemIndex: number, variantId: string) => {
-    const productInfo = variantToProductMap[variantId];
-    const variants = order.items[itemIndex].product.id 
-      ? productVariantsMap[order.items[itemIndex].product.id] 
-      : null;
-    
-    let selectedVariant;
-    
-    // Si ya tenemos un producto seleccionado, buscamos la variante entre sus variantes
-    if (variants) {
-      selectedVariant = variants.find(v => v.id === variantId);
-    } else {
-      // Si no hay producto seleccionado pero tenemos un mapa de variante->producto, buscar todas las variantes
-      products.forEach(product => {
-        if (product.variants) {
-          const variant = product.variants.find(v => v.id === variantId);
-          if (variant) {
-            selectedVariant = variant;
-            
-            // Asignar automáticamente el producto basado en la variante seleccionada
-            const updatedItems = [...order.items];
-            updatedItems[itemIndex] = {
-              ...updatedItems[itemIndex],
-              product: {
-                id: product.id,
-                name: product.name,
-                price: product.price
-              },
-              variant: {
-                id: variant.id,
-                name: variant.name,
-                price: variant.price
-              },
-              status: updatedItems[itemIndex].quantity ? 'confirmado' as const : 'duda' as const
-            };
-            
-            const updatedOrder = {
-              ...order,
-              items: updatedItems
-            };
-            onUpdate(updatedOrder);
-          }
-        }
-      });
-    }
-    
-    // Si ya encontramos la variante y actualizamos todo junto (producto + variante), salimos
-    if (!variants && selectedVariant) {
-      return;
-    }
-    
-    // Caso normal: actualizar solo la variante cuando ya hay un producto seleccionado
-    if (selectedVariant) {
-      const updatedItems = [...order.items];
-      updatedItems[itemIndex] = {
-        ...updatedItems[itemIndex],
-        variant: {
-          id: selectedVariant.id,
-          name: selectedVariant.name,
-          price: selectedVariant.price
-        },
-        status: updatedItems[itemIndex].quantity ? 'confirmado' as const : 'duda' as const
-      };
-      
-      const updatedOrder = {
-        ...order,
-        items: updatedItems
-      };
-      onUpdate(updatedOrder);
-    }
-  };
-  
-  // Handler para actualizar cantidad
-  const handleQuantityUpdate = (itemIndex: number, quantity: number) => {
-    const updatedItems = [...order.items];
-    updatedItems[itemIndex] = {
-      ...updatedItems[itemIndex],
-      quantity,
-      status: updatedItems[itemIndex].product.id ? 'confirmado' as const : 'duda' as const
-    };
-    
-    const updatedOrder = {
-      ...order,
-      items: updatedItems
-    };
-    onUpdate(updatedOrder);
-  };
-  
-  return (
-    <Card className={`mb-2 overflow-hidden border-l-4 transition-all ${hasMissingInfo 
-      ? 'border-l-amber-500 shadow-sm'
-      : 'border-l-green-500 shadow-sm'}`}
-    >
-      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-          <User size={16} className={hasClientProblem ? "text-amber-500" : "text-green-500"} />
-          
-          {order.client.id ? (
-            <CardTitle className="text-base font-medium">{order.client.name}</CardTitle>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Select onValueChange={handleClientUpdate}>
-                <SelectTrigger className="w-[200px] border-amber-300 bg-amber-50 text-amber-800">
-                  <SelectValue placeholder="Seleccionar cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                <AlertCircle size={12} className="mr-1" />
-                Falta cliente
-              </Badge>
-            </div>
-          )}
-        </div>
-        
-        <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8">
-          <X size={16} />
-        </Button>
-      </CardHeader>
-      
-      <CardContent className="px-4 py-1">
-        <ul className="space-y-2">
-          {order.items.map((item, itemIndex) => {
-            const hasProductIssue = !item.product.id || item.status === 'duda';
-            const hasVariantIssue = item.product.id && productVariantsMap[item.product.id]?.length > 0 && !item.variant?.id;
-            const hasQuantityIssue = !item.quantity;
-            
-            return (
-              <li key={itemIndex} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Package size={16} className={hasProductIssue ? "text-amber-500" : "text-green-500"} />
-                    
-                    {item.product.id ? (
-                      <span className="font-medium">{item.product.name}</span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Select onValueChange={(value) => handleProductUpdate(itemIndex, value)}>
-                          <SelectTrigger className="w-[200px] border-amber-300 bg-amber-50 text-amber-800">
-                            <SelectValue placeholder="Seleccionar producto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map(product => (
-                              <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                          <AlertCircle size={12} className="mr-1" />
-                          Falta producto
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {hasQuantityIssue ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="1"
-                          className="w-16 h-8 border-amber-300 bg-amber-50 text-amber-800"
-                          placeholder="Cant."
-                          onChange={(e) => handleQuantityUpdate(itemIndex, parseInt(e.target.value) || 0)}
-                        />
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                          <AlertCircle size={12} className="mr-1" />
-                          Cant.
-                        </Badge>
-                      </div>
-                    ) : (
-                      <Badge variant="outline" className="bg-background border-input">
-                        {item.quantity}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Variantes si existen */}
-                {item.product.id && productVariantsMap[item.product.id]?.length > 0 && (
-                  <div className="ml-6 flex flex-wrap gap-1 mt-1">
-                    {hasVariantIssue ? (
-                      <>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex flex-wrap gap-1">
-                            {productVariantsMap[item.product.id].map(variant => (
-                              <Badge 
-                                key={variant.id}
-                                variant="outline" 
-                                className="cursor-pointer bg-amber-50 hover:bg-amber-100 transition-colors"
-                                onClick={() => handleVariantUpdate(itemIndex, variant.id)}
-                              >
-                                {variant.name}
-                              </Badge>
-                            ))}
-                          </div>
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                            <AlertCircle size={12} className="mr-1" />
-                            Seleccionar variante
-                          </Badge>
-                        </div>
-                      </>
-                    ) : (
-                      item.variant && 
-                      <Badge variant="secondary">{item.variant.name}</Badge>
-                    )}
-                  </div>
-                )}
-                
-                {/* Mostrar alternativas si hay */}
-                {item.alternatives && item.alternatives.length > 0 && !item.product.id && (
-                  <div className="ml-6 flex flex-col gap-1 mt-1">
-                    <div className="flex flex-wrap gap-1">
-                      {item.alternatives.map((alt, altIndex) => (
-                        <Badge 
-                          key={altIndex}
-                          variant="outline" 
-                          className="cursor-pointer hover:bg-accent transition-colors"
-                          onClick={() => {
-                            const selectedProduct = products.find(p => p.id === alt.id);
-                            if (selectedProduct) {
-                              handleProductUpdate(itemIndex, alt.id);
-                            }
-                          }}
-                        >
-                          {alt.name}
-                        </Badge>
-                      ))}
-                    </div>
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 w-fit">
-                      <HelpCircle size={12} className="mr-1" />
-                      ¿Te refieres a alguno de estos?
-                    </Badge>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-};
-
 
 /**
  * Página Mensaje Mágico
@@ -530,9 +171,14 @@ const MagicOrder = () => {
       const newOrders = results.map(result => ({
         client: {
           ...result.client,
-          matchConfidence: result.client.matchConfidence as 'alto' | 'medio' | 'bajo'
+          // Aseguramos que matchConfidence sea uno de los valores permitidos
+          matchConfidence: (result.client.matchConfidence as 'alto' | 'medio' | 'bajo') || 'bajo'
         },
-        items: result.items || [],
+        items: result.items.map(item => ({
+          ...item,
+          // Aseguramos que status sea uno de los valores permitidos
+          status: (item.status as 'duda' | 'confirmado') || 'duda'
+        })) || [],
         isPaid: false,
         status: 'pending' as const
       }));
@@ -1029,7 +675,7 @@ const MagicOrder = () => {
                               .map((order, groupIndex) => {
                                 const orderIndex = group.indices[group.orders.indexOf(order)];
                                 return (
-                                  <SimpleOrderCard
+                                  <SimpleOrderCardNew
                                     key={`${clientId}-${groupIndex}`}
                                     order={order}
                                     clients={clients}
@@ -1074,7 +720,7 @@ const MagicOrder = () => {
                               .map((order, groupIndex) => {
                                 const orderIndex = group.indices[group.orders.indexOf(order)];
                                 return (
-                                  <SimpleOrderCard
+                                  <SimpleOrderCardNew
                                     key={`${clientId}-${groupIndex}`}
                                     order={order}
                                     clients={clients}
