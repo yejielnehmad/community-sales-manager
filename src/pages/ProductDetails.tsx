@@ -8,6 +8,7 @@ import { ArrowLeft, Package, DollarSign, CheckCircle, Search } from "lucide-reac
 import { supabase } from "@/lib/supabase";
 import { getProductIcon } from "@/services/productIconService";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 
 interface ProductDetailParams {
   productId: string;
@@ -22,12 +23,26 @@ interface OrderDetail {
   balance: number;
 }
 
+interface ClientOrders {
+  clientName: string;
+  clientId: string;
+  orderItems: {
+    id: string;
+    orderId: string;
+    quantity: number;
+    isPaid: boolean;
+  }[];
+  totalQuantity: number;
+  balance: number;
+}
+
 const ProductDetails = () => {
   const { productId } = useParams<keyof ProductDetailParams>() as ProductDetailParams;
   const navigate = useNavigate();
   const [productName, setProductName] = useState('');
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
-  const [filteredDetails, setFilteredDetails] = useState<OrderDetail[]>([]);
+  const [clientOrders, setClientOrders] = useState<ClientOrders[]>([]);
+  const [filteredClients, setFilteredClients] = useState<ClientOrders[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,14 +55,14 @@ const ProductDetails = () => {
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredDetails(orderDetails);
+      setFilteredClients(clientOrders);
     } else {
-      const filtered = orderDetails.filter(detail => 
-        detail.clientName.toLowerCase().includes(searchQuery.toLowerCase())
+      const filtered = clientOrders.filter(client => 
+        client.clientName.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredDetails(filtered);
+      setFilteredClients(filtered);
     }
-  }, [searchQuery, orderDetails]);
+  }, [searchQuery, clientOrders]);
 
   const fetchProductDetails = async () => {
     setIsLoading(true);
@@ -101,6 +116,7 @@ const ProductDetails = () => {
               id: item.id,
               orderId: item.order_id,
               clientName: client?.name || 'Cliente desconocido',
+              clientId: client?.id || '',
               quantity: Number(item.quantity),
               isPaid: item.is_paid === true,
               balance: order?.balance || 0
@@ -108,7 +124,39 @@ const ProductDetails = () => {
           });
 
           setOrderDetails(details);
-          setFilteredDetails(details);
+          
+          // Agrupar por cliente
+          const clientOrdersMap: { [clientId: string]: ClientOrders } = {};
+          
+          details.forEach(detail => {
+            if (!detail.clientId) return;
+            
+            if (!clientOrdersMap[detail.clientId]) {
+              clientOrdersMap[detail.clientId] = {
+                clientId: detail.clientId,
+                clientName: detail.clientName,
+                orderItems: [],
+                totalQuantity: 0,
+                balance: 0
+              };
+            }
+            
+            clientOrdersMap[detail.clientId].orderItems.push({
+              id: detail.id,
+              orderId: detail.orderId,
+              quantity: detail.quantity,
+              isPaid: detail.isPaid
+            });
+            
+            clientOrdersMap[detail.clientId].totalQuantity += detail.quantity;
+            if (!detail.isPaid) {
+              clientOrdersMap[detail.clientId].balance += detail.balance;
+            }
+          });
+          
+          const groupedClients = Object.values(clientOrdersMap);
+          setClientOrders(groupedClients);
+          setFilteredClients(groupedClients);
         }
       }
     } catch (error) {
@@ -118,63 +166,72 @@ const ProductDetails = () => {
     }
   };
 
-  const handlePaymentToggle = async (orderId: string, itemId: string, isPaid: boolean) => {
+  const handlePaymentToggle = async (client: ClientOrders, isPaid: boolean) => {
     try {
-      // Actualizar el estado de pago del item
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .update({ is_paid: isPaid })
-        .eq('id', itemId);
+      // Actualizar todos los items de este cliente para este producto
+      for (const item of client.orderItems) {
+        // Actualizar el estado de pago del item
+        const { error: itemError } = await supabase
+          .from('order_items')
+          .update({ is_paid: isPaid })
+          .eq('id', item.id);
 
-      if (itemError) throw itemError;
+        if (itemError) throw itemError;
 
-      // Obtener todos los items de esta orden para recalcular el total pagado
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('price, quantity, is_paid')
-        .eq('order_id', orderId);
+        // Obtener todos los items de esta orden para recalcular el total pagado
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select('price, quantity, is_paid')
+          .eq('order_id', item.orderId);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
 
-      // Obtener el pedido actual
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('total')
-        .eq('id', orderId)
-        .single();
+        // Obtener el pedido actual
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .select('total')
+          .eq('id', item.orderId)
+          .single();
 
-      if (orderError) throw orderError;
+        if (orderError) throw orderError;
 
-      // Calcular el nuevo monto pagado basado en todos los items pagados
-      let newAmountPaid = 0;
-      orderItems?.forEach(item => {
-        if (item.is_paid) {
-          newAmountPaid += (item.price || 0) * (item.quantity || 0);
-        }
-      });
+        // Calcular el nuevo monto pagado basado en todos los items pagados
+        let newAmountPaid = 0;
+        orderItems?.forEach(orderItem => {
+          if (orderItem.is_paid) {
+            newAmountPaid += (orderItem.price || 0) * (orderItem.quantity || 0);
+          }
+        });
 
-      // Redondear para evitar problemas de precisión
-      newAmountPaid = Math.round(newAmountPaid * 100) / 100;
-      const newBalance = Math.max(0, order.total - newAmountPaid);
+        // Redondear para evitar problemas de precisión
+        newAmountPaid = Math.round(newAmountPaid * 100) / 100;
+        const newBalance = Math.max(0, order.total - newAmountPaid);
 
-      // Actualizar el pedido con el nuevo monto pagado
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ 
-          amount_paid: newAmountPaid,
-          balance: newBalance
-        })
-        .eq('id', orderId);
+        // Actualizar el pedido con el nuevo monto pagado
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ 
+            amount_paid: newAmountPaid,
+            balance: newBalance
+          })
+          .eq('id', item.orderId);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
+      }
 
       // Actualizar estado local
-      setOrderDetails(prev => {
-        const updated = prev.map(detail => 
-          detail.id === itemId ? { ...detail, isPaid } : detail
+      setClientOrders(prevClients => {
+        const updated = prevClients.map(c => 
+          c.clientId === client.clientId 
+            ? { 
+                ...c, 
+                orderItems: c.orderItems.map(item => ({ ...item, isPaid })),
+                balance: isPaid ? 0 : c.balance
+              } 
+            : c
         );
-        setFilteredDetails(updated.filter(detail => 
-          detail.clientName.toLowerCase().includes(searchQuery.toLowerCase())
+        setFilteredClients(updated.filter(c => 
+          c.clientName.toLowerCase().includes(searchQuery.toLowerCase())
         ));
         return updated;
       });
@@ -239,44 +296,66 @@ const ProductDetails = () => {
         )}
 
         <div>
-          <h2 className="text-xl font-semibold mb-4">Pedidos de este producto</h2>
+          <h2 className="text-xl font-semibold mb-4">Clientes con este producto</h2>
           
           {isLoading ? (
             <div className="text-center py-8">Cargando...</div>
-          ) : filteredDetails.length > 0 ? (
+          ) : filteredClients.length > 0 ? (
             <div className="space-y-3">
-              {filteredDetails.map(detail => (
-                <div key={detail.id} className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all dark:border-gray-700 dark:bg-gray-800">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium flex items-center gap-2">
-                      {detail.clientName}
-                      {detail.isPaid && (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      )}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
-                        <Package className="h-3 w-3" />
-                        <span>{detail.quantity}</span>
-                      </Badge>
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
-                        <DollarSign className="h-3 w-3" />
-                        <span>{detail.balance}</span>
-                      </Badge>
-                      <div 
-                        className="relative inline-flex h-4 w-8 cursor-pointer rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:bg-gray-700" 
-                        onClick={() => handlePaymentToggle(detail.orderId, detail.id, !detail.isPaid)}
-                      >
-                        <span
-                          className={`${
-                            detail.isPaid ? 'translate-x-4 bg-primary' : 'translate-x-0 bg-gray-400'
-                          } pointer-events-none inline-block h-4 w-4 transform rounded-full shadow-lg transition duration-200 ease-in-out`}
-                        />
+              {filteredClients.map(client => {
+                const allItemsPaid = client.orderItems.every(item => item.isPaid);
+                
+                return (
+                  <div key={client.clientId} className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all dark:border-gray-700 dark:bg-gray-800">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium flex items-center gap-2">
+                        {client.clientName}
+                        {allItemsPaid && (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
+                          <Package className="h-3 w-3" />
+                          <span>{client.totalQuantity}</span>
+                        </Badge>
+                        {!allItemsPaid && (
+                          <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30">
+                            <DollarSign className="h-3 w-3" />
+                            <span>{client.balance}</span>
+                          </Badge>
+                        )}
+                        <div 
+                          className="relative inline-flex h-4 w-8 cursor-pointer rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:bg-gray-700" 
+                          onClick={() => handlePaymentToggle(client, !allItemsPaid)}
+                        >
+                          <span
+                            className={`${
+                              allItemsPaid ? 'translate-x-4 bg-primary' : 'translate-x-0 bg-gray-400'
+                            } pointer-events-none inline-block h-4 w-4 transform rounded-full shadow-lg transition duration-200 ease-in-out`}
+                          />
+                        </div>
                       </div>
                     </div>
+                    
+                    {client.orderItems.length > 1 && (
+                      <div className="mt-2 pl-2">
+                        <Separator className="my-2" />
+                        <div className="text-sm text-muted-foreground">
+                          {client.orderItems.map((item, index) => (
+                            <div key={item.id} className="flex justify-between items-center py-1">
+                              <span>Cantidad: {item.quantity}</span>
+                              <span className={item.isPaid ? "text-green-500" : ""}>
+                                {item.isPaid ? "Pagado" : "Pendiente"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

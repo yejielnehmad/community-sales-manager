@@ -1,6 +1,7 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck } from "lucide-react";
+import { ChevronDown, ChevronUp, DollarSign, ShoppingCart, Trash, Package, CircleCheck, CheckCircle } from "lucide-react";
 import { Order } from '@/types';
 import { Switch } from "@/components/ui/switch";
 import { ProductItemNew } from "./ProductItemNew";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { SwipeActionButton } from "@/components/ui/swipe-action-button";
 import { PriceDisplay } from "@/components/ui/price-display";
+import { Separator } from "@/components/ui/separator";
 
 interface ClientOrderCardProps {
   clientId: string;
@@ -105,7 +107,8 @@ export const ClientOrderCardNew = ({
         isPaid: boolean
       }[],
       totalUnits: number,
-      totalPrice: number
+      totalPrice: number,
+      isPaid: boolean
     }} = {};
     
     const getBaseName = (fullName: string) => {
@@ -139,7 +142,8 @@ export const ClientOrderCardNew = ({
             baseName: baseName,
             variants: [],
             totalUnits: 0,
-            totalPrice: 0
+            totalPrice: 0,
+            isPaid: true // Inicializamos como pagado y lo cambiaremos si alguna variante no está pagada
           };
         }
         
@@ -149,6 +153,11 @@ export const ClientOrderCardNew = ({
         const itemUniqueKey = `${item.name || 'Producto'}_${item.variant || ''}_${order.id}`;
         
         const isPaid = productPaidStatus[itemUniqueKey] === true;
+        
+        // Si alguna variante no está pagada, el producto completo no está pagado
+        if (!isPaid) {
+          productMap[groupKey].isPaid = false;
+        }
         
         const existingVariantIndex = productMap[groupKey].variants?.findIndex(
           v => v.variant === variantName
@@ -187,13 +196,8 @@ export const ClientOrderCardNew = ({
   
   // Verificar si todos los productos están pagados
   const areAllProductsPaid = useMemo(() => {
-    return Object.values(productGroups).every(group => {
-      return group.variants?.every(variant => {
-        const itemKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
-        return productPaidStatus[itemKey] === true;
-      });
-    });
-  }, [productGroups, productPaidStatus]);
+    return Object.values(productGroups).every(group => group.isPaid);
+  }, [productGroups]);
   
   // Estado calculado para saber si todos los productos están pagados
   const isPaid = areAllProductsPaid;
@@ -207,6 +211,17 @@ export const ClientOrderCardNew = ({
       setTimeout(() => {
         setIsPaidAnimating(false);
       }, 500);
+    }
+  };
+  
+  // Función para marcar/desmarcar un producto completo y todas sus variantes
+  const handleToggleProductGroup = (baseProductName: string, checked: boolean) => {
+    const group = productGroups[baseProductName];
+    if (group && group.variants) {
+      group.variants.forEach(variant => {
+        const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
+        handleToggleProductPaid(productKey, variant.orderId, variant.id || '', checked);
+      });
     }
   };
   
@@ -314,17 +329,12 @@ export const ClientOrderCardNew = ({
               {hasProducts ? (
                 <div className="space-y-2">
                   {Object.entries(productGroups).map(([baseProductName, group], productIndex) => {
-                    const allVariantsPaid = group.variants?.every(v => {
-                      const itemKey = `${v.name}_${v.variant || ''}_${v.orderId}`;
-                      return productPaidStatus[itemKey];
-                    });
-                    
                     return (
                       <div key={baseProductName} className="bg-card rounded-lg shadow-sm">
                         <div className="flex justify-between items-center p-2 border-b">
                           <div className="font-semibold text-sm flex items-center gap-1">
-                            <div className={`p-1 rounded-full ${allVariantsPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
-                              <Package className={`h-3 w-3 ${allVariantsPaid ? 'text-green-600' : 'text-primary'}`} />
+                            <div className={`p-1 rounded-full ${group.isPaid ? 'bg-green-100' : 'bg-primary/10'}`}>
+                              <Package className={`h-3 w-3 ${group.isPaid ? 'text-green-600' : 'text-primary'}`} />
                             </div>
                             {group.baseName}
                           </div>
@@ -338,46 +348,47 @@ export const ClientOrderCardNew = ({
                         <div className="p-2">
                           <div className="space-y-1">
                             {group.variants?.map((variant, variantIndex) => {
-                              const productKey = `${variant.name}_${variant.variant || ''}_${variant.orderId}`;
-                              const isPaid = productPaidStatus[productKey] === true;
+                              const isLastVariant = variantIndex === group.variants!.length - 1;
                               
                               return (
-                                <div 
-                                  key={`${productKey}_${variantIndex}`} 
-                                  className="flex justify-between items-center"
-                                >
-                                  <div className="flex items-center gap-1">
-                                    {isPaid && <CircleCheck size={10} className="text-green-500" />}
-                                    <span className="text-xs font-medium">
-                                      {variant.variant} x {variant.quantity}
-                                    </span>
+                                <div key={`${variant.name}_${variant.variant}_${variantIndex}`}>
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-1">
+                                      {group.isPaid && <CircleCheck size={10} className="text-green-500" />}
+                                      <span className="text-xs font-medium">
+                                        {variant.variant} x {variant.quantity}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-medium">
+                                        <PriceDisplay value={Math.round(variant.price)} />
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center">
-                                    <span className="text-xs font-medium mr-2">
-                                      <PriceDisplay value={Math.round(variant.price)} />
-                                    </span>
-                                    <Switch
-                                      checked={isPaid}
-                                      onCheckedChange={(checked) => 
-                                        handleToggleProductPaid(productKey, variant.orderId, variant.id || '', checked)
-                                      }
-                                      disabled={isSaving}
-                                      className="data-[state=checked]:bg-green-500 h-3 w-5"
-                                      aria-label={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
-                                    />
-                                  </div>
+                                  
+                                  {!isLastVariant && (
+                                    <Separator className="my-1 h-[0.5px] bg-gray-200" />
+                                  )}
                                 </div>
                               );
                             })}
                           </div>
                           
-                          <div className="flex justify-end mt-2 pt-2 border-t border-gray-100">
+                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
                             <div className="text-xs font-semibold">
                               <span className="text-muted-foreground mr-1">Total:</span>
-                              <span className={`${allVariantsPaid ? 'text-green-600' : ''}`}>
+                              <span className={`${group.isPaid ? 'text-green-600' : ''}`}>
                                 <PriceDisplay value={Math.round(group.totalPrice)} />
                               </span>
                             </div>
+                            
+                            <Switch
+                              checked={group.isPaid}
+                              onCheckedChange={(checked) => handleToggleProductGroup(baseProductName, checked)}
+                              disabled={isSaving}
+                              className="data-[state=checked]:bg-green-500 h-3 w-5"
+                              aria-label={group.isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
+                            />
                           </div>
                         </div>
                       </div>
