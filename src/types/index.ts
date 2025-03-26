@@ -1,4 +1,3 @@
-
 export interface MessageItem {
   product: {
     id?: string;
@@ -29,7 +28,7 @@ export interface MessageAlternative {
 export interface MessageClient {
   id: string;
   name: string;
-  matchConfidence?: 'alto' | 'medio' | 'bajo';
+  matchConfidence?: 'alto' | 'medio' | 'bajo' | 'desconocido';
 }
 
 export interface MessageAnalysis {

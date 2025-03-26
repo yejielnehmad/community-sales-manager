@@ -1,4 +1,3 @@
-
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -26,7 +25,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.7:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.8:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -63,7 +62,6 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     const data = await response.json();
     console.log("Respuesta de Gemini (resumida):", JSON.stringify(data).substring(0, 200) + "...");
 
-    // Verificar si hay errores en la respuesta
     if (data.error) {
       console.error("Error devuelto por la API de Gemini:", data.error);
       throw new GeminiError(`Error de la API de Gemini: ${data.error.message || "Error desconocido"}`, {
@@ -71,7 +69,6 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
       });
     }
 
-    // Extraer el texto generado del formato de respuesta de Gemini
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
       console.error("Respuesta completa con formato incorrecto:", JSON.stringify(data, null, 2));
       throw new GeminiError("Formato de respuesta inesperado de la API de Gemini", {
@@ -96,7 +93,6 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
  * Función para obtener productos y clientes de la base de datos
  */
 export const fetchDatabaseContext = async () => {
-  // Obtenemos productos con sus variantes
   const { data: products, error: productsError } = await supabase
     .from('products')
     .select('id, name, price, description');
@@ -106,7 +102,6 @@ export const fetchDatabaseContext = async () => {
     throw new Error(`Error al obtener productos: ${productsError.message}`);
   }
 
-  // Obtenemos variantes de productos
   const { data: variants, error: variantsError } = await supabase
     .from('product_variants')
     .select('id, product_id, name, price');
@@ -116,7 +111,6 @@ export const fetchDatabaseContext = async () => {
     throw new Error(`Error al obtener variantes: ${variantsError.message}`);
   }
 
-  // Organizamos las variantes por producto
   const productsWithVariants = products.map(product => {
     const productVariants = variants.filter(v => v.product_id === product.id);
     return {
@@ -125,7 +119,6 @@ export const fetchDatabaseContext = async () => {
     };
   });
 
-  // Obtenemos clientes
   const { data: clients, error: clientsError } = await supabase
     .from('clients')
     .select('id, name, phone');
@@ -150,13 +143,10 @@ export const analyzeCustomerMessage = async (
   try {
     console.log("Analizando mensaje...");
     
-    // Obtenemos datos de la BD para darle contexto al modelo
     const dbContext = await fetchDatabaseContext();
     
-    // Extraemos todos los nombres de clientes para verificación posterior
     const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
     
-    // Creamos el contexto para el prompt
     const productsContext = dbContext.products.map(p => {
       const variantsText = p.variants && p.variants.length 
         ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
@@ -169,7 +159,6 @@ export const analyzeCustomerMessage = async (
       `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
     ).join('\n');
 
-    // Mapa de variantes a productos para la lógica de asignación automática
     const variantToProductMap = {};
     dbContext.products.forEach(product => {
       if (product.variants && product.variants.length) {
@@ -184,7 +173,6 @@ export const analyzeCustomerMessage = async (
       }
     });
 
-    // Creamos el prompt para el modelo con instrucciones mejoradas
     const prompt = `
     Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada línea puede ser un pedido distinto.
     Múltiples mensajes deben ser tratados como pedidos separados.
@@ -251,12 +239,9 @@ export const analyzeCustomerMessage = async (
     ]
     `;
 
-    // Obtenemos la respuesta de la API
     const responseText = await callGeminiAPI(prompt);
     
-    // Limpiamos el texto para asegurar que sea JSON válido
     let jsonText = responseText.trim();
-    // Eliminar marcadores de código si están presentes
     if (jsonText.startsWith("```json")) {
       jsonText = jsonText.replace(/```json\n/, "").replace(/\n```$/, "");
     } else if (jsonText.startsWith("```")) {
@@ -267,20 +252,16 @@ export const analyzeCustomerMessage = async (
       const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
       console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
       
-      // Validación básica del resultado
       if (!Array.isArray(parsedResult)) {
         throw new GeminiError("El formato de los datos analizados no es válido (no es un array)", {
           apiResponse: jsonText
         });
       }
       
-      // Procesamos los resultados para filtrar los nombres desconocidos
       const processedResult = parsedResult.filter(result => {
-        // Si el cliente tiene confianza "desconocido" y no tiene productos, lo excluimos
         if (result.client.matchConfidence === "desconocido" && 
             (!result.items || result.items.length === 0 || 
              result.items.every(item => !item.product.id))) {
-          // Añadimos a unmatchedNames para mostrar en la interfaz
           console.log(`Nombre no reconocido: ${result.client.name}`);
           return false;
         }
@@ -313,10 +294,8 @@ export const chatWithAssistant = async (
     products?: any[];
   }
 ): Promise<string> => {
-  // Preparamos un contexto con datos de la aplicación para el asistente
   const contextStr = JSON.stringify(appContext, null, 2);
   
-  // Creamos el prompt para el modelo
   const prompt = `
   Eres un asistente virtual integrado en una aplicación de gestión de ventas llamada VentasCom.
   Tu objetivo es ayudar al usuario respondiendo preguntas sobre los datos de la aplicación.
@@ -333,7 +312,6 @@ export const chatWithAssistant = async (
   `;
 
   try {
-    // Llamamos a la API de Gemini
     const response = await callGeminiAPI(prompt);
     return response;
   } catch (error) {
