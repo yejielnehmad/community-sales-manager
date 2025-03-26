@@ -17,7 +17,9 @@ import {
   Trash2,
   Settings,
   Tag,
-  MapPin
+  MapPin,
+  Check,
+  InfoIcon
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -79,6 +81,7 @@ const MagicOrder = () => {
   const [orders, setOrders] = useState<OrderCardType[]>([]);
   const [showGenerator, setShowGenerator] = useState(false);
   const [showAIConfig, setShowAIConfig] = useState(false);
+  const [showOrderSummary, setShowOrderSummary] = useState(true);
   const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
   const { toast } = useToast();
@@ -202,15 +205,17 @@ const MagicOrder = () => {
       
       setMessage("");
       
-      const validOrders = newOrders.filter(order => 
+      const ordersWithIssues = newOrders.filter(order => 
         order.items.some(item => item.status === 'duda') || 
         order.client.matchConfidence !== 'alto'
       );
       
       toast({
         title: "Análisis completado",
-        description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} ${newOrders.length === 1 ? 'pedido' : 'pedidos'}, ${validOrders.length} requiere${validOrders.length === 1 ? '' : 'n'} atención`
+        description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} ${newOrders.length === 1 ? 'pedido' : 'pedidos'}, ${ordersWithIssues.length} requiere${ordersWithIssues.length === 1 ? '' : 'n'} atención`
       });
+      
+      setShowOrderSummary(true);
       
     } catch (error) {
       console.error("Error al analizar el mensaje:", error);
@@ -360,7 +365,8 @@ const MagicOrder = () => {
 
       toast({
         title: "Pedido guardado",
-        description: `El pedido para ${order.client.name} se ha guardado correctamente`
+        description: `El pedido para ${order.client.name} se ha guardado correctamente`,
+        variant: "success"
       });
       
       console.log('Pedido guardado exitosamente:', newOrder.id);
@@ -408,6 +414,12 @@ const MagicOrder = () => {
   const ordersRequiringAttention = orders.filter(order => 
     order.items.some(item => item.status === 'duda') || 
     order.client.matchConfidence !== 'alto'
+  ).length;
+
+  // Contar pedidos confirmados (sin problemas)
+  const ordersConfirmed = orders.filter(order => 
+    !order.items.some(item => item.status === 'duda') && 
+    order.client.matchConfidence === 'alto'
   ).length;
 
   return (
@@ -617,65 +629,168 @@ const MagicOrder = () => {
               <div>
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <MessageSquareText className="h-5 w-5 text-primary" />
-                  Pedidos Preliminares
+                  Pedidos Detectados
                 </h2>
-                {ordersRequiringAttention > 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {ordersRequiringAttention} pedido{ordersRequiringAttention !== 1 ? 's' : ''} requiere{ordersRequiringAttention !== 1 ? 'n' : ''} atención
-                  </p>
-                )}
+                
+                <div className="flex gap-3 mt-1">
+                  {ordersRequiringAttention > 0 && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <AlertCircle size={12} className="mr-1" />
+                      {ordersRequiringAttention} requiere{ordersRequiringAttention !== 1 ? 'n' : ''} atención
+                    </Badge>
+                  )}
+                  
+                  {ordersConfirmed > 0 && (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Check size={12} className="mr-1" />
+                      {ordersConfirmed} confirmado{ordersConfirmed !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setOrders([])}
-                disabled={orders.some(o => o.status === 'saved')}
-              >
-                Limpiar Todos
-              </Button>
+              
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowOrderSummary(!showOrderSummary)}
+                >
+                  {showOrderSummary ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                      Ocultar
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                      Mostrar
+                    </>
+                  )}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={() => setOrders([])}
+                  disabled={orders.some(o => o.status === 'saved')}
+                >
+                  Limpiar Todos
+                </Button>
+              </div>
             </div>
+            
             <Separator />
             
-            <div className="space-y-2">
-              {sortedOrders.map((order, index) => {
-                // Encontrar el índice original en el array orders
-                const originalIndex = orders.findIndex(o => 
-                  o.client.id === order.client.id && 
-                  JSON.stringify(o.items) === JSON.stringify(order.items)
-                );
-                
-                return (
-                  <div key={originalIndex} className="relative">
-                    <OrderCard 
-                      order={order}
-                      onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
-                      onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
-                      isPreliminary={true}
-                    />
-                    {(order.items.some(item => item.status === 'duda') || order.client.matchConfidence !== 'alto') && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => handleDeleteOrder(originalIndex)}
-                        disabled={order.status === 'saved'}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Eliminar
-                      </Button>
-                    )}
-                    
-                    {order.pickupLocation && (
-                      <Badge 
-                        className="absolute top-2 right-20 bg-primary/20 text-primary-foreground hover:bg-primary/30 border-0"
-                      >
-                        <MapPin size={12} className="mr-1" />
-                        Retiro: {order.pickupLocation}
-                      </Badge>
-                    )}
+            <Collapsible open={showOrderSummary} onOpenChange={setShowOrderSummary}>
+              <CollapsibleContent>
+                {/* Resumen de pedidos sin problemas */}
+                {ordersConfirmed > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-md font-semibold mb-2 flex items-center gap-2">
+                      <Check size={16} className="text-green-600" />
+                      Pedidos Confirmados ({ordersConfirmed})
+                    </h3>
+                    <div className="space-y-2">
+                      {sortedOrders.filter(order => 
+                        !order.items.some(item => item.status === 'duda') && 
+                        order.client.matchConfidence === 'alto'
+                      ).map((order, index) => {
+                        // Encontrar el índice original en el array orders
+                        const originalIndex = orders.findIndex(o => 
+                          o.client.id === order.client.id && 
+                          JSON.stringify(o.items) === JSON.stringify(order.items)
+                        );
+                        
+                        return (
+                          <div key={index} className="relative">
+                            <OrderCard 
+                              order={order}
+                              onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
+                              onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
+                              isPreliminary={true}
+                            />
+                            
+                            {order.status !== 'saved' && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={() => handleDeleteOrder(originalIndex)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Eliminar
+                              </Button>
+                            )}
+                            
+                            {order.pickupLocation && (
+                              <Badge 
+                                className="absolute top-2 right-20 bg-primary/20 text-primary-foreground hover:bg-primary/30 border-0"
+                              >
+                                <MapPin size={12} className="mr-1" />
+                                Retiro: {order.pickupLocation}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+                )}
+                
+                {/* Pedidos con problemas */}
+                {ordersRequiringAttention > 0 && (
+                  <div>
+                    <h3 className="text-md font-semibold mb-2 flex items-center gap-2">
+                      <AlertCircle size={16} className="text-amber-600" />
+                      Pedidos que Requieren Atención ({ordersRequiringAttention})
+                    </h3>
+                    <div className="space-y-2">
+                      {sortedOrders.filter(order => 
+                        order.items.some(item => item.status === 'duda') || 
+                        order.client.matchConfidence !== 'alto'
+                      ).map((order, index) => {
+                        // Encontrar el índice original en el array orders
+                        const originalIndex = orders.findIndex(o => 
+                          o.client.id === order.client.id && 
+                          JSON.stringify(o.items) === JSON.stringify(order.items)
+                        );
+                        
+                        return (
+                          <div key={index} className="relative">
+                            <OrderCard 
+                              order={order}
+                              onUpdate={(updatedOrder) => handleUpdateOrder(originalIndex, updatedOrder)}
+                              onSave={async (orderToSave) => handleSaveOrder(originalIndex, orderToSave)}
+                              isPreliminary={true}
+                            />
+                            
+                            {order.status !== 'saved' && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={() => handleDeleteOrder(originalIndex)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Eliminar
+                              </Button>
+                            )}
+                            
+                            {order.pickupLocation && (
+                              <Badge 
+                                className="absolute top-2 right-20 bg-primary/20 text-primary-foreground hover:bg-primary/30 border-0"
+                              >
+                                <MapPin size={12} className="mr-1" />
+                                Retiro: {order.pickupLocation}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         )}
       </div>

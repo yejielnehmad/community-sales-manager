@@ -129,15 +129,15 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
   };
 
   const hasUncertainItems = order.items.some(item => item.status === 'duda');
-  const shouldShowCard = isPreliminary ? (hasUncertainItems || order.client.matchConfidence !== 'alto') : true;
-
-  // Si no se debe mostrar la tarjeta, no renderizar nada
-  if (!shouldShowCard) {
-    return null;
-  }
   
+  // Ya no filtramos las tarjetas, mostramos todas independientemente de si tienen problemas o no
   return (
-    <Card className="mb-2 overflow-hidden transition-all duration-200 hover:shadow-md rounded-xl shadow-sm relative border-amber-200">
+    <Card className={cn(
+      "mb-2 overflow-hidden transition-all duration-200 hover:shadow-md rounded-xl shadow-sm relative",
+      hasUncertainItems || order.client.matchConfidence !== 'alto' 
+        ? "border-amber-200" 
+        : "border-green-200"
+    )}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full text-left">
           <div className="p-4 flex flex-row items-center justify-between">
@@ -341,10 +341,10 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                 )}
               </Button>
             )}
-            {isPreliminary && order.status !== 'saved' && !hasUncertainItems && (
+            {isPreliminary && order.status !== 'saved' && (
               <Button 
                 onClick={handleSaveOrder}
-                disabled={isSaving}
+                disabled={isSaving || hasUncertainItems}
                 className="transition-all duration-200 hover:scale-105"
               >
                 {isSaving ? (
@@ -352,7 +352,7 @@ export const OrderCard = ({ order, onUpdate, onSave, isPreliminary = false }: Or
                 ) : (
                   <>
                     <Check size={16} className="mr-1" />
-                    Confirmar Pedido
+                    Guardar Pedido
                   </>
                 )}
               </Button>
