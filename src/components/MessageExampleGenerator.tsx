@@ -20,46 +20,44 @@ interface MessageExampleGeneratorProps {
 
 export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [examples, setExamples] = useState<string>("");
+  const [example, setExample] = useState<string>("");
   const [isCopied, setIsCopied] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
     try {
-      const generatedExamples = await generateMultipleExamples(5);
-      setExamples(generatedExamples);
+      // Ahora generamos un solo ejemplo
+      const generatedExample = await generateMultipleExamples();
+      setExample(generatedExample);
     } catch (error) {
-      console.error("Error al generar ejemplos:", error);
-      setAlertMessage("No se pudieron generar los ejemplos. Por favor, intenta nuevamente.");
+      console.error("Error al generar ejemplo:", error);
+      setAlertMessage("No se pudo generar el ejemplo. Por favor, intenta nuevamente.");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(examples);
+    navigator.clipboard.writeText(example);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
     
-    setAlertMessage("Ejemplos copiados al portapapeles");
+    setAlertMessage("Ejemplo copiado al portapapeles");
   };
 
-  const handleUseExample = (example: string) => {
+  const handleUseExample = () => {
     onSelectExample(example);
     
     setAlertMessage("El ejemplo ha sido cargado en el campo de mensaje");
   };
-
-  // Dividir los ejemplos en un array
-  const examplesList = examples ? examples.split("\n\n---\n\n") : [];
 
   return (
     <Card className="w-full mb-4">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-500" />
-          Ejemplos de mensajes
+          Ejemplo de mensaje
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -83,7 +81,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
             )}
           </Button>
           
-          {examples && (
+          {example && (
             <Button 
               onClick={handleCopyToClipboard}
               variant="ghost"
@@ -98,48 +96,45 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
               ) : (
                 <>
                   <Copy className="h-4 w-4" />
-                  Copiar todo
+                  Copiar
                 </>
               )}
             </Button>
           )}
         </div>
         
-        {!examples && !isGenerating && (
+        {!example && !isGenerating && (
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm text-muted-foreground">
-              Haz clic en "Generar con IA" para crear ejemplos de mensajes de clientes basados en la información de tu negocio.
+              Haz clic en "Generar con IA" para crear un ejemplo de mensaje de cliente basado en formato simplificado.
             </p>
           </div>
         )}
         
-        <div className="space-y-3">
-          {examplesList.length > 0 && examplesList.map((example, index) => (
-            <div 
-              key={index} 
-              className="p-3 border rounded-md transition-all duration-200 hover:bg-muted/30 hover:shadow-sm"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-sm font-medium flex items-center gap-1">
-                  <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">
-                    {index + 1}
-                  </span>
-                  Ejemplo 
+        {example && (
+          <div 
+            className="p-3 border rounded-md transition-all duration-200 hover:bg-muted/30 hover:shadow-sm"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-sm font-medium flex items-center gap-1">
+                <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">
+                  1
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6"
-                  onClick={() => handleUseExample(example)}
-                >
-                  Usar este
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">{example}</p>
+                Ejemplo 
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6"
+                onClick={() => handleUseExample()}
+              >
+                Usar este
+              </Button>
             </div>
-          ))}
-        </div>
+            <p className="text-sm text-muted-foreground">{example}</p>
+          </div>
+        )}
       </CardContent>
 
       {/* Diálogo para mensajes de alerta */}
