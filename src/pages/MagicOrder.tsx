@@ -50,7 +50,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.9
+ * v1.0.10
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -124,14 +124,15 @@ const MagicOrder = () => {
     const duration = 8000; // 8 segundos para el análisis simulado
     const interval = 20; // actualizar cada 20ms
     let currentStep = 0;
+    const totalSteps = 400; // Total pasos para completar la simulación (8000ms / 20ms = 400 pasos)
     
     const timer = setInterval(() => {
       currentStep++;
       // Función sigmoide para que sea más lento al principio y al final
-      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - steps/2)));
+      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - totalSteps/2)));
       setProgress(progressValue);
       
-      if (currentStep >= steps) {
+      if (currentStep >= totalSteps) {
         clearInterval(timer);
       }
     }, interval);
