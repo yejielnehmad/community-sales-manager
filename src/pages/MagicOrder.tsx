@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,8 @@ import {
   RefreshCcw,
   User,
   Package,
-  HelpCircle
+  HelpCircle,
+  InfoIcon
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
@@ -48,7 +50,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.6
+ * v1.0.7
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -62,6 +64,7 @@ const MagicOrder = () => {
   const [isSavingAllOrders, setIsSavingAllOrders] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Cargar clientes y productos al iniciar
@@ -141,6 +144,7 @@ const MagicOrder = () => {
     }
 
     setIsAnalyzing(true);
+    setUnmatchedNames([]);
     const stopSimulation = simulateProgress();
 
     try {
@@ -168,6 +172,39 @@ const MagicOrder = () => {
       
       setProgress(100);
       
+      // Extraer nombres no reconocidos para mostrar una alerta
+      const namesNotInDB: string[] = [];
+      
+      // Procesar resultados para detectar posibles nombres no reconocidos
+      const messageWords = message.toLowerCase().split(/\s+/);
+      const clientNamesLower = clients.map(c => c.name.toLowerCase());
+      
+      // Verificar palabras que podrían ser nombres pero no están en la BD
+      const potentialNames = messageWords.filter(word => 
+        word.length > 2 && 
+        !word.match(/^\d+$/) && // No es un número
+        !clientNamesLower.some(name => name.includes(word)) && // No está en ningún nombre de cliente
+        !products.some(p => p.name.toLowerCase().includes(word)) // No está en ningún nombre de producto
+      );
+      
+      if (potentialNames.length > 0) {
+        // Filtrar nombres que ya están en los resultados
+        const resultsNames = results.map(r => r.client.name.toLowerCase());
+        const possibleMissedNames = potentialNames.filter(name => 
+          !resultsNames.some(resultName => resultName.includes(name))
+        );
+        
+        if (possibleMissedNames.length > 0) {
+          setUnmatchedNames(possibleMissedNames);
+          
+          toast({
+            title: "Nombres no reconocidos",
+            description: `Estos nombres no fueron identificados como clientes: ${possibleMissedNames.join(", ")}`,
+            variant: "warning"
+          });
+        }
+      }
+      
       const newOrders = results.map(result => ({
         client: {
           ...result.client,
@@ -184,14 +221,7 @@ const MagicOrder = () => {
       }));
       
       setOrders(prevOrders => [...prevOrders, ...newOrders]);
-      
       setMessage("");
-      
-      const ordersWithIssues = newOrders.filter(order => 
-        order.items.some(item => item.status === 'duda') || 
-        order.client.matchConfidence !== 'alto'
-      );
-      
       setShowOrderSummary(true);
       
     } catch (error) {
@@ -574,6 +604,33 @@ const MagicOrder = () => {
             </div>
           </CardFooter>
         </Card>
+
+        {/* Mostrar nombres no reconocidos */}
+        {unmatchedNames.length > 0 && (
+          <Card className="bg-amber-50 border-amber-200">
+            <CardHeader className="py-3">
+              <CardTitle className="text-amber-800 text-base flex items-center gap-2">
+                <InfoIcon className="h-4 w-4" />
+                Posibles nombres no reconocidos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-0">
+              <p className="text-amber-700 text-sm mb-2">
+                Estos nombres no fueron reconocidos como clientes existentes:
+              </p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {unmatchedNames.map((name, i) => (
+                  <Badge key={i} variant="outline" className="bg-white text-amber-700 border-amber-300">
+                    {name}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-xs text-amber-600 italic">
+                Si alguno debería ser un cliente, asegúrate de agregarlo a la base de datos.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {orders.length > 0 && (
           <div className="space-y-4">

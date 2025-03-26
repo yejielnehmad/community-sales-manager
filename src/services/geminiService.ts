@@ -26,7 +26,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.6:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.7:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -153,6 +153,9 @@ export const analyzeCustomerMessage = async (
     // Obtenemos datos de la BD para darle contexto al modelo
     const dbContext = await fetchDatabaseContext();
     
+    // Extraemos todos los nombres de clientes para verificación posterior
+    const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
+    
     // Creamos el contexto para el prompt
     const productsContext = dbContext.products.map(p => {
       const variantsText = p.variants && p.variants.length 
@@ -197,16 +200,21 @@ export const analyzeCustomerMessage = async (
     INSTRUCCIONES:
     1. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
     2. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
-    3. Identifica los productos solicitados con cantidades.
-    4. Si se menciona una variante específica, asóciala con el producto correspondiente, aunque no se haya mencionado el producto explícitamente.
-    5. Si hay ambigüedad, incertidumbre o información faltante (cliente no identificado, producto no identificado, 
+    3. Si un nombre no coincide con ningún cliente en la base de datos y está sin productos asociados, inclúyelo con matchConfidence "desconocido" para que la interfaz lo marque.
+    4. Identifica los productos solicitados con cantidades.
+    5. Si se menciona una variante específica, asóciala con el producto correspondiente, aunque no se haya mencionado el producto explícitamente.
+    6. Si hay ambigüedad, incertidumbre o información faltante (cliente no identificado, producto no identificado, 
        variante no especificada, cantidad no mencionada), marca como "duda".
-    6. NO asumas información que no está explícita en el mensaje. Si falta información, marca como "duda".
-    7. Las respuestas suelen ser muy cortas y pueden contener: nombre del cliente, cantidad, producto, y a veces una expresión de agradecimiento (esto último ignóralo).
-    8. Adapta tu análisis al estilo informal de los mensajes, que pueden estar mal escritos, sin puntuación o con palabras incompletas.
-    9. Por ejemplo, mensajes como "shelo 3 maples" o "4 pavita para moshi gracias" son muy comunes.
-    10. Cada línea del mensaje puede referirse a un pedido diferente de un cliente diferente.
-    
+    7. NO asumas información que no está explícita en el mensaje. Si falta información, marca como "duda".
+    8. Las respuestas suelen ser muy cortas y pueden contener: nombre del cliente, cantidad, producto, y a veces una expresión de agradecimiento (esto último ignóralo).
+    9. Adapta tu análisis al estilo informal de los mensajes, que pueden estar mal escritos, sin puntuación o con palabras incompletas.
+    10. Por ejemplo, mensajes como "shelo 3 maples" o "4 pavita para moshi gracias" son muy comunes.
+    11. Cada línea del mensaje puede referirse a un pedido diferente de un cliente diferente.
+    12. Cuando aparece un nombre que no coincide con ningún cliente, evalúa en el contexto si podría ser:
+       a) Un cliente no registrado (márquelo con matchConfidence "desconocido")
+       b) Un producto mal escrito (intenta asociarlo)
+       c) Una parte del mensaje sin relevancia
+       
     Mensaje del cliente a analizar: "${message}"
     
     Responde SOLAMENTE en formato JSON con esta estructura exacta:
@@ -215,7 +223,7 @@ export const analyzeCustomerMessage = async (
         "client": {
           "id": "ID del cliente si lo encontraste exactamente",
           "name": "Nombre del cliente",
-          "matchConfidence": "alto|medio|bajo"
+          "matchConfidence": "alto|medio|bajo|desconocido"
         },
         "items": [
           {
@@ -237,7 +245,8 @@ export const analyzeCustomerMessage = async (
             ],
             "notes": "Notas o dudas sobre este ítem"
           }
-        ]
+        ],
+        "unmatchedText": "Texto que no pudiste asociar a un cliente o producto conocido"
       }
     ]
     `;
@@ -265,7 +274,20 @@ export const analyzeCustomerMessage = async (
         });
       }
       
-      return parsedResult;
+      // Procesamos los resultados para filtrar los nombres desconocidos
+      const processedResult = parsedResult.filter(result => {
+        // Si el cliente tiene confianza "desconocido" y no tiene productos, lo excluimos
+        if (result.client.matchConfidence === "desconocido" && 
+            (!result.items || result.items.length === 0 || 
+             result.items.every(item => !item.product.id))) {
+          // Añadimos a unmatchedNames para mostrar en la interfaz
+          console.log(`Nombre no reconocido: ${result.client.name}`);
+          return false;
+        }
+        return true;
+      });
+      
+      return processedResult;
     } catch (parseError: any) {
       console.error("Error al analizar JSON:", parseError, "Texto recibido:", jsonText);
       throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {

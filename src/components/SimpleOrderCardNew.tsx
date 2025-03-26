@@ -26,7 +26,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.0
+ * v1.0.1
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -44,10 +44,21 @@ export const SimpleOrderCardNew = ({
   
   // Preparamos el mensaje de duda principal
   const mainIssue = order.items.find(item => item.status === 'duda');
-  const issueMessage = mainIssue?.notes || 
-    (mainIssue?.product?.name 
-      ? `¿Qué variante de ${mainIssue.product.name}?` 
-      : "Requiere confirmación");
+  let issueMessage = "";
+  
+  if (mainIssue) {
+    if (!mainIssue.product.id) {
+      issueMessage = "¿Qué producto pidió?";
+    } else if (mainIssue.product.name && !mainIssue.variant?.id) {
+      issueMessage = `¿Qué variante de ${mainIssue.product.name} pidió ${order.client.name}?`;
+    } else if (!mainIssue.quantity) {
+      issueMessage = `¿Qué cantidad de ${mainIssue.product.name} pidió ${order.client.name}?`;
+    } else {
+      issueMessage = mainIssue.notes || "Requiere confirmación";
+    }
+  } else {
+    issueMessage = hasClientProblem ? "Cliente no identificado" : "Pedido completo";
+  }
 
   // Handler para actualizar cliente
   const handleClientUpdate = (clientId: string) => {
