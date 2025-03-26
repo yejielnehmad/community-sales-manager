@@ -154,6 +154,6 @@ export function useSwipe(options: SwipeOptions = {}) {
     resetSwipe,
     getMouseProps,
     getTouchProps,
-    isActive: isActiveRef.current || swipeX !== 0
+    isActive: isActiveRef.current
   };
 }

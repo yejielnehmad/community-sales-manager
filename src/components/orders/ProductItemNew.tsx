@@ -53,8 +53,8 @@ export const ProductItemNew = ({
   const currentQuantity = productQuantities[productKey] || product.quantity;
   const elRef = useRef<HTMLDivElement>(null);
   
-  // Usar nuestro custom hook para el swipe
-  const { swipeX, resetSwipe, getMouseProps, getTouchProps } = useSwipe({
+  // Hook de swipe con optimizaciones para rendimiento
+  const { swipeX, resetSwipe, getMouseProps, getTouchProps, isActive } = useSwipe({
     maxSwipe: -70,
     disabled: isPaid || isEditing, // Deshabilitar swipe si está pagado o editando
     onSwipeEnd: (completed) => {
@@ -154,7 +154,7 @@ export const ProductItemNew = ({
                   ${isPaid ? 'bg-green-50 border-green-100' : ''}`}
         style={{ 
           transform: `translateX(${isEditing ? 0 : swipeX}px)`,
-          transition: 'transform 0.3s ease-out',
+          transition: isActive ? 'none' : 'transform 0.3s ease-out', // Eliminar transición durante el arrastre activo para mejor rendimiento
           height: '100%',
           position: 'relative',
           zIndex: isEditing ? 20 : (swipeX === 0 ? 10 : 5),

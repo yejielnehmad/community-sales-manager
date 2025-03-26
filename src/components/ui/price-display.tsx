@@ -4,16 +4,20 @@ import { formatPrice } from "@/lib/format";
 interface PriceDisplayProps {
   value: number | string;
   className?: string;
+  /**
+   * Si es true, no mostrará el prefijo "$"
+   */
+  noPrefix?: boolean;
 }
 
 /**
  * Componente para mostrar precios formateados con puntos como separadores de miles
- * v1.0.2
+ * v1.0.3
  */
-export function PriceDisplay({ value, className = "" }: PriceDisplayProps) {
+export function PriceDisplay({ value, className = "", noPrefix = false }: PriceDisplayProps) {
   return (
     <span className={className}>
-      {formatPrice(value)}
+      {noPrefix ? formatPrice(value).replace('$', '') : formatPrice(value)}
     </span>
   );
 }
