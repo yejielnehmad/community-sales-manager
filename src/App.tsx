@@ -5,6 +5,7 @@ import Clients from "./pages/Clients";
 import Products from "./pages/Products";
 import Orders from "./pages/Orders";
 import MagicOrder from "./pages/MagicOrder";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Messages from "./pages/Messages";
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/orders" element={<Orders />} />
             <Route path="/magic-order" element={<MagicOrder />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/product-details/:productId" element={<ProductDetails />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

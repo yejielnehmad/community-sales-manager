@@ -17,6 +17,83 @@ export class GeminiError extends Error {
   }
 }
 
+// Prompt para análisis de pedidos - versión por defecto
+export const DEFAULT_ANALYSIS_PROMPT = `
+Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada línea puede ser un pedido distinto.
+Múltiples mensajes deben ser tratados como pedidos separados.
+
+CONTEXTO (productos y clientes existentes en la base de datos):
+
+PRODUCTOS:
+{productsContext}
+
+CLIENTES:
+{clientsContext}
+
+INSTRUCCIONES IMPORTANTES:
+1. Debes devolver ÚNICAMENTE un array JSON válido. NO incluyas explicaciones, comentarios ni texto adicional.
+2. Tu respuesta DEBE ser un array JSON que cumpla exactamente con el esquema indicado.
+3. No incluyas caracteres de markdown como \`\`\` alrededor del JSON.
+4. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
+5. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
+6. Si un nombre no coincide con ningún cliente y está sin productos asociados, inclúyelo con matchConfidence "desconocido".
+7. Identifica los productos solicitados con cantidades.
+8. Si hay ambigüedad o información faltante, marca como "duda".
+9. Las respuestas suelen ser muy cortas y contener: nombre del cliente, cantidad y producto.
+10. Adapta tu análisis al estilo informal de los mensajes (pueden estar mal escritos o abreviados).
+
+Mensaje a analizar: "{messageText}"
+
+Responde EXCLUSIVAMENTE con un array JSON válido con esta estructura:
+[
+  {
+    "client": {
+      "id": "ID del cliente o null",
+      "name": "Nombre del cliente",
+      "matchConfidence": "alto|medio|bajo|desconocido"
+    },
+    "items": [
+      {
+        "product": {
+          "id": "ID del producto o null",
+          "name": "Nombre del producto"
+        },
+        "quantity": número,
+        "variant": {
+          "id": "ID de la variante o null",
+          "name": "Nombre de la variante"
+        },
+        "status": "confirmado|duda",
+        "alternatives": [],
+        "notes": "Notas o dudas sobre este ítem"
+      }
+    ],
+    "unmatchedText": "Texto no asociado a cliente o producto"
+  }
+]`;
+
+// Variable para almacenar el prompt personalizado
+let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+
+// Función para establecer un prompt personalizado
+export const setCustomAnalysisPrompt = (prompt: string) => {
+  if (!prompt || prompt.trim() === '') {
+    currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+    return;
+  }
+  currentAnalysisPrompt = prompt;
+};
+
+// Función para obtener el prompt actual
+export const getCurrentAnalysisPrompt = () => {
+  return currentAnalysisPrompt;
+};
+
+// Función para restablecer el prompt por defecto
+export const resetAnalysisPrompt = () => {
+  currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+};
+
 /**
  * Función para realizar peticiones a la API de Google Gemini
  */
@@ -26,7 +103,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.10:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.11:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -208,59 +285,11 @@ export const analyzeCustomerMessage = async (
           `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
         ).join('\n');
         
-        const prompt = `
-        Analiza este mensaje de un cliente o varios clientes y extrae pedidos. Cada línea puede ser un pedido distinto.
-        Múltiples mensajes deben ser tratados como pedidos separados.
-        
-        CONTEXTO (productos y clientes existentes en la base de datos):
-        
-        PRODUCTOS:
-        ${productsContext}
-        
-        CLIENTES:
-        ${clientsContext}
-        
-        INSTRUCCIONES IMPORTANTES:
-        1. Debes devolver ÚNICAMENTE un array JSON válido. NO incluyas explicaciones, comentarios ni texto adicional.
-        2. Tu respuesta DEBE ser un array JSON que cumpla exactamente con el esquema indicado.
-        3. No incluyas caracteres de markdown como \`\`\` alrededor del JSON.
-        4. SIEMPRE debes devolver tarjetas de pedidos, incluso si la información está incompleta.
-        5. Identifica el cliente para cada pedido. Si no existe exactamente, busca el más similar.
-        6. Si un nombre no coincide con ningún cliente y está sin productos asociados, inclúyelo con matchConfidence "desconocido".
-        7. Identifica los productos solicitados con cantidades.
-        8. Si hay ambigüedad o información faltante, marca como "duda".
-        9. Las respuestas suelen ser muy cortas y contener: nombre del cliente, cantidad y producto.
-        10. Adapta tu análisis al estilo informal de los mensajes (pueden estar mal escritos o abreviados).
-        
-        Mensaje a analizar: "${message}"
-        
-        Responde EXCLUSIVAMENTE con un array JSON válido con esta estructura:
-        [
-          {
-            "client": {
-              "id": "ID del cliente o null",
-              "name": "Nombre del cliente",
-              "matchConfidence": "alto|medio|bajo|desconocido"
-            },
-            "items": [
-              {
-                "product": {
-                  "id": "ID del producto o null",
-                  "name": "Nombre del producto"
-                },
-                "quantity": número,
-                "variant": {
-                  "id": "ID de la variante o null",
-                  "name": "Nombre de la variante"
-                },
-                "status": "confirmado|duda",
-                "alternatives": [],
-                "notes": "Notas o dudas sobre este ítem"
-              }
-            ],
-            "unmatchedText": "Texto no asociado a cliente o producto"
-          }
-        ]`;
+        // Obtener el prompt personalizado y reemplazar placeholders
+        let prompt = currentAnalysisPrompt
+          .replace('{productsContext}', productsContext)
+          .replace('{clientsContext}', clientsContext)
+          .replace('{messageText}', message);
         
         const responseText = await callGeminiAPI(prompt);
         let jsonText = extractJsonFromResponse(responseText);
