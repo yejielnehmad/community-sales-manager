@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -102,7 +101,7 @@ const SimpleOrderCard = ({
         client: {
           id: selectedClient.id,
           name: selectedClient.name,
-          matchConfidence: 'alto'
+          matchConfidence: 'alto' as 'alto' | 'medio' | 'bajo'
         }
       };
       onUpdate(updatedOrder);
@@ -125,7 +124,7 @@ const SimpleOrderCard = ({
           name: selectedProduct.name,
           price: selectedProduct.price
         },
-        status: hasVariants && !updatedItems[itemIndex].variant?.id ? 'duda' : 'confirmado',
+        status: hasVariants && !updatedItems[itemIndex].variant?.id ? 'duda' as const : 'confirmado' as const,
         notes: hasVariants && !updatedItems[itemIndex].variant?.id ? 
           "Falta seleccionar una variante" : 
           updatedItems[itemIndex].notes
@@ -187,12 +186,12 @@ const SimpleOrderCard = ({
     const updatedItems = [...order.items, {
       product: { name: "Seleccionar producto" },
       quantity: 1,
-      status: 'duda'
+      status: 'duda' as const
     }];
     
     const updatedOrder = {
       ...order,
-      items: updatedItems
+      items: updatedItems as MessageItem[]
     };
     onUpdate(updatedOrder);
   };
@@ -375,7 +374,7 @@ const SimpleOrderCard = ({
 
 /**
  * Página Mensaje Mágico
- * v1.0.4
+ * v1.0.5
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -496,7 +495,10 @@ const MagicOrder = () => {
       setProgress(100);
       
       const newOrders = results.map(result => ({
-        client: result.client,
+        client: {
+          ...result.client,
+          matchConfidence: result.client.matchConfidence as 'alto' | 'medio' | 'bajo'
+        },
         items: result.items || [],
         isPaid: false,
         status: 'pending' as const
