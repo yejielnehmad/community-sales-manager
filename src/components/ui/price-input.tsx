@@ -10,6 +10,7 @@ interface PriceInputProps extends Omit<React.ComponentProps<typeof Input>, 'onCh
 
 /**
  * Input para precios que formatea automáticamente con puntos mientras se escribe
+ * Versión 1.0.2
  */
 export function PriceInput({ value, onChange, className, ...props }: PriceInputProps) {
   const [displayValue, setDisplayValue] = useState<string>("");

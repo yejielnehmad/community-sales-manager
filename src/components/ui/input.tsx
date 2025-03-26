@@ -10,7 +10,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
       ? { 
           step: props.step || "1", 
           min: props.min || "0", 
-          inputMode: "numeric", 
+          inputMode: "numeric" as React.InputHTMLAttributes<HTMLInputElement>["inputMode"], 
           pattern: "[0-9]*",
           ...props 
         }
