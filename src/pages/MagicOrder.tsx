@@ -50,7 +50,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.10
+ * v1.0.7
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -65,7 +65,6 @@ const MagicOrder = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
-  const [lastJsonResponse, setLastJsonResponse] = useState<string>("");
   const { toast } = useToast();
 
   // Cargar clientes y productos al iniciar
@@ -108,31 +107,26 @@ const MagicOrder = () => {
         }
       } catch (error) {
         console.error("Error al cargar datos de contexto:", error);
-        toast({
-          title: "Error al cargar datos",
-          description: "No se pudieron cargar los productos y clientes",
-          variant: "destructive"
-        });
       }
     };
     
     loadContextData();
-  }, [toast]);
+  }, []);
   
   const simulateProgress = () => {
     setProgress(0);
     const duration = 8000; // 8 segundos para el análisis simulado
     const interval = 20; // actualizar cada 20ms
+    const steps = duration / interval;
     let currentStep = 0;
-    const totalSteps = 400; // Total pasos para completar la simulación (8000ms / 20ms = 400 pasos)
     
     const timer = setInterval(() => {
       currentStep++;
       // Función sigmoide para que sea más lento al principio y al final
-      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - totalSteps/2)));
+      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - steps/2)));
       setProgress(progressValue);
       
-      if (currentStep >= totalSteps) {
+      if (currentStep >= steps) {
         clearInterval(timer);
       }
     }, interval);
@@ -151,7 +145,6 @@ const MagicOrder = () => {
 
     setIsAnalyzing(true);
     setUnmatchedNames([]);
-    setLastJsonResponse("");
     const stopSimulation = simulateProgress();
 
     try {
@@ -163,28 +156,15 @@ const MagicOrder = () => {
         
         if (error instanceof GeminiError && 
             error.message && 
-            (error.message.includes("JSON") || error.message.includes("position"))) {
+            error.message.includes("JSON")) {
           
-          // Guardar la respuesta JSON para depuración
-          if (error.apiResponse) {
-            setLastJsonResponse(typeof error.apiResponse === 'string' 
-              ? error.apiResponse 
-              : JSON.stringify(error.apiResponse, null, 2));
-          }
-          
-          // Intenta limpiar el mensaje y volver a intentarlo
           const cleanedMessage = message
             .replace(/[\u2018\u2019]/g, "'")
             .replace(/[\u201C\u201D]/g, '"')
             .replace(/\n+/g, ' ')
             .trim();
             
-          try {
-            results = await analyzeCustomerMessage(cleanedMessage);
-          } catch (secondError) {
-            // Si sigue fallando, lanzar el error original
-            throw error;
-          }
+          results = await analyzeCustomerMessage(cleanedMessage);
         } else {
           throw error;
         }
@@ -229,7 +209,7 @@ const MagicOrder = () => {
         client: {
           ...result.client,
           // Aseguramos que matchConfidence sea uno de los valores permitidos
-          matchConfidence: (result.client.matchConfidence as 'alto' | 'medio' | 'bajo' | 'desconocido') || 'bajo'
+          matchConfidence: (result.client.matchConfidence as 'alto' | 'medio' | 'bajo') || 'bajo'
         },
         items: result.items.map(item => ({
           ...item,
@@ -237,8 +217,7 @@ const MagicOrder = () => {
           status: (item.status as 'duda' | 'confirmado') || 'duda'
         })) || [],
         isPaid: false,
-        status: 'pending' as const,
-        pickupLocation: result.pickupLocation
+        status: 'pending' as const
       }));
       
       setOrders(prevOrders => [...prevOrders, ...newOrders]);
@@ -256,11 +235,6 @@ const MagicOrder = () => {
           errorMessage = `Error HTTP ${error.status}: ${error.message}`;
         } else if (error.apiResponse) {
           errorMessage = `Error en la respuesta de la API: ${error.message}`;
-          
-          // Guardar la respuesta JSON para depuración
-          setLastJsonResponse(typeof error.apiResponse === 'string' 
-            ? error.apiResponse 
-            : JSON.stringify(error.apiResponse, null, 2));
         } else {
           errorMessage = error.message;
         }
@@ -312,11 +286,6 @@ const MagicOrder = () => {
       console.log('Intentando guardar el pedido:', order);
       
       if (!order.client.id) {
-        toast({
-          title: "Error al guardar",
-          description: "El pedido no tiene un cliente asignado",
-          variant: "destructive"
-        });
         return false;
       }
 
@@ -336,18 +305,12 @@ const MagicOrder = () => {
       }
       
       if (hasInvalidItems) {
-        toast({
-          title: "Error al guardar",
-          description: "El pedido tiene productos inválidos o sin identificar",
-          variant: "destructive"
-        });
         return false;
       }
 
       // Incluir ubicación de recogida si existe
       const metadata = order.pickupLocation ? { pickupLocation: order.pickupLocation } : undefined;
 
-      // Primero crear la orden
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -365,18 +328,9 @@ const MagicOrder = () => {
         .single();
 
       if (orderError) {
-        console.error("Error al crear orden:", orderError);
-        toast({
-          title: "Error al crear orden",
-          description: orderError.message,
-          variant: "destructive"
-        });
         throw orderError;
       }
 
-      console.log("Orden creada con ID:", newOrder.id);
-
-      // Luego crear los items de la orden
       const orderItems = order.items.map(item => ({
         order_id: newOrder.id,
         product_id: item.product.id!,
@@ -384,7 +338,6 @@ const MagicOrder = () => {
         quantity: item.quantity,
         price: item.variant?.price || item.product.price || 0,
         total: item.quantity * (item.variant?.price || item.product.price || 0),
-        is_paid: order.isPaid,
         notes: item.notes
       }));
 
@@ -393,12 +346,6 @@ const MagicOrder = () => {
         .insert(orderItems);
 
       if (itemsError) {
-        console.error("Error al crear items de orden:", itemsError);
-        toast({
-          title: "Error al guardar productos",
-          description: itemsError.message,
-          variant: "destructive"
-        });
         throw itemsError;
       }
 
@@ -410,17 +357,11 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
       
-      toast({
-        title: "Pedido guardado",
-        description: `Pedido para ${order.client.name} guardado correctamente`,
-        variant: "success"
-      });
-      
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
       setAlertMessage({
-        title: "Error al guardar",
+        title: "Error",
         message: error.message || "Error al guardar el pedido"
       });
       return false;
@@ -686,29 +627,6 @@ const MagicOrder = () => {
               </div>
               <p className="text-xs text-amber-600 italic">
                 Si alguno debería ser un cliente, asegúrate de agregarlo a la base de datos.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Mostrar respuesta JSON para depuración */}
-        {lastJsonResponse && (
-          <Card className="bg-red-50 border-red-200">
-            <CardHeader className="py-3">
-              <CardTitle className="text-red-800 text-base flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Error en la respuesta de la API
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="py-0">
-              <p className="text-red-700 text-sm mb-2">
-                Hubo un error al procesar la respuesta de la IA. Esto puede ayudar a identificar el problema:
-              </p>
-              <div className="bg-white p-3 rounded border border-red-200 overflow-auto text-xs text-red-900 font-mono max-h-40">
-                {lastJsonResponse}
-              </div>
-              <p className="text-xs text-red-600 italic mt-2">
-                Intenta con un mensaje más simple o contacta con soporte si el problema persiste.
               </p>
             </CardContent>
           </Card>
