@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -70,7 +69,7 @@ import { APP_VERSION } from "@/lib/app-config";
 
 /**
  * Página Mensaje Mágico
- * v1.0.35
+ * v1.0.37
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -131,7 +130,7 @@ const MagicOrder = () => {
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
-  
+
   // Guardar estado en localStorage cuando cambie
   useEffect(() => {
     localStorage.setItem('magicOrder_message', message);
@@ -177,7 +176,6 @@ const MagicOrder = () => {
     }
   }, [phase3Response]);
   
-  // Verificar si existen datos en local storage y cargar desde la base de datos solo si no hay datos locales
   useEffect(() => {
     const loadContextData = async () => {
       // Solo cargar datos si no hay ya datos en localStorage
@@ -553,7 +551,6 @@ const MagicOrder = () => {
       setProgressStage(`¡Pedidos guardados!`);
       
       if (successCount > 0) {
-        // Limpiar la sección después de guardar correctamente
         resetMagicOrderSection(successCount, errorCount);
       } else if (errorCount > 0) {
         setAlertMessage({
@@ -576,13 +573,10 @@ const MagicOrder = () => {
     }
   };
   
-  // Función para restablecer la sección después de guardar
   const resetMagicOrderSection = (successCount: number, errorCount: number = 0) => {
-    // Guardar solo los pedidos que no se guardaron correctamente
-    const remainingOrders = orders.filter(order => order.status !== 'saved');
-    setOrders(remainingOrders);
+    setOrders([]);
+    localStorage.removeItem('magicOrder_orders');
     
-    // Limpiar respuestas de análisis
     setPhase1Response(null);
     setPhase2Response(null);
     setPhase3Response(null);
@@ -590,7 +584,10 @@ const MagicOrder = () => {
     localStorage.removeItem('magicOrder_phase2Response');
     localStorage.removeItem('magicOrder_phase3Response');
     
-    // Mostrar mensaje de éxito
+    setMessage("");
+    setAnalysisError(null);
+    setRawJsonResponse(null);
+    
     setAlertMessage({
       title: "Pedidos guardados",
       message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
@@ -626,7 +623,6 @@ const MagicOrder = () => {
   
   const handleResetAllOrders = () => {
     setOrders([]);
-    // Limpiar respuestas de análisis
     setPhase1Response(null);
     setPhase2Response(null);
     setPhase3Response(null);

@@ -10,7 +10,7 @@ import {
   Info,
   X,
   ExternalLink
-} from "lucide-react";
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
