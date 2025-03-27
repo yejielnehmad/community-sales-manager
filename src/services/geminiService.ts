@@ -1,7 +1,8 @@
 
-import { OPENROUTER_API_KEY } from "@/lib/api-config";
+import { OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
+import { logDebug, logError } from "@/lib/debug-utils";
 
 export class GeminiError extends Error {
   status?: number;
@@ -112,14 +113,20 @@ export const resetAnalysisPrompt = () => {
  */
 export const callGeminiAPI = async (prompt: string): Promise<string> => {
   if (!OPENROUTER_API_KEY) {
+    logError("API", "API Key de OpenRouter no configurada");
     throw new GeminiError("API Key de OpenRouter no configurada");
   }
 
   try {
-    console.log("Enviando petición a OpenRouter API v1.0.17 (Claude 3 Haiku):", prompt.substring(0, 100) + "...");
+    // Usar endpoint desde la configuración
+    const endpoint = OPENROUTER_ENDPOINT || "https://openrouter.ai/api/v1/chat/completions";
+    
+    logDebug("API", `Enviando petición a OpenRouter API v1.0.18 (Claude 3 Haiku): ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Usando endpoint: ${endpoint}`);
+    logDebug("API", `API Key (primeros 10 caracteres): ${OPENROUTER_API_KEY.substring(0, 10)}...`);
     
     const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
+      endpoint,
       {
         method: "POST",
         headers: {
@@ -143,10 +150,10 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     );
 
     const responseText = await response.text();
-    console.log("Respuesta raw de OpenRouter:", responseText.substring(0, 200) + "...");
+    logDebug("API", `Respuesta raw de OpenRouter: ${responseText.substring(0, 200)}...`);
     
     if (!response.ok) {
-      console.error("Error en respuesta HTTP:", response.status, response.statusText, responseText);
+      logError("API", `Error en respuesta HTTP: ${response.status} ${response.statusText}`, responseText);
       throw new GeminiError(`Error HTTP: ${response.status} ${response.statusText}`, {
         status: response.status,
         statusText: response.statusText,
@@ -159,17 +166,17 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     try {
       data = JSON.parse(responseText);
     } catch (parseError) {
-      console.error("Error al parsear respuesta de OpenRouter:", parseError, responseText);
+      logError("API", `Error al parsear respuesta de OpenRouter:`, parseError);
       throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
         apiResponse: parseError,
         rawJsonResponse: responseText
       });
     }
 
-    console.log("Respuesta de OpenRouter (resumida):", JSON.stringify(data).substring(0, 200) + "...");
+    logDebug("API", `Respuesta de OpenRouter (resumida): ${JSON.stringify(data).substring(0, 200)}...`);
 
     if (data.error) {
-      console.error("Error devuelto por la API de OpenRouter:", data.error);
+      logError("API", `Error devuelto por la API de OpenRouter:`, data.error);
       throw new GeminiError(`Error de la API de OpenRouter: ${data.error.message || "Error desconocido"}`, {
         apiResponse: data.error,
         rawJsonResponse: responseText
@@ -177,7 +184,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     }
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-      console.error("Respuesta completa con formato incorrecto:", JSON.stringify(data, null, 2));
+      logError("API", `Respuesta completa con formato incorrecto:`, data);
       throw new GeminiError("Formato de respuesta inesperado de la API de OpenRouter", {
         apiResponse: data,
         rawJsonResponse: responseText
@@ -185,14 +192,14 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     }
 
     const resultText = data.choices[0].message.content;
-    console.log("Texto de respuesta:", resultText.substring(0, 200) + "...");
+    logDebug("API", `Texto de respuesta: ${resultText.substring(0, 200)}...`);
     
     return resultText;
   } catch (error) {
     if (error instanceof GeminiError) {
       throw error;
     }
-    console.error("Error inesperado al llamar a OpenRouter API:", error);
+    logError("API", `Error inesperado al llamar a OpenRouter API:`, error);
     throw new GeminiError(`Error al conectar con OpenRouter API: ${(error as Error).message}`);
   }
 };
