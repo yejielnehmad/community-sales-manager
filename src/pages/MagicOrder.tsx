@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -60,7 +59,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Creamos un nuevo contexto para gestionar el estado global de análisis
 const ANALYSIS_KEY = 'magicOrder_analysisState';
 const ORDER_SAVED_KEY = 'magicOrder_ordersSaved';
 
@@ -69,7 +67,6 @@ const ORDER_SAVED_KEY = 'magicOrder_ordersSaved';
  * v1.0.37
  */
 const MagicOrder = () => {
-  // Recuperar estado del localStorage al cargar la página
   const [message, setMessage] = useState(() => {
     const savedMessage = localStorage.getItem('magicOrder_message');
     return savedMessage || "";
@@ -146,21 +143,17 @@ const MagicOrder = () => {
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
   
-  // Control del mensaje para analizar (persiste mientras se esté analizando)
   const messageToAnalyze = useRef<string>(() => {
     const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
     return savedAnalysisState ? JSON.parse(savedAnalysisState).messageToAnalyze : "";
-  });
+  }());
   
-  // Abortador para cancelar el análisis
   const abortControllerRef = useRef<AbortController | null>(null);
   
-  // Guardar estado en localStorage cuando cambie
   useEffect(() => {
     localStorage.setItem('magicOrder_message', message);
   }, [message]);
   
-  // Persistir el estado del análisis
   useEffect(() => {
     const analysisState = {
       isAnalyzing,
@@ -172,8 +165,6 @@ const MagicOrder = () => {
     };
     localStorage.setItem(ANALYSIS_KEY, JSON.stringify(analysisState));
     
-    // Notificar a otros componentes del cambio en el estado de análisis
-    // para cambiar el color de la insignia de IA
     const event = new CustomEvent('analysisStateChange', { 
       detail: { isAnalyzing } 
     });
@@ -222,60 +213,53 @@ const MagicOrder = () => {
     }
   }, [phase3Response]);
   
-  // Verificar si existen datos en local storage y cargar desde la base de datos solo si no hay datos locales
   useEffect(() => {
-    const loadContextData = async () => {
-      // Solo cargar datos si no hay ya datos en localStorage
-      if (clients.length === 0 || products.length === 0) {
-        setIsLoadingData(true);
-        try {
-          const { data: clientsData, error: clientsError } = await supabase
-            .from('clients')
-            .select('id, name, phone');
+    if (clients.length === 0 || products.length === 0) {
+      setIsLoadingData(true);
+      try {
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clients')
+          .select('id, name, phone');
+        
+        if (clientsError) throw new Error(clientsError.message);
+        if (clientsData && clientsData.length > 0) setClients(clientsData);
+        
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
+          .select('id, name, price, description');
+        
+        if (productsError) throw new Error(productsError.message);
+        
+        if (productsData && productsData.length > 0) {
+          const { data: variantsData, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('id, product_id, name, price');
           
-          if (clientsError) throw new Error(clientsError.message);
-          if (clientsData && clientsData.length > 0) setClients(clientsData);
+          if (variantsError) throw new Error(variantsError.message);
           
-          const { data: productsData, error: productsError } = await supabase
-            .from('products')
-            .select('id, name, price, description');
-          
-          if (productsError) throw new Error(productsError.message);
-          
-          if (productsData && productsData.length > 0) {
-            const { data: variantsData, error: variantsError } = await supabase
-              .from('product_variants')
-              .select('id, product_id, name, price');
-            
-            if (variantsError) throw new Error(variantsError.message);
-            
-            const productsWithVariants = productsData.map(product => {
-              const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
-              return {
-                ...product,
-                variants: productVariants
-              };
-            });
-            
-            setProducts(productsWithVariants);
-          }
-        } catch (error) {
-          console.error("Error al cargar datos de contexto:", error);
-          toast({
-            title: "Error al cargar datos",
-            description: "No se pudieron cargar todos los productos y clientes",
-            variant: "destructive"
+          const productsWithVariants = productsData.map(product => {
+            const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
+            return {
+              ...product,
+              variants: productVariants
+            };
           });
-        } finally {
-          setIsLoadingData(false);
+          
+          setProducts(productsWithVariants);
         }
+      } catch (error) {
+        console.error("Error al cargar datos de contexto:", error);
+        toast({
+          title: "Error al cargar datos",
+          description: "No se pudieron cargar todos los productos y clientes",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingData(false);
       }
-    };
-    
-    loadContextData();
+    }
   }, [toast, clients.length, products.length]);
 
-  // Verificar si hay un análisis en curso al cargar la página y continuarlo
   useEffect(() => {
     if (isAnalyzing) {
       const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
@@ -317,7 +301,6 @@ const MagicOrder = () => {
       return;
     }
 
-    // Crear un nuevo AbortController para este análisis
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
@@ -331,13 +314,11 @@ const MagicOrder = () => {
     try {
       setUseTwoPhasesAnalysis(true);
       
-      // Verificamos si se canceló el análisis
       if (signal.aborted) {
         throw new Error("Análisis cancelado por el usuario");
       }
       
       const result = await analyzeCustomerMessage(messageContent, (progressValue) => {
-        // Si se canceló el análisis, no actualizamos el progreso
         if (signal.aborted) return;
         
         let stage = "";
@@ -359,7 +340,6 @@ const MagicOrder = () => {
         updateProgress(progressValue, stage);
       });
       
-      // Verificamos nuevamente si se canceló el análisis
       if (signal.aborted) {
         throw new Error("Análisis cancelado por el usuario");
       }
@@ -411,14 +391,12 @@ const MagicOrder = () => {
         });
       }
       
-      // Limpiamos el análisis en curso
       messageToAnalyze.current = "";
       setIsAnalyzing(false);
       
     } catch (error) {
       console.error("Error al analizar el mensaje:", error);
       
-      // Si fue cancelado por el usuario, no mostramos errores
       if (signal.aborted) {
         return;
       }
@@ -473,7 +451,6 @@ const MagicOrder = () => {
       return;
     }
 
-    // Guardar el mensaje actual para análisis continuo si se cierra la página
     messageToAnalyze.current = message;
     handleAnalyzeMessageContinue(message);
   };
@@ -602,7 +579,6 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
       
-      // Marcar el pedido como guardado en el localStorage
       const savedOrderIds = JSON.parse(localStorage.getItem(ORDER_SAVED_KEY) || '[]');
       savedOrderIds.push(newOrder.id);
       localStorage.setItem(ORDER_SAVED_KEY, JSON.stringify(savedOrderIds));
@@ -674,7 +650,6 @@ const MagicOrder = () => {
           message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
         });
         
-        // Eliminar todos los pedidos guardados
         const savedOrderIds = JSON.parse(localStorage.getItem(ORDER_SAVED_KEY) || '[]');
         
         const remainingOrders = orders.filter(order => 
@@ -794,7 +769,6 @@ const MagicOrder = () => {
     }, {} as Record<string, { clientName: string, orders: OrderCardType[], indices: number[] }>);
   }, [orders]);
 
-  // Verificar si algún pedido tiene cualquier duda
   const hasAnyOrderWithDoubts = orders.some(order => 
     order.items.some(item => item.status === 'duda')
   );
