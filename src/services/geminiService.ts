@@ -24,10 +24,8 @@ export class GeminiError extends Error {
   }
 }
 
-// Exportamos GeminiError también como AIServiceError para mantener compatibilidad
 export { GeminiError as AIServiceError };
 
-// Prompt para análisis de pedidos - versión por defecto
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea puede contener un pedido distinto. Múltiples mensajes deben ser tratados como pedidos separados.
 
 CONTEXTO (productos y clientes existentes en la base de datos):
@@ -85,10 +83,8 @@ Devuelve únicamente un array JSON con esta estructura:
   }
 ]`;
 
-// Variable para almacenar el prompt personalizado
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 
-// Función para establecer un prompt personalizado
 export const setCustomAnalysisPrompt = (prompt: string) => {
   if (!prompt || prompt.trim() === '') {
     currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
@@ -97,12 +93,10 @@ export const setCustomAnalysisPrompt = (prompt: string) => {
   currentAnalysisPrompt = prompt;
 };
 
-// Función para obtener el prompt actual
 export const getCurrentAnalysisPrompt = () => {
   return currentAnalysisPrompt;
 };
 
-// Función para restablecer el prompt por defecto
 export const resetAnalysisPrompt = () => {
   currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 };
@@ -122,7 +116,13 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     
     logDebug("API", `Enviando petición a Cohere API v1.0.19: ${prompt.substring(0, 100)}...`);
     logDebug("API", `Usando endpoint: ${endpoint}`);
-    logDebug("API", `API Key (primeros 10 caracteres): ${COHERE_API_KEY.substring(0, 10)}...`);
+    
+    // Solo mostramos la parte inicial de la API key si tiene suficiente longitud
+    if (COHERE_API_KEY && COHERE_API_KEY.length > 10) {
+      logDebug("API", `API Key (primeros 10 caracteres): ${COHERE_API_KEY.substring(0, 10)}...`);
+    } else {
+      logDebug("API", "API Key presente pero es demasiado corta para mostrar");
+    }
     
     const response = await fetch(
       endpoint,
@@ -197,35 +197,25 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 };
 
-/**
- * Función para limpiar y extraer JSON de la respuesta
- */
 const extractJsonFromResponse = (text: string): string => {
-  // Eliminar posibles comentarios y marcadores de código
   let jsonText = text.trim();
   
-  // Eliminar backticks y marcadores de código
   if (jsonText.includes("```")) {
-    // Extraer contenido entre los primeros backticks
     const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match && match[1]) {
       jsonText = match[1].trim();
     } else {
-      // Si no podemos extraer correctamente, intentamos quitar todos los backticks
       jsonText = jsonText.replace(/```(?:json)?|```/g, "").trim();
     }
   }
   
-  // Eliminar caracteres problemáticos
   jsonText = jsonText
-    .replace(/[\u2018\u2019]/g, "'") // Reemplazar comillas simples tipográficas
-    .replace(/[\u201C\u201D]/g, '"') // Reemplazar comillas dobles tipográficas
-    .replace(/\n+/g, ' ') // Reemplazar saltos de línea múltiples por espacio
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\n+/g, ' ')
     .trim();
   
-  // Verificar si el texto empieza y termina con corchetes para array JSON
   if (!jsonText.startsWith('[') || !jsonText.endsWith(']')) {
-    // Intentar encontrar el array JSON dentro del texto
     const arrayMatch = jsonText.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (arrayMatch) {
       jsonText = arrayMatch[0];
@@ -235,9 +225,6 @@ const extractJsonFromResponse = (text: string): string => {
   return jsonText;
 };
 
-/**
- * Función para obtener productos y clientes de la base de datos
- */
 export const fetchDatabaseContext = async () => {
   const { data: products, error: productsError } = await supabase
     .from('products')
@@ -280,16 +267,12 @@ export const fetchDatabaseContext = async () => {
   };
 };
 
-/**
- * Función específica para analizar mensajes de clientes con contexto de la base de datos
- */
 export const analyzeCustomerMessage = async (
   message: string
 ): Promise<MessageAnalysis[]> => {
   try {
     console.log("Analizando mensaje...");
     
-    // Intentar hasta 3 veces en caso de error
     let attempts = 0;
     const maxAttempts = 3;
     let lastError: GeminiError | null = null;
@@ -302,7 +285,6 @@ export const analyzeCustomerMessage = async (
         
         const dbContext = await fetchDatabaseContext();
         
-        // Preparar el contexto para el prompt
         const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
         
         const productsContext = dbContext.products.map(p => {
@@ -317,7 +299,6 @@ export const analyzeCustomerMessage = async (
           `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
         ).join('\n');
         
-        // Obtener el prompt personalizado y reemplazar placeholders
         let prompt = currentAnalysisPrompt
           .replace('{productsContext}', productsContext)
           .replace('{clientsContext}', clientsContext)
@@ -330,7 +311,6 @@ export const analyzeCustomerMessage = async (
         lastJsonResponse = jsonText;
         
         try {
-          // Intentar analizar el JSON
           const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
           console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
           
@@ -338,19 +318,15 @@ export const analyzeCustomerMessage = async (
             throw new Error("El formato de los datos analizados no es válido (no es un array)");
           }
           
-          // Filtrar resultados inválidos
           const processedResult = parsedResult.filter(result => {
-            // Asegurarse de que hay un cliente válido
             if (!result.client || typeof result.client !== 'object') {
               return false;
             }
             
-            // Asegurarse de que items es un array
             if (!Array.isArray(result.items)) {
               result.items = [];
             }
             
-            // Filtrar elementos que son solo nombres no reconocidos sin productos
             if (result.client.matchConfidence === "desconocido" && 
                 (!result.items || result.items.length === 0 || 
                  result.items.every(item => !item.product.id))) {
@@ -366,13 +342,11 @@ export const analyzeCustomerMessage = async (
           console.error("Error al analizar JSON (intento #" + attempts + "):", parseError);
           console.error("Texto JSON recibido:", jsonText);
           
-          // Guardamos el error para devolver en caso de fallo total
           lastError = new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
             apiResponse: parseError,
             rawJsonResponse: jsonText
           });
           
-          // Si no es el último intento, intentamos de nuevo
           if (attempts < maxAttempts) {
             console.log("Reintentando análisis con formato mejorado...");
             continue;
@@ -381,7 +355,6 @@ export const analyzeCustomerMessage = async (
           throw lastError;
         }
       } catch (attemptError: any) {
-        // Capturar el error y la respuesta JSON para devolverla en caso de fallo total
         if (attemptError instanceof GeminiError) {
           lastError = attemptError;
         } else {
@@ -390,22 +363,18 @@ export const analyzeCustomerMessage = async (
           });
         }
         
-        // Si es el último intento, propagamos el error
         if (attempts >= maxAttempts) {
           throw lastError;
         }
         
         console.log(`Error en intento #${attempts}, reintentando...`, attemptError);
-        // Esperar un segundo antes de reintentar
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
-    // Este código no debería ejecutarse, pero por si acaso
     throw new GeminiError("Error al analizar el mensaje después de múltiples intentos", {
       rawJsonResponse: lastJsonResponse || "No disponible"
     });
-    
   } catch (error) {
     console.error("Error final en analyzeCustomerMessage:", error);
     if (error instanceof GeminiError) {
@@ -415,9 +384,6 @@ export const analyzeCustomerMessage = async (
   }
 };
 
-/**
- * Función para interactuar con el asistente virtual
- */
 export const chatWithAssistant = async (
   message: string, 
   appContext: {

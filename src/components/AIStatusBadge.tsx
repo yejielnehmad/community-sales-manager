@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { COHERE_API_KEY, COHERE_ENDPOINT, API_CONFIG_UPDATED } from "@/lib/api-config";
@@ -62,7 +61,13 @@ export const AIStatusBadge = () => {
       
       const endpoint = COHERE_ENDPOINT || "https://api.cohere.ai/v1/chat";
       logDebug("AIStatus", `Usando endpoint: ${endpoint}`);
-      logDebug("AIStatus", `API Key (primeros 10 caracteres): ${COHERE_API_KEY.substring(0, 10)}...`);
+      
+      // Solo mostramos la parte inicial de la API key si está configurada
+      if (COHERE_API_KEY && COHERE_API_KEY.length > 10) {
+        logDebug("AIStatus", `API Key (primeros 10 caracteres): ${COHERE_API_KEY.substring(0, 10)}...`);
+      } else {
+        logDebug("AIStatus", "API Key configurada pero es demasiado corta");
+      }
       
       const response = await fetch(
         endpoint,
