@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.10
+ * v1.0.11
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -296,14 +296,15 @@ const MagicOrder = () => {
         let totalOrder = 0;
 
         for (const item of order.items) {
-          const product = products.find(p => p.name === item.name);
+          const product = products.find(p => p.name === item.product?.name);
           if (!product) {
-            console.warn(`Producto no encontrado: ${item.name}`);
+            console.warn(`Producto no encontrado: ${item.product?.name}`);
             continue;
           }
 
           const itemPrice = product.price || 0;
-          totalOrder += itemPrice * item.quantity;
+          const itemTotal = itemPrice * item.quantity;
+          totalOrder += itemTotal;
 
           const { error: orderItemError } = await supabase
             .from('order_items')
@@ -311,7 +312,8 @@ const MagicOrder = () => {
               order_id: newOrder.id,
               product_id: product.id,
               quantity: item.quantity,
-              price: itemPrice
+              price: itemPrice,
+              total: itemTotal
             });
 
           if (orderItemError) {
@@ -348,7 +350,7 @@ const MagicOrder = () => {
     }
   };
 
-  const handleUpdateOrderStatus = async (index: number, status: 'pending' | 'processing' | 'completed' | 'cancelled') => {
+  const handleUpdateOrderStatus = async (index: number, status: 'pending' | 'saved') => {
     setOrders(prevOrders => {
       const newOrders = [...prevOrders];
       newOrders[index] = { ...newOrders[index], status: status };

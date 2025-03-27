@@ -1,4 +1,3 @@
-
 export interface MessageItem {
   product: {
     id?: string;
