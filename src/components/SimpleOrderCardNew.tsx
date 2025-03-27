@@ -1,3 +1,4 @@
+
 import { HelpCircle, Check, AlertCircle, ChevronDown, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,17 +19,14 @@ interface SimpleOrderCardProps {
   order: OrderCardType;
   clients: any[];
   products: any[];
-  onUpdate?: (updatedOrder: OrderCardType) => void;
+  onUpdate: (updatedOrder: OrderCardType) => void;
   index: number;
   onDelete: () => void;
-  onUpdateStatus?: (status: 'pending' | 'saved') => void;
-  onUpdateIsPaid?: (isPaid: boolean) => void;
-  onUpdateOrderItemStatus?: (itemIndex: number, status: 'duda' | 'confirmado') => void;
 }
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.2
+ * v1.0.1
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -36,15 +34,12 @@ export const SimpleOrderCardNew = ({
   products, 
   onUpdate, 
   index,
-  onDelete,
-  onUpdateStatus,
-  onUpdateIsPaid,
-  onUpdateOrderItemStatus
+  onDelete
 }: SimpleOrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Verificamos si hay información faltante
-  const hasMissingInfo = !order.client.id || order.items.some(item => !item.product?.id || item.status === 'duda' || !item.quantity);
+  const hasMissingInfo = !order.client.id || order.items.some(item => !item.product.id || item.status === 'duda' || !item.quantity);
   const hasClientProblem = !order.client.id || order.client.matchConfidence !== 'alto';
   
   // Preparamos el mensaje de duda principal
@@ -52,12 +47,12 @@ export const SimpleOrderCardNew = ({
   let issueMessage = "";
   
   if (mainIssue) {
-    if (!mainIssue.product?.id) {
+    if (!mainIssue.product.id) {
       issueMessage = "¿Qué producto pidió?";
-    } else if (mainIssue.product?.name && !mainIssue.variant?.id) {
+    } else if (mainIssue.product.name && !mainIssue.variant?.id) {
       issueMessage = `¿Qué variante de ${mainIssue.product.name} pidió ${order.client.name}?`;
     } else if (!mainIssue.quantity) {
-      issueMessage = `¿Qué cantidad de ${mainIssue.product?.name} pidió ${order.client.name}?`;
+      issueMessage = `¿Qué cantidad de ${mainIssue.product.name} pidió ${order.client.name}?`;
     } else {
       issueMessage = mainIssue.notes || "Requiere confirmación";
     }
@@ -77,7 +72,7 @@ export const SimpleOrderCardNew = ({
           matchConfidence: 'alto' as 'alto' | 'medio' | 'bajo'
         }
       };
-      onUpdate?.(updatedOrder);
+      onUpdate(updatedOrder);
     }
   };
   
@@ -105,14 +100,14 @@ export const SimpleOrderCardNew = ({
         ...order,
         items: updatedItems
       };
-      onUpdate?.(updatedOrder);
+      onUpdate(updatedOrder);
     }
   };
   
   // Handler para actualizar variante
   const handleVariantUpdate = (itemIndex: number, variantId: string) => {
     const item = order.items[itemIndex];
-    const itemProduct = item.product?.id ? products.find(p => p.id === item.product?.id) : null;
+    const itemProduct = item.product.id ? products.find(p => p.id === item.product.id) : null;
     
     if (itemProduct && itemProduct.variants) {
       const selectedVariant = itemProduct.variants.find(v => v.id === variantId);
@@ -132,7 +127,7 @@ export const SimpleOrderCardNew = ({
           ...order,
           items: updatedItems
         };
-        onUpdate?.(updatedOrder);
+        onUpdate(updatedOrder);
       }
     } else {
       // Búsqueda de la variante en todos los productos
@@ -161,7 +156,7 @@ export const SimpleOrderCardNew = ({
               ...order,
               items: updatedItems
             };
-            onUpdate?.(updatedOrder);
+            onUpdate(updatedOrder);
             break;
           }
         }
@@ -175,8 +170,8 @@ export const SimpleOrderCardNew = ({
     updatedItems[itemIndex] = {
       ...updatedItems[itemIndex],
       quantity,
-      status: updatedItems[itemIndex].product?.id ? 
-        (updatedItems[itemIndex].product?.id && !updatedItems[itemIndex].variant?.id ? 'duda' as const : 'confirmado' as const) 
+      status: updatedItems[itemIndex].product.id ? 
+        (updatedItems[itemIndex].product.id && !updatedItems[itemIndex].variant?.id ? 'duda' as const : 'confirmado' as const) 
         : 'duda' as const
     };
     
@@ -184,7 +179,7 @@ export const SimpleOrderCardNew = ({
       ...order,
       items: updatedItems
     };
-    onUpdate?.(updatedOrder);
+    onUpdate(updatedOrder);
   };
   
   return (
@@ -243,8 +238,8 @@ export const SimpleOrderCardNew = ({
         <CollapsibleContent>
           <div className="p-3 space-y-3">
             {order.items.map((item, itemIndex) => {
-              const hasProductIssue = !item.product?.id || item.status === 'duda';
-              const itemProduct = item.product?.id ? products.find(p => p.id === item.product?.id) : null;
+              const hasProductIssue = !item.product.id || item.status === 'duda';
+              const itemProduct = item.product.id ? products.find(p => p.id === item.product.id) : null;
               const hasVariants = itemProduct?.variants && itemProduct.variants.length > 0;
               const hasVariantIssue = hasVariants && !item.variant?.id;
               const hasQuantityIssue = !item.quantity;
@@ -256,7 +251,7 @@ export const SimpleOrderCardNew = ({
                 )}>
                   <div className="flex justify-between items-center">
                     {/* Selección de producto */}
-                    {!item.product?.id ? (
+                    {!item.product.id ? (
                       <div className="flex-1">
                         <Select onValueChange={(value) => handleProductUpdate(itemIndex, value)}>
                           <SelectTrigger className="w-[200px] h-8 border-amber-300 bg-amber-50 text-amber-800">
@@ -320,7 +315,7 @@ export const SimpleOrderCardNew = ({
                     )}
                     
                     {/* Estado */}
-                    {item.product?.id && (
+                    {item.product.id && (
                       <Badge variant={hasVariantIssue || hasQuantityIssue ? "outline" : "secondary"} 
                         className={cn(
                           hasVariantIssue || hasQuantityIssue 

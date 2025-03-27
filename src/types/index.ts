@@ -35,7 +35,6 @@ export interface MessageAnalysis {
   client: MessageClient;
   items: MessageItem[];
   pickupLocation?: string;
-  unmatchedText?: string;
 }
 
 export interface Order {

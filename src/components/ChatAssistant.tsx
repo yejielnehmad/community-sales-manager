@@ -7,8 +7,8 @@ import { MessageSquare, SendIcon, Loader2, X, AlertTriangle, Brain } from "lucid
 import { toast } from "@/hooks/use-toast";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { supabase } from "@/lib/supabase";
-import { callOpenRouterAPI, chatWithAssistant } from "@/services/geminiService";
-import { OPENROUTER_API_KEY } from "@/lib/api-config";
+import { callGeminiAPI, chatWithAssistant } from "@/services/geminiService";
+import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { Progress } from "@/components/ui/progress";
 
 type Message = {
@@ -68,14 +68,14 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   useEffect(() => {
     // Verificar si la API está disponible
     const checkApiAvailability = async () => {
-      if (!OPENROUTER_API_KEY) {
+      if (!GOOGLE_API_KEY) {
         setIsApiAvailable(false);
         return;
       }
       
       try {
         // Hacemos una prueba simple
-        await callOpenRouterAPI("Responde con 'ok'");
+        await callGeminiAPI("Responde con 'ok'");
         setIsApiAvailable(true);
       } catch (error) {
         console.error("Error al verificar disponibilidad de API:", error);
@@ -154,7 +154,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
           const assistantMessage: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: "Lo siento, el servicio de asistente IA no está disponible en este momento. Por favor, verifica tu conexión o la configuración de la API de OpenRouter.",
+            content: "Lo siento, el servicio de asistente IA no está disponible en este momento. Por favor, verifica tu conexión o la configuración de la API de Google Gemini.",
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, assistantMessage]);
@@ -190,7 +190,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         currentDateTime: new Date().toISOString()
       };
       
-      // Llamar a la API de OpenRouter
+      // Llamar a la API de Gemini
       try {
         const aiResponse = await chatWithAssistant(inputMessage, appContext);
         setProgress(100);
@@ -282,7 +282,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
                       <p className="font-medium">Servicio no disponible</p>
                     </div>
                     <p className="text-sm">
-                      El asistente por IA no está disponible en este momento. Por favor, verifica la configuración de la API de OpenRouter.
+                      El asistente por IA no está disponible en este momento. Por favor, verifica la configuración de la API de Google Gemini.
                     </p>
                   </div>
                 )}

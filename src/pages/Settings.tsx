@@ -6,16 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Settings2, Wand, RefreshCcw, Save, PlusCircle, Cpu } from 'lucide-react';
+import { Settings2, Wand, RefreshCcw, Save, PlusCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { 
   DEFAULT_ANALYSIS_PROMPT, 
   getCurrentAnalysisPrompt, 
   setCustomAnalysisPrompt, 
-  resetAnalysisPrompt
+  resetAnalysisPrompt 
 } from "@/services/geminiService";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 
 const Settings = () => {
   const [currentTab, setCurrentTab] = useState("ia");
@@ -81,30 +79,6 @@ const Settings = () => {
           </TabsList>
           
           <TabsContent value="ia" className="space-y-4 pt-4">
-            {/* Información sobre el modelo IA */}
-            <Card className="rounded-xl shadow-sm overflow-hidden">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5 text-primary" />
-                  Modelo de IA
-                </CardTitle>
-                <CardDescription>
-                  Modelo de inteligencia artificial para el análisis de mensajes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2 rounded-md border p-3">
-                  <div className="flex-1 font-medium">
-                    Claude 3 Haiku (OpenRouter)
-                    <p className="text-sm font-normal text-muted-foreground">Anthropic Claude 3 Haiku vía OpenRouter</p>
-                    <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border-green-200">
-                      Activo
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
             <Card className="rounded-xl shadow-sm overflow-hidden">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
