@@ -28,7 +28,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.3
+ * v1.0.37
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -239,7 +239,7 @@ export const SimpleOrderCardNew = ({
       item.notes?.toLowerCase().includes('cuántos') ||
       item.notes?.toLowerCase().includes('cuántas');
 
-    if (isQuantityIssue) {
+    if (isQuantityIssue || !item.quantity) {
       return (
         <div className="mt-2">
           <div className="text-xs font-medium mb-1 text-amber-700">
