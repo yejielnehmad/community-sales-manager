@@ -1,4 +1,3 @@
-
 import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -9,12 +8,16 @@ export class GeminiError extends Error {
   statusText?: string;
   apiResponse?: any;
   rawJsonResponse?: string;
+  phase1Response?: string;
+  phase2Response?: string;
   
   constructor(message: string, details?: { 
     status?: number, 
     statusText?: string, 
     apiResponse?: any,
-    rawJsonResponse?: string 
+    rawJsonResponse?: string,
+    phase1Response?: string,
+    phase2Response?: string
   }) {
     super(message);
     this.name = "GeminiError";
@@ -22,6 +25,8 @@ export class GeminiError extends Error {
     this.statusText = details?.statusText;
     this.apiResponse = details?.apiResponse;
     this.rawJsonResponse = details?.rawJsonResponse;
+    this.phase1Response = details?.phase1Response;
+    this.phase2Response = details?.phase2Response;
   }
 }
 
@@ -363,7 +368,7 @@ export const analyzeTwoPhases = async (
   message: string,
   dbContext: any,
   onProgress?: (progress: number) => void
-): Promise<MessageAnalysis[]> => {
+): Promise<{result: MessageAnalysis[], phase1Response: string, phase2Response: string}> => {
   try {
     console.log("Analizando mensaje en dos fases...");
     onProgress?.(10);
@@ -430,14 +435,20 @@ export const analyzeTwoPhases = async (
         return true;
       });
       
-      return processedResult;
+      return {
+        result: processedResult,
+        phase1Response,
+        phase2Response: jsonText
+      };
     } catch (parseError: any) {
       console.error("Error al analizar JSON:", parseError);
       console.error("Texto JSON recibido:", jsonText);
       
       throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
         apiResponse: parseError,
-        rawJsonResponse: jsonText
+        rawJsonResponse: jsonText,
+        phase1Response,
+        phase2Response
       });
     }
   } catch (error) {
@@ -452,7 +463,7 @@ export const analyzeTwoPhases = async (
 export const analyzeCustomerMessage = async (
   message: string, 
   onProgress?: (progress: number) => void
-): Promise<MessageAnalysis[]> => {
+): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string}> => {
   try {
     console.log("Analizando mensaje...");
     
@@ -469,7 +480,12 @@ export const analyzeCustomerMessage = async (
     // Si está activado el análisis en dos fases, usamos ese método
     if (useNewTwoPhasesAnalysis) {
       console.log("Usando el nuevo método de análisis en dos fases");
-      return await analyzeTwoPhases(message, dbContext, onProgress);
+      const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+      return {
+        result: twoPhaseResult.result,
+        phase1Response: twoPhaseResult.phase1Response,
+        phase2Response: twoPhaseResult.phase2Response
+      };
     }
     
     // Método original de un solo paso
@@ -538,14 +554,20 @@ export const analyzeCustomerMessage = async (
             return true;
           });
           
-          return processedResult;
+          return {
+            result: processedResult,
+            phase1Response: prompt,
+            phase2Response: responseText
+          };
         } catch (parseError: any) {
           console.error("Error al analizar JSON (intento #" + attempts + "):", parseError);
           console.error("Texto JSON recibido:", jsonText);
           
           lastError = new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
             apiResponse: parseError,
-            rawJsonResponse: jsonText
+            rawJsonResponse: jsonText,
+            phase1Response: prompt,
+            phase2Response: responseText
           });
           
           if (attempts < maxAttempts) {

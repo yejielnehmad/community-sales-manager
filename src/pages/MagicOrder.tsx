@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,9 @@ import {
   User,
   Package,
   HelpCircle,
-  InfoIcon
+  InfoIcon,
+  FileText,
+  Code
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError, getUseTwoPhasesAnalysis, setUseTwoPhasesAnalysis } from "@/services/geminiService";
@@ -47,10 +48,19 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { SimpleOrderCardNew } from "@/components/SimpleOrderCardNew";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Página Mensaje Mágico
- * v1.0.28
+ * v1.0.29
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -68,14 +78,16 @@ const MagicOrder = () => {
   const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [progressStage, setProgressStage] = useState<string>("");
+  const [phase1Response, setPhase1Response] = useState<string | null>(null);
+  const [phase2Response, setPhase2Response] = useState<string | null>(null);
+  const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
+  const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
 
-  // Cargar clientes y productos al iniciar
   useEffect(() => {
     const loadContextData = async () => {
       setIsLoadingData(true);
       try {
-        // Cargar clientes
         const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
           .select('id, name, phone');
@@ -83,7 +95,6 @@ const MagicOrder = () => {
         if (clientsError) throw new Error(clientsError.message);
         if (clientsData) setClients(clientsData);
         
-        // Cargar productos con variantes
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('id, name, price, description');
@@ -91,14 +102,12 @@ const MagicOrder = () => {
         if (productsError) throw new Error(productsError.message);
         
         if (productsData) {
-          // Cargar variantes
           const { data: variantsData, error: variantsError } = await supabase
             .from('product_variants')
             .select('id, product_id, name, price');
           
           if (variantsError) throw new Error(variantsError.message);
           
-          // Combinar productos con sus variantes
           const productsWithVariants = productsData.map(product => {
             const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
             return {
@@ -123,8 +132,7 @@ const MagicOrder = () => {
     
     loadContextData();
   }, [toast]);
-  
-  // Función para actualizar el progreso con mensaje
+
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
     if (stage) setProgressStage(stage);
@@ -142,15 +150,15 @@ const MagicOrder = () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
     setRawJsonResponse(null);
+    setPhase1Response(null);
+    setPhase2Response(null);
     setProgress(5);
     setProgressStage("Preparando análisis en dos fases...");
 
     try {
-      // Aseguramos que esté activado el análisis en dos fases
       setUseTwoPhasesAnalysis(true);
       
-      // Analizamos el mensaje con callback de progreso
-      const results = await analyzeCustomerMessage(message, (progressValue) => {
+      const result = await analyzeCustomerMessage(message, (progressValue) => {
         let stage = "";
         
         if (progressValue < 20) {
@@ -170,18 +178,24 @@ const MagicOrder = () => {
         updateProgress(progressValue, stage);
       });
       
+      if (result.phase1Response) {
+        setPhase1Response(result.phase1Response);
+      }
+      
+      if (result.phase2Response) {
+        setPhase2Response(result.phase2Response);
+      }
+      
       setProgress(100);
       setProgressStage("¡Análisis completado!");
       
-      const newOrders = results.map(result => ({
+      const newOrders = result.result.map(result => ({
         client: {
           ...result.client,
-          // Aseguramos que matchConfidence sea uno de los valores permitidos
           matchConfidence: (result.client.matchConfidence as 'alto' | 'medio' | 'bajo') || 'bajo'
         },
         items: result.items.map(item => ({
           ...item,
-          // Aseguramos que status sea uno de los valores permitidos
           status: (item.status as 'duda' | 'confirmado') || 'duda'
         })) || [],
         isPaid: false,
@@ -197,6 +211,8 @@ const MagicOrder = () => {
         setOrders(prevOrders => [...prevOrders, ...newOrders]);
         setMessage("");
         setShowOrderSummary(true);
+        
+        setShowAnalysisDialog(true);
         
         toast({
           title: "Análisis completado",
@@ -220,7 +236,13 @@ const MagicOrder = () => {
           errorMessage = error.message;
         }
         
-        // Guardamos la respuesta JSON para mostrarla
+        setPhase1Response(error.phase1Response || null);
+        setPhase2Response(error.rawJsonResponse || null);
+        
+        if (error.phase1Response || error.rawJsonResponse) {
+          setShowAnalysisDialog(true);
+        }
+        
         setRawJsonResponse(error.rawJsonResponse || "No disponible");
       } else {
         errorMessage = (error as Error).message || "Error desconocido al analizar el mensaje";
@@ -538,17 +560,31 @@ const MagicOrder = () => {
             <p className="text-muted-foreground">Analiza mensajes de clientes y crea pedidos automáticamente</p>
           </div>
           
-          {orders.length > 0 && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleResetAllOrders}
-              className="flex items-center gap-1"
-            >
-              <RefreshCcw size={16} />
-              Reiniciar pedidos mágicos
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {(phase1Response || phase2Response) && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAnalysisDialog(true)}
+                className="flex items-center gap-1"
+              >
+                <FileText size={16} />
+                Ver análisis en detalle
+              </Button>
+            )}
+            
+            {orders.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleResetAllOrders}
+                className="flex items-center gap-1"
+              >
+                <RefreshCcw size={16} />
+                Reiniciar pedidos mágicos
+              </Button>
+            )}
+          </div>
         </div>
 
         {analyzeError && (
@@ -563,7 +599,7 @@ const MagicOrder = () => {
               <p className="text-red-700 text-sm">
                 {analyzeError}
               </p>
-              {rawJsonResponse && (
+              {rawJsonResponse && !phase2Response && (
                 <div className="mt-3">
                   <p className="text-xs text-red-600 font-medium mb-1">Respuesta JSON recibida:</p>
                   <div className="bg-white border border-red-300 rounded p-2 max-h-40 overflow-auto">
@@ -574,6 +610,19 @@ const MagicOrder = () => {
               <p className="text-xs text-red-600 italic mt-2">
                 Intenta con un mensaje más simple o contacta al soporte si el problema persiste.
               </p>
+              {(phase1Response || phase2Response) && (
+                <div className="mt-3">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowAnalysisDialog(true)}
+                    className="text-xs"
+                  >
+                    <FileText size={12} className="mr-1" /> 
+                    Ver detalles del análisis
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -847,6 +896,87 @@ const MagicOrder = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Detalle del análisis en dos fases
+            </DialogTitle>
+            <DialogDescription>
+              Visualiza los resultados de cada paso del análisis para entender mejor cómo se procesó el mensaje.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Tabs value={analysisDialogTab} onValueChange={setAnalysisDialogTab} className="w-full overflow-hidden flex-1 flex flex-col">
+            <TabsList className="grid grid-cols-2 mb-2">
+              <TabsTrigger value="phase1" className="flex items-center gap-1">
+                <FileText size={14} />
+                Fase 1: Análisis del mensaje
+              </TabsTrigger>
+              <TabsTrigger value="phase2" className="flex items-center gap-1">
+                <Code size={14} />
+                Fase 2: Formato JSON
+              </TabsTrigger>
+            </TabsList>
+            
+            <div className="overflow-auto flex-1">
+              <TabsContent value="phase1" className="h-full">
+                {phase1Response ? (
+                  <div className="bg-slate-50 p-4 rounded-md border border-slate-200 overflow-auto h-full">
+                    <pre className="whitespace-pre-wrap text-sm text-slate-800 break-words">{phase1Response}</pre>
+                  </div>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No hay respuesta disponible para la primera fase.
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="phase2" className="h-full">
+                {phase2Response ? (
+                  <div className="bg-slate-50 p-4 rounded-md border border-slate-200 overflow-auto h-full">
+                    <pre className="whitespace-pre-wrap text-sm font-mono text-slate-800 break-words">{phase2Response}</pre>
+                  </div>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No hay respuesta disponible para la segunda fase.
+                  </div>
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+          
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowAnalysisDialog(false)}>
+              Cerrar
+            </Button>
+            <Button 
+              variant="default"
+              onClick={() => {
+                const textToCopy = analysisDialogTab === 'phase1' ? phase1Response : phase2Response;
+                if (textToCopy) {
+                  navigator.clipboard.writeText(textToCopy)
+                    .then(() => toast({
+                      title: "Copiado al portapapeles",
+                      description: "El texto ha sido copiado correctamente",
+                      variant: "default"
+                    }))
+                    .catch(() => toast({
+                      title: "Error al copiar",
+                      description: "No se pudo copiar el texto al portapapeles",
+                      variant: "destructive"
+                    }));
+                }
+              }}
+            >
+              <Clipboard className="h-4 w-4 mr-2" />
+              Copiar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent className="max-w-md">
