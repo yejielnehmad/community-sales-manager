@@ -7,14 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { MessageAnalysis, MessageProduct, MessageVariant } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { analyzeCustomerMessage } from "@/services/geminiService";
 
 const Messages = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<MessageAnalysis | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<MessageAnalysis[] | null>(null);
   const { toast } = useToast();
 
-  // Mock function para analizar el mensaje - eventualmente usará la API de Google
   const analyzeMessage = async () => {
     if (!message.trim()) {
       toast({
@@ -27,39 +27,29 @@ const Messages = () => {
 
     setIsAnalyzing(true);
     
-    // Simulación de llamada a la API
-    setTimeout(() => {
-      // Ejemplo de resultado de análisis (simulado)
-      const mockResult: MessageAnalysis = {
-        client: {
-          id: "temp-id-123", // Añadiendo un ID temporal
-          name: "María López"
-        },
-        items: [
-          {
-            product: {
-              name: "Pañales Talla 1"
-            },
-            quantity: 2,
-            status: "confirmado"
-          },
-          {
-            product: {
-              name: "Queso Fresco"
-            },
-            quantity: 1.5,
-            variant: {
-              id: "variant-123", // Añadiendo un ID temporal
-              name: "kg"
-            },
-            status: "confirmado"
-          }
-        ]
-      };
+    try {
+      // Llamada real a la API de Cohere a través de nuestro servicio
+      const result = await analyzeCustomerMessage(message);
+      setAnalysisResult(result);
       
-      setAnalysisResult(mockResult);
+      if (result.length === 0) {
+        toast({
+          title: "Sin resultados",
+          description: "No se pudieron identificar pedidos en el mensaje",
+          variant: "default",
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error al analizar mensaje:", error);
+      toast({
+        title: "Error al analizar",
+        description: error instanceof Error ? error.message : "Error desconocido al procesar el mensaje",
+        variant: "destructive",
+      });
+    } finally {
       setIsAnalyzing(false);
-    }, 1500);
+    }
   };
 
   const createOrder = () => {
@@ -106,7 +96,7 @@ const Messages = () => {
             </CardFooter>
           </Card>
 
-          {analysisResult && (
+          {analysisResult && analysisResult.length > 0 && (
             <Tabs defaultValue="client" className="md:col-span-2">
               <TabsList>
                 <TabsTrigger value="client">Cliente</TabsTrigger>
@@ -122,7 +112,7 @@ const Messages = () => {
                   <CardContent>
                     <div className="space-y-2">
                       <div className="font-medium">Nombre:</div>
-                      <div>{analysisResult.client?.name || "No identificado"}</div>
+                      <div>{analysisResult[0].client?.name || "No identificado"}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -135,7 +125,7 @@ const Messages = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {analysisResult.items.map((item, index) => (
+                      {analysisResult[0].items?.map((item, index) => (
                         <div key={index} className="p-3 border rounded-md">
                           <div className="font-medium">{item.product.name}</div>
                           <div className="text-sm text-muted-foreground">
@@ -160,12 +150,12 @@ const Messages = () => {
                     <div className="space-y-4">
                       <div>
                         <div className="font-medium">Cliente:</div>
-                        <div>{analysisResult.client?.name || "No identificado"}</div>
+                        <div>{analysisResult[0].client?.name || "No identificado"}</div>
                       </div>
                       <div>
                         <div className="font-medium">Productos:</div>
                         <ul className="list-disc pl-5 mt-2 space-y-1">
-                          {analysisResult.items.map((item, index) => (
+                          {analysisResult[0].items?.map((item, index) => (
                             <li key={index}>
                               {item.quantity} {item.variant ? item.variant.name : ""} de {item.product.name}
                             </li>

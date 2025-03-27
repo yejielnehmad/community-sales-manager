@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { supabase } from "@/lib/supabase";
 import { callGeminiAPI, chatWithAssistant } from "@/services/geminiService";
-import { OPENROUTER_API_KEY } from "@/lib/api-config";
+import { OPENROUTER_API_KEY, COHERE_API_KEY } from "@/lib/api-config";
 import { Progress } from "@/components/ui/progress";
 
 type Message = {
@@ -31,7 +30,6 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   const [progress, setProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Limpieza de estilos cuando se monta/desmonta el componente
   useEffect(() => {
     return () => {
       cleanupUIAfterClose();
@@ -39,12 +37,10 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   }, []);
 
   const cleanupUIAfterClose = () => {
-    // Asegurarnos que se limpie cualquier estilo que pueda estar bloqueando la interfaz
     document.body.style.overflow = '';
     document.body.style.touchAction = '';
     document.body.style.pointerEvents = '';
     
-    // Eliminar cualquier overlay o modal que siga abierto
     const overlays = document.querySelectorAll('[data-state="open"]');
     overlays.forEach((el) => {
       if (el.tagName !== 'DIALOG' && !el.closest('dialog')) {
@@ -52,10 +48,8 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
       }
     });
     
-    // Eliminar cualquier clase de bloqueo que pueda haberse quedado
     document.documentElement.classList.remove('overflow-hidden');
     
-    // Forzar un reflow para asegurar que los cambios se apliquen
     void document.documentElement.offsetHeight;
   };
 
@@ -66,15 +60,13 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   }, [messages]);
 
   useEffect(() => {
-    // Verificar si la API está disponible
     const checkApiAvailability = async () => {
-      if (!OPENROUTER_API_KEY) {
+      if (!COHERE_API_KEY) {
         setIsApiAvailable(false);
         return;
       }
       
       try {
-        // Hacemos una prueba simple
         await callGeminiAPI("Responde con 'ok'");
         setIsApiAvailable(true);
       } catch (error) {
@@ -89,19 +81,15 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   const handleClose = () => {
     setIsOpen(false);
     
-    // Limpiar inmediatamente los estilos que bloquean la interacción
     cleanupUIAfterClose();
     
-    // Asegurarnos que el onClose se ejecute después de que la animación termine
     setTimeout(() => {
       if (onClose) {
         onClose();
       }
-      // Segunda limpieza después de un tiempo para asegurar
       cleanupUIAfterClose();
     }, 300);
     
-    // Tercera limpieza después de más tiempo para casos extremos
     setTimeout(() => {
       cleanupUIAfterClose();
     }, 600);
@@ -109,14 +97,13 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
 
   const simulateProgress = () => {
     setProgress(0);
-    const duration = 6000; // tiempo estimado de respuesta
-    const interval = 20; // actualizar cada 20ms
+    const duration = 6000;
+    const interval = 20;
     const steps = duration / interval;
     let currentStep = 0;
     
     const timer = setInterval(() => {
       currentStep++;
-      // Función sigmoide para que sea más lento al principio y al final
       const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - steps/2)));
       setProgress(progressValue);
       
@@ -144,11 +131,9 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
     setInputMessage("");
     setIsLoading(true);
     
-    // Iniciar simulación de progreso
     const stopProgress = simulateProgress();
     
     try {
-      // Verificar si la API está disponible
       if (!isApiAvailable) {
         setTimeout(() => {
           const assistantMessage: Message = {
@@ -164,7 +149,6 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         return;
       }
       
-      // Obtener datos relevantes de la base de datos para contextualizar
       const [
         clientsResult,
         productsResult,
@@ -179,7 +163,6 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         supabase.from('product_variants').select('*').limit(30)
       ]);
       
-      // Preparar el contexto completo de la aplicación
       const appContext = {
         clients: clientsResult.data || [],
         products: productsResult.data || [],
@@ -190,7 +173,6 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         currentDateTime: new Date().toISOString()
       };
       
-      // Llamar a la API de Claude 3 Haiku a través de OpenRouter
       try {
         const aiResponse = await chatWithAssistant(inputMessage, appContext);
         setProgress(100);
