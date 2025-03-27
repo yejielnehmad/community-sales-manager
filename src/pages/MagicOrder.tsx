@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.26
+ * v1.0.27
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -334,8 +334,7 @@ const MagicOrder = () => {
           variant_id: item.variant?.id || null,
           quantity: item.quantity,
           price: price,
-          total: item.quantity * price,
-          notes: item.notes || null
+          total: item.quantity * price
         };
       });
 
