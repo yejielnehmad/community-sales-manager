@@ -13,6 +13,8 @@ const Messages = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<MessageAnalysis[] | null>(null);
+  const [phase1Response, setPhase1Response] = useState<string | null>(null);
+  const [phase2Response, setPhase2Response] = useState<string | null>(null);
   const { toast } = useToast();
 
   const analyzeMessage = async () => {
@@ -29,10 +31,12 @@ const Messages = () => {
     
     try {
       // Llamada real a la API de Cohere a través de nuestro servicio
-      const result = await analyzeCustomerMessage(message);
-      setAnalysisResult(result);
+      const analysisResponse = await analyzeCustomerMessage(message);
+      setAnalysisResult(analysisResponse.result);
+      setPhase1Response(analysisResponse.phase1Response || null);
+      setPhase2Response(analysisResponse.phase2Response || null);
       
-      if (result.length === 0) {
+      if (analysisResponse.result.length === 0) {
         toast({
           title: "Sin resultados",
           description: "No se pudieron identificar pedidos en el mensaje",
@@ -60,6 +64,8 @@ const Messages = () => {
     });
     setMessage("");
     setAnalysisResult(null);
+    setPhase1Response(null);
+    setPhase2Response(null);
   };
 
   return (
@@ -102,6 +108,9 @@ const Messages = () => {
                 <TabsTrigger value="client">Cliente</TabsTrigger>
                 <TabsTrigger value="products">Productos</TabsTrigger>
                 <TabsTrigger value="summary">Resumen</TabsTrigger>
+                {(phase1Response || phase2Response) && (
+                  <TabsTrigger value="debug">Fases de Análisis</TabsTrigger>
+                )}
               </TabsList>
               
               <TabsContent value="client" className="space-y-4">
@@ -171,6 +180,68 @@ const Messages = () => {
                   </CardFooter>
                 </Card>
               </TabsContent>
+              
+              {(phase1Response || phase2Response) && (
+                <TabsContent value="debug" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Fases de Análisis</CardTitle>
+                      <CardDescription>
+                        Detalles del proceso de análisis en dos fases
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-6">
+                        {phase1Response && (
+                          <div>
+                            <div className="font-medium mb-2">Fase 1: Análisis de mensaje</div>
+                            <div className="bg-gray-100 p-3 rounded-md overflow-auto max-h-60 whitespace-pre-wrap text-sm">
+                              {phase1Response}
+                            </div>
+                            <Button
+                              variant="outline" 
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => {
+                                navigator.clipboard.writeText(phase1Response);
+                                toast({
+                                  title: "Copiado",
+                                  description: "Texto de la fase 1 copiado al portapapeles",
+                                });
+                              }}
+                            >
+                              Copiar
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {phase2Response && (
+                          <div>
+                            <div className="font-medium mb-2">Fase 2: Estructuración JSON</div>
+                            <div className="bg-gray-100 p-3 rounded-md overflow-auto max-h-60 whitespace-pre-wrap text-sm">
+                              {phase2Response}
+                            </div>
+                            <Button
+                              variant="outline" 
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => {
+                                navigator.clipboard.writeText(phase2Response);
+                                toast({
+                                  title: "Copiado",
+                                  description: "Texto de la fase 2 copiado al portapapeles",
+                                });
+                              }}
+                            >
+                              Copiar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
             </Tabs>
           )}
         </div>
