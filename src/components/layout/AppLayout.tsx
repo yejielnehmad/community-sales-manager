@@ -9,7 +9,6 @@ import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { APP_VERSION } from "@/lib/app-config";
-import { AIStatusBadge } from "@/components/AIStatusBadge";
 
 export interface AppLayoutProps {
   children: React.ReactNode;
@@ -37,7 +36,6 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             </Link>
           </Button>
           <ThemeToggle />
-          <AIStatusBadge />
           <IAInfoPopover />
         </div>
         <div className="flex-1 p-6 overflow-auto">{children}</div>

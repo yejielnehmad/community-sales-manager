@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +23,7 @@ import {
   HelpCircle,
   InfoIcon,
   FileText,
-  Code,
-  StopCircle
+  Code
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { analyzeCustomerMessage, GeminiError, getUseTwoPhasesAnalysis, setUseTwoPhasesAnalysis } from "@/services/geminiService";
@@ -60,28 +58,19 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const ANALYSIS_KEY = 'magicOrder_analysisState';
-const ORDER_SAVED_KEY = 'magicOrder_ordersSaved';
-
 /**
  * Página Mensaje Mágico
- * v1.0.42
+ * v1.0.34
  */
 const MagicOrder = () => {
+  // Recuperar estado del localStorage al cargar la página
   const [message, setMessage] = useState(() => {
     const savedMessage = localStorage.getItem('magicOrder_message');
     return savedMessage || "";
   });
   
-  const [isAnalyzing, setIsAnalyzing] = useState(() => {
-    const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-    return savedAnalysisState ? JSON.parse(savedAnalysisState).isAnalyzing : false;
-  });
-  
-  const [progress, setProgress] = useState(() => {
-    const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-    return savedAnalysisState ? JSON.parse(savedAnalysisState).progress : 0;
-  });
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [progress, setProgress] = useState(0);
   
   const [orders, setOrders] = useState<OrderCardType[]>(() => {
     const savedOrders = localStorage.getItem('magicOrder_orders');
@@ -109,21 +98,10 @@ const MagicOrder = () => {
     return savedProducts ? JSON.parse(savedProducts) : [];
   });
   
-  const [analyzeError, setAnalysisError] = useState<string | null>(() => {
-    const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-    return savedAnalysisState ? JSON.parse(savedAnalysisState).error : null;
-  });
-  
-  const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(() => {
-    const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-    return savedAnalysisState ? JSON.parse(savedAnalysisState).rawJsonResponse : null;
-  });
-  
+  const [analyzeError, setAnalysisError] = useState<string | null>(null);
+  const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [progressStage, setProgressStage] = useState<string>(() => {
-    const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-    return savedAnalysisState ? JSON.parse(savedAnalysisState).progressStage : "";
-  });
+  const [progressStage, setProgressStage] = useState<string>("");
   
   const [phase1Response, setPhase1Response] = useState<string | null>(() => {
     const savedPhase1 = localStorage.getItem('magicOrder_phase1Response');
@@ -144,40 +122,14 @@ const MagicOrder = () => {
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
   
-  const messageToAnalyze = useRef<string>(
-    localStorage.getItem(ANALYSIS_KEY) 
-      ? JSON.parse(localStorage.getItem(ANALYSIS_KEY)!).messageToAnalyze || ""
-      : ""
-  );
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
-  
+  // Guardar estado en localStorage cuando cambie
   useEffect(() => {
     localStorage.setItem('magicOrder_message', message);
   }, [message]);
   
   useEffect(() => {
-    const analysisState = {
-      isAnalyzing,
-      progress,
-      progressStage,
-      error: analyzeError,
-      rawJsonResponse,
-      messageToAnalyze: messageToAnalyze.current
-    };
-    localStorage.setItem(ANALYSIS_KEY, JSON.stringify(analysisState));
-    
-    const event = new CustomEvent('analysisStateChange', { 
-      detail: { isAnalyzing } 
-    });
-    window.dispatchEvent(event);
-  }, [isAnalyzing, progress, progressStage, analyzeError, rawJsonResponse]);
-  
-  useEffect(() => {
     if (orders.length > 0) {
       localStorage.setItem('magicOrder_orders', JSON.stringify(orders));
-    } else {
-      localStorage.removeItem('magicOrder_orders');
     }
   }, [orders]);
   
@@ -215,9 +167,10 @@ const MagicOrder = () => {
     }
   }, [phase3Response]);
   
+  // Verificar si existen datos en local storage y cargar desde la base de datos solo si no hay datos locales
   useEffect(() => {
-    // Creamos una función async dentro del useEffect para poder usar await
-    const loadDatabaseData = async () => {
+    const loadContextData = async () => {
+      // Solo cargar datos si no hay ya datos en localStorage
       if (clients.length === 0 || products.length === 0) {
         setIsLoadingData(true);
         try {
@@ -264,71 +217,36 @@ const MagicOrder = () => {
       }
     };
     
-    // Ejecutamos la función async
-    loadDatabaseData();
+    loadContextData();
   }, [toast, clients.length, products.length]);
-
-  useEffect(() => {
-    if (isAnalyzing) {
-      const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-      if (savedAnalysisState) {
-        const { messageToAnalyze: savedMessage } = JSON.parse(savedAnalysisState);
-        if (savedMessage) {
-          console.log("Continuando análisis pendiente...");
-          handleAnalyzeMessageContinue(savedMessage);
-        }
-      }
-    }
-  }, []);
 
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
     if (stage) setProgressStage(stage);
   };
-  
-  const handleStopAnalysis = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    
-    setIsAnalyzing(false);
-    setProgress(0);
-    setProgressStage("");
-    messageToAnalyze.current = "";
-    
-    toast({
-      title: "Análisis cancelado",
-      description: "El proceso de análisis ha sido detenido",
-      variant: "destructive"
-    });
-  };
 
-  const handleAnalyzeMessageContinue = async (messageContent: string) => {
-    if (!messageContent.trim()) {
+  const handleAnalyzeMessage = async () => {
+    if (!message.trim()) {
+      setAlertMessage({
+        title: "Campo vacío",
+        message: "Por favor, ingresa un mensaje para analizar"
+      });
       return;
     }
-
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
 
     setIsAnalyzing(true);
     setAnalysisError(null);
     setRawJsonResponse(null);
+    setPhase1Response(null);
+    setPhase2Response(null);
+    setPhase3Response(null);
     setProgress(5);
-    setProgressStage("Continuando análisis en tres fases...");
-    messageToAnalyze.current = messageContent;
+    setProgressStage("Preparando análisis en tres fases...");
 
     try {
       setUseTwoPhasesAnalysis(true);
       
-      if (signal.aborted) {
-        throw new Error("Análisis cancelado por el usuario");
-      }
-      
-      const result = await analyzeCustomerMessage(messageContent, (progressValue) => {
-        if (signal.aborted) return;
-        
+      const result = await analyzeCustomerMessage(message, (progressValue) => {
         let stage = "";
         
         if (progressValue < 20) {
@@ -347,10 +265,6 @@ const MagicOrder = () => {
         
         updateProgress(progressValue, stage);
       });
-      
-      if (signal.aborted) {
-        throw new Error("Análisis cancelado por el usuario");
-      }
       
       if (result.phase1Response) {
         setPhase1Response(result.phase1Response);
@@ -399,15 +313,8 @@ const MagicOrder = () => {
         });
       }
       
-      messageToAnalyze.current = "";
-      setIsAnalyzing(false);
-      
     } catch (error) {
       console.error("Error al analizar el mensaje:", error);
-      
-      if (signal.aborted) {
-        return;
-      }
       
       let errorTitle = "Error de análisis";
       let errorMessage = "Error al analizar el mensaje";
@@ -440,27 +347,11 @@ const MagicOrder = () => {
       });
     } finally {
       setTimeout(() => {
-        if (!signal.aborted) {
-          setIsAnalyzing(false);
-          setProgress(0);
-          setProgressStage("");
-          messageToAnalyze.current = "";
-        }
+        setIsAnalyzing(false);
+        setProgress(0);
+        setProgressStage("");
       }, 1000);
     }
-  };
-
-  const handleAnalyzeMessage = async () => {
-    if (!message.trim()) {
-      setAlertMessage({
-        title: "Campo vacío",
-        message: "Por favor, ingresa un mensaje para analizar"
-      });
-      return;
-    }
-
-    messageToAnalyze.current = message;
-    handleAnalyzeMessageContinue(message);
   };
 
   const handleUpdateOrder = (index: number, updatedOrder: OrderCardType) => {
@@ -587,10 +478,6 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
       
-      const savedOrderIds = JSON.parse(localStorage.getItem(ORDER_SAVED_KEY) || '[]');
-      savedOrderIds.push(newOrder.id);
-      localStorage.setItem(ORDER_SAVED_KEY, JSON.stringify(savedOrderIds));
-      
       toast({
         title: "Pedido guardado",
         description: `El pedido de ${order.client.name} ha sido guardado correctamente`,
@@ -657,21 +544,6 @@ const MagicOrder = () => {
           title: "Pedidos guardados",
           message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
         });
-        
-        const savedOrderIds = JSON.parse(localStorage.getItem(ORDER_SAVED_KEY) || '[]');
-        
-        const remainingOrders = orders.filter(order => 
-          !savedOrderIds.includes(order.id)
-        );
-        
-        setOrders(remainingOrders);
-        setPhase1Response(null);
-        setPhase2Response(null);
-        setPhase3Response(null);
-        localStorage.removeItem('magicOrder_phase1Response');
-        localStorage.removeItem('magicOrder_phase2Response');
-        localStorage.removeItem('magicOrder_phase3Response');
-        localStorage.removeItem(ORDER_SAVED_KEY);
       } else if (errorCount > 0) {
         setAlertMessage({
           title: "Error al guardar pedidos",
@@ -722,15 +594,6 @@ const MagicOrder = () => {
   
   const handleResetAllOrders = () => {
     setOrders([]);
-    setPhase1Response(null);
-    setPhase2Response(null);
-    setPhase3Response(null);
-    localStorage.removeItem('magicOrder_orders');
-    localStorage.removeItem('magicOrder_phase1Response');
-    localStorage.removeItem('magicOrder_phase2Response');
-    localStorage.removeItem('magicOrder_phase3Response');
-    localStorage.removeItem(ORDER_SAVED_KEY);
-    
     toast({
       title: "Pedidos reiniciados",
       description: "Se han eliminado todos los pedidos en proceso",
@@ -777,10 +640,6 @@ const MagicOrder = () => {
     }, {} as Record<string, { clientName: string, orders: OrderCardType[], indices: number[] }>);
   }, [orders]);
 
-  const hasAnyOrderWithDoubts = orders.some(order => 
-    order.items.some(item => item.status === 'duda')
-  );
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -794,18 +653,6 @@ const MagicOrder = () => {
           </div>
           
           <div className="flex gap-2">
-            {isAnalyzing && (
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={handleStopAnalysis}
-                className="flex items-center gap-1"
-              >
-                <StopCircle size={16} />
-                Detener análisis
-              </Button>
-            )}
-            
             {(phase1Response || phase2Response || phase3Response) && (
               <Button 
                 variant="outline" 
@@ -983,13 +830,6 @@ const MagicOrder = () => {
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                       <Check size={12} className="mr-1" />
                       {completeOrders.length} confirmado{completeOrders.length !== 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                  
-                  {hasAnyOrderWithDoubts && (
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                      <HelpCircle size={12} className="mr-1" />
-                      Con dudas
                     </Badge>
                   )}
                 </div>
