@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.11
+ * v1.0.24
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -66,11 +67,14 @@ const MagicOrder = () => {
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [progressStage, setProgressStage] = useState<string>("");
   const { toast } = useToast();
 
   // Cargar clientes y productos al iniciar
   useEffect(() => {
     const loadContextData = async () => {
+      setIsLoadingData(true);
       try {
         // Cargar clientes
         const { data: clientsData, error: clientsError } = await supabase
@@ -108,31 +112,23 @@ const MagicOrder = () => {
         }
       } catch (error) {
         console.error("Error al cargar datos de contexto:", error);
+        toast({
+          title: "Error al cargar datos",
+          description: "No se pudieron cargar todos los productos y clientes",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingData(false);
       }
     };
     
     loadContextData();
-  }, []);
+  }, [toast]);
   
-  const simulateProgress = () => {
-    setProgress(0);
-    const duration = 8000; // 8 segundos para el análisis simulado
-    const interval = 20; // actualizar cada 20ms
-    const totalSteps = duration / interval;
-    let currentStep = 0;
-    
-    const timer = setInterval(() => {
-      currentStep++;
-      // Función sigmoide para que sea más lento al principio y al final
-      const progressValue = 100 / (1 + Math.exp(-0.07 * (currentStep - totalSteps/2)));
-      setProgress(progressValue);
-      
-      if (currentStep >= totalSteps) {
-        clearInterval(timer);
-      }
-    }, interval);
-    
-    return () => clearInterval(timer);
+  // Función para actualizar el progreso con mensaje
+  const updateProgress = (value: number, stage?: string) => {
+    setProgress(value);
+    if (stage) setProgressStage(stage);
   };
 
   const handleAnalyzeMessage = async () => {
@@ -148,12 +144,31 @@ const MagicOrder = () => {
     setUnmatchedNames([]);
     setAnalysisError(null);
     setRawJsonResponse(null);
-    const stopSimulation = simulateProgress();
+    setProgress(5);
+    setProgressStage("Preparando análisis...");
 
     try {
-      const results = await analyzeCustomerMessage(message);
+      // Analizamos el mensaje con callback de progreso
+      const results = await analyzeCustomerMessage(message, (progressValue) => {
+        let stage = "";
+        
+        if (progressValue < 20) {
+          stage = "Preparando análisis...";
+        } else if (progressValue < 50) {
+          stage = "Cargando datos de contexto...";
+        } else if (progressValue < 80) {
+          stage = "Procesando con IA...";
+        } else if (progressValue < 95) {
+          stage = "Generando pedidos...";
+        } else {
+          stage = "Finalizando...";
+        }
+        
+        updateProgress(progressValue, stage);
+      });
       
       setProgress(100);
+      setProgressStage("¡Análisis completado!");
       
       // Extraer nombres no reconocidos para mostrar una alerta
       const namesNotInDB: string[] = [];
@@ -212,6 +227,12 @@ const MagicOrder = () => {
         setOrders(prevOrders => [...prevOrders, ...newOrders]);
         setMessage("");
         setShowOrderSummary(true);
+        
+        toast({
+          title: "Análisis completado",
+          description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} pedido${newOrders.length === 1 ? '' : 's'}`,
+          variant: "success"
+        });
       }
       
     } catch (error) {
@@ -244,8 +265,8 @@ const MagicOrder = () => {
       setTimeout(() => {
         setIsAnalyzing(false);
         setProgress(0);
-      }, 500);
-      stopSimulation();
+        setProgressStage("");
+      }, 1000);
     }
   };
 
@@ -277,6 +298,11 @@ const MagicOrder = () => {
       console.log('Intentando guardar el pedido:', order);
       
       if (!order.client.id) {
+        toast({
+          title: "Error al guardar",
+          description: "El cliente no está identificado correctamente",
+          variant: "destructive"
+        });
         return false;
       }
 
@@ -291,17 +317,23 @@ const MagicOrder = () => {
           break;
         }
         
-        const itemPrice = item.variant?.price || item.product.price || 0;
+        const itemPrice = item.variant?.price || products.find(p => p.id === item.product.id)?.price || 0;
         total += item.quantity * itemPrice;
       }
       
       if (hasInvalidItems) {
+        toast({
+          title: "Error al guardar",
+          description: "Hay productos no identificados correctamente",
+          variant: "destructive"
+        });
         return false;
       }
 
       // Incluir ubicación de recogida si existe
       const metadata = order.pickupLocation ? { pickupLocation: order.pickupLocation } : undefined;
 
+      // Usar una transacción para guardar el pedido y sus items
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -319,24 +351,41 @@ const MagicOrder = () => {
         .single();
 
       if (orderError) {
+        console.error("Error al crear pedido:", orderError);
         throw orderError;
       }
 
-      const orderItems = order.items.map(item => ({
-        order_id: newOrder.id,
-        product_id: item.product.id!,
-        variant_id: item.variant?.id || null,
-        quantity: item.quantity,
-        price: item.variant?.price || item.product.price || 0,
-        total: item.quantity * (item.variant?.price || item.product.price || 0),
-        notes: item.notes
-      }));
+      if (!newOrder || !newOrder.id) {
+        throw new Error("No se pudo obtener el ID del pedido creado");
+      }
+
+      const orderItems = order.items.map(item => {
+        const productPrice = products.find(p => p.id === item.product.id)?.price || 0;
+        const variantPrice = item.variant?.id ? 
+          products.find(p => p.id === item.product.id)?.variants?.find(v => v.id === item.variant?.id)?.price || 0 : 0;
+        const price = variantPrice || productPrice;
+        
+        return {
+          order_id: newOrder.id,
+          product_id: item.product.id!,
+          variant_id: item.variant?.id || null,
+          quantity: item.quantity,
+          price: price,
+          total: item.quantity * price,
+          notes: item.notes
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItems);
 
       if (itemsError) {
+        console.error("Error al crear items del pedido:", itemsError);
+        
+        // Intentar eliminar el pedido para mantener consistencia
+        await supabase.from('orders').delete().eq('id', newOrder.id);
+        
         throw itemsError;
       }
 
@@ -348,13 +397,22 @@ const MagicOrder = () => {
       };
       setOrders(updatedOrders);
       
+      toast({
+        title: "Pedido guardado",
+        description: `El pedido de ${order.client.name} ha sido guardado correctamente`,
+        variant: "success"
+      });
+      
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
-      setAlertMessage({
-        title: "Error",
-        message: error.message || "Error al guardar el pedido"
+      
+      toast({
+        title: "Error al guardar",
+        description: error.message || "Error al guardar el pedido",
+        variant: "destructive"
       });
+      
       return false;
     }
   };
@@ -383,10 +441,14 @@ const MagicOrder = () => {
       let successCount = 0;
       let errorCount = 0;
       
-      // Guardar cada pedido válido
+      // Guardar cada pedido válido con barra de progreso
       for (let i = 0; i < validOrders.length; i++) {
         const orderIndex = orders.findIndex(o => o === validOrders[i]);
         if (orderIndex >= 0) {
+          // Actualizar progreso
+          setProgressStage(`Guardando pedido ${i + 1} de ${validOrders.length}...`);
+          setProgress(Math.round((i / validOrders.length) * 100));
+          
           const success = await handleSaveOrder(orderIndex, validOrders[i]);
           if (success) {
             successCount++;
@@ -395,6 +457,10 @@ const MagicOrder = () => {
           }
         }
       }
+      
+      // Finalizar progreso
+      setProgress(100);
+      setProgressStage(`¡Pedidos guardados!`);
       
       // Mostrar resultado al finalizar todas las operaciones
       if (successCount > 0) {
@@ -415,7 +481,11 @@ const MagicOrder = () => {
         message: "Ocurrió un error al intentar guardar los pedidos"
       });
     } finally {
-      setIsSavingAllOrders(false);
+      setTimeout(() => {
+        setIsSavingAllOrders(false);
+        setProgress(0);
+        setProgressStage("");
+      }, 1000);
     }
   };
 
@@ -425,6 +495,12 @@ const MagicOrder = () => {
       updatedOrders.splice(orderToDelete.index, 1);
       setOrders(updatedOrders);
       setOrderToDelete(null);
+      
+      toast({
+        title: "Pedido eliminado",
+        description: `El pedido de ${orderToDelete.name} ha sido eliminado`,
+        variant: "default"
+      });
     }
   };
 
@@ -442,6 +518,11 @@ const MagicOrder = () => {
   
   const handleResetAllOrders = () => {
     setOrders([]);
+    toast({
+      title: "Pedidos reiniciados",
+      description: "Se han eliminado todos los pedidos en proceso",
+      variant: "default"
+    });
   };
 
   // Separar pedidos completos e incompletos
@@ -586,10 +667,15 @@ const MagicOrder = () => {
           <CardFooter className="flex flex-col gap-3">
             {progress > 0 && (
               <div className="w-full mb-2">
-                <Progress value={progress} className="h-2 w-full" />
-                <div className="text-xs text-muted-foreground text-right mt-1">
-                  Analizando mensaje... {Math.round(progress)}%
+                <div className="flex justify-between mb-1 text-sm">
+                  <div className="text-muted-foreground">
+                    {progressStage}
+                  </div>
+                  <div className="font-medium">
+                    {Math.round(progress)}%
+                  </div>
                 </div>
+                <Progress value={progress} className="h-2 w-full" />
               </div>
             )}
             <div className="w-full flex justify-between">
@@ -604,7 +690,7 @@ const MagicOrder = () => {
               
               <Button 
                 onClick={handleAnalyzeMessage}
-                disabled={isAnalyzing || !message.trim()}
+                disabled={isAnalyzing || !message.trim() || isLoadingData}
               >
                 <div className="flex items-center gap-2">
                   {isAnalyzing ? (
@@ -719,6 +805,21 @@ const MagicOrder = () => {
             </div>
             
             <Separator />
+            
+            {/* Indicador de progreso para guardar todos los pedidos */}
+            {isSavingAllOrders && progress > 0 && (
+              <div className="w-full my-2">
+                <div className="flex justify-between mb-1 text-sm">
+                  <div className="text-muted-foreground">
+                    {progressStage}
+                  </div>
+                  <div className="font-medium">
+                    {Math.round(progress)}%
+                  </div>
+                </div>
+                <Progress value={progress} className="h-2 w-full" />
+              </div>
+            )}
             
             <Collapsible open={showOrderSummary} onOpenChange={setShowOrderSummary}>
               <CollapsibleContent>
@@ -856,3 +957,4 @@ const MagicOrder = () => {
 };
 
 export default MagicOrder;
+

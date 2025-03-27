@@ -114,7 +114,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     // Usar endpoint desde la configuración
     const endpoint = COHERE_ENDPOINT || "https://api.cohere.ai/v1/chat";
     
-    logDebug("API", `Enviando petición a Cohere API v1.0.19: ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Enviando petición a Cohere API v1.0.24: ${prompt.substring(0, 100)}...`);
     logDebug("API", `Usando endpoint: ${endpoint}`);
     
     // Solo mostramos la parte inicial de la API key si tiene suficiente longitud
@@ -136,7 +136,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
           model: "command-r-plus",
           message: prompt,
           temperature: 0.2,
-          max_tokens: 1024,
+          max_tokens: 4096,
           chat_history: []
         }),
       }
@@ -268,7 +268,8 @@ export const fetchDatabaseContext = async () => {
 };
 
 export const analyzeCustomerMessage = async (
-  message: string
+  message: string, 
+  onProgress?: (progress: number) => void
 ): Promise<MessageAnalysis[]> => {
   try {
     console.log("Analizando mensaje...");
@@ -278,12 +279,17 @@ export const analyzeCustomerMessage = async (
     let lastError: GeminiError | null = null;
     let lastJsonResponse: string | null = null;
     
+    onProgress?.(10);
+    
+    const dbContext = await fetchDatabaseContext();
+    onProgress?.(20);
+    
     while (attempts < maxAttempts) {
       try {
         attempts++;
         console.log(`Intento #${attempts} de analizar mensaje`);
         
-        const dbContext = await fetchDatabaseContext();
+        onProgress?.(20 + attempts * 10);
         
         const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
         
@@ -304,8 +310,12 @@ export const analyzeCustomerMessage = async (
           .replace('{clientsContext}', clientsContext)
           .replace('{messageText}', message);
         
+        onProgress?.(50 + attempts * 10);
+        
         const responseText = await callGeminiAPI(prompt);
         lastJsonResponse = responseText;
+        
+        onProgress?.(80 + attempts * 5);
         
         let jsonText = extractJsonFromResponse(responseText);
         lastJsonResponse = jsonText;
@@ -313,6 +323,8 @@ export const analyzeCustomerMessage = async (
         try {
           const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
           console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
+          
+          onProgress?.(100);
           
           if (!Array.isArray(parsedResult)) {
             throw new Error("El formato de los datos analizados no es válido (no es un array)");
@@ -377,6 +389,7 @@ export const analyzeCustomerMessage = async (
     });
   } catch (error) {
     console.error("Error final en analyzeCustomerMessage:", error);
+    onProgress?.(100);
     if (error instanceof GeminiError) {
       throw error;
     }

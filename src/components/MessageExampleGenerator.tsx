@@ -23,18 +23,38 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const [example, setExample] = useState<string>("");
   const [isCopied, setIsCopied] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
 
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
+    setGenerationProgress(0);
+    
+    // Simulación de progreso mientras se genera el ejemplo
+    const interval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev >= 95) {
+          clearInterval(interval);
+          return 95;
+        }
+        return prev + 5;
+      });
+    }, 150);
+    
     try {
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
       const generatedExample = await generateMultipleExamples();
       setExample(generatedExample);
+      setGenerationProgress(100);
     } catch (error) {
       console.error("Error al generar ejemplo:", error);
       setAlertMessage("No se pudo generar el ejemplo. Por favor, intenta nuevamente.");
     } finally {
-      setIsGenerating(false);
+      clearInterval(interval);
+      setGenerationProgress(100);
+      setTimeout(() => {
+        setIsGenerating(false);
+        setGenerationProgress(0);
+      }, 500);
     }
   };
 
@@ -112,6 +132,15 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           </div>
         )}
         
+        {isGenerating && !example && (
+          <div className="text-center p-6 border border-dashed rounded-md animate-pulse">
+            <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary/50 animate-spin" />
+            <p className="text-sm text-muted-foreground">
+              Generando mensaje de ejemplo...
+            </p>
+          </div>
+        )}
+        
         {example && (
           <div 
             className="p-3 border rounded-md transition-all duration-200 hover:bg-muted/30 hover:shadow-sm"
@@ -157,3 +186,4 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     </Card>
   );
 };
+
