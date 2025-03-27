@@ -27,7 +27,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
     try {
-      // Generamos un mensaje de ejemplo basado en los clientes reales
+      // Generamos un mensaje de ejemplo basado en los clientes y productos reales
       const generatedExample = await generateMultipleExamples();
       setExample(generatedExample);
     } catch (error) {
@@ -157,4 +157,3 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     </Card>
   );
 };
-

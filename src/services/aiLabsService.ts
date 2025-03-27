@@ -162,4 +162,3 @@ export const generateMultipleExamples = async (): Promise<string> => {
     return "moshe 3 pañales m, 4 g y cinco latas atún, graciasss";
   }
 };
-
