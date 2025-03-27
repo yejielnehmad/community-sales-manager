@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.10
+ * v1.0.11
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -65,6 +65,7 @@ const MagicOrder = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Cargar clientes y productos al iniciar
@@ -146,6 +147,7 @@ const MagicOrder = () => {
     setIsAnalyzing(true);
     setUnmatchedNames([]);
     setAnalysisError(null);
+    setRawJsonResponse(null);
     const stopSimulation = simulateProgress();
 
     try {
@@ -226,6 +228,9 @@ const MagicOrder = () => {
         } else {
           errorMessage = error.message;
         }
+        
+        // Guardamos la respuesta JSON para mostrarla
+        setRawJsonResponse(error.rawJsonResponse || "No disponible");
       } else {
         errorMessage = (error as Error).message || "Error desconocido al analizar el mensaje";
       }
@@ -519,6 +524,14 @@ const MagicOrder = () => {
               <p className="text-red-700 text-sm">
                 {analysisError}
               </p>
+              {rawJsonResponse && (
+                <div className="mt-3">
+                  <p className="text-xs text-red-600 font-medium mb-1">Respuesta JSON recibida:</p>
+                  <div className="bg-white border border-red-300 rounded p-2 max-h-40 overflow-auto">
+                    <pre className="text-xs whitespace-pre-wrap break-words">{rawJsonResponse}</pre>
+                  </div>
+                </div>
+              )}
               <p className="text-xs text-red-600 italic mt-2">
                 Intenta con un mensaje más simple o contacta al soporte si el problema persiste.
               </p>

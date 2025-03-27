@@ -1,4 +1,3 @@
-
 import { GOOGLE_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -7,13 +6,20 @@ export class GeminiError extends Error {
   status?: number;
   statusText?: string;
   apiResponse?: any;
+  rawJsonResponse?: string;
   
-  constructor(message: string, details?: { status?: number, statusText?: string, apiResponse?: any }) {
+  constructor(message: string, details?: { 
+    status?: number, 
+    statusText?: string, 
+    apiResponse?: any,
+    rawJsonResponse?: string 
+  }) {
     super(message);
     this.name = "GeminiError";
     this.status = details?.status;
     this.statusText = details?.statusText;
     this.apiResponse = details?.apiResponse;
+    this.rawJsonResponse = details?.rawJsonResponse;
   }
 }
 
@@ -106,7 +112,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a Gemini API v1.0.12:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a Gemini API v1.0.13:", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -130,37 +136,52 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
       }
     );
 
+    const responseText = await response.text();
+    console.log("Respuesta raw de Gemini:", responseText.substring(0, 200) + "...");
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error en respuesta HTTP:", response.status, response.statusText, errorText);
+      console.error("Error en respuesta HTTP:", response.status, response.statusText, responseText);
       throw new GeminiError(`Error HTTP: ${response.status} ${response.statusText}`, {
         status: response.status,
         statusText: response.statusText,
-        apiResponse: errorText
+        apiResponse: responseText,
+        rawJsonResponse: responseText
       });
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Error al parsear respuesta de Gemini:", parseError, responseText);
+      throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
+        apiResponse: parseError,
+        rawJsonResponse: responseText
+      });
+    }
+
     console.log("Respuesta de Gemini (resumida):", JSON.stringify(data).substring(0, 200) + "...");
 
     if (data.error) {
       console.error("Error devuelto por la API de Gemini:", data.error);
       throw new GeminiError(`Error de la API de Gemini: ${data.error.message || "Error desconocido"}`, {
-        apiResponse: data.error
+        apiResponse: data.error,
+        rawJsonResponse: responseText
       });
     }
 
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
       console.error("Respuesta completa con formato incorrecto:", JSON.stringify(data, null, 2));
       throw new GeminiError("Formato de respuesta inesperado de la API de Gemini", {
-        apiResponse: data
+        apiResponse: data,
+        rawJsonResponse: responseText
       });
     }
 
-    const responseText = data.candidates[0].content.parts[0].text;
-    console.log("Texto de respuesta:", responseText.substring(0, 200) + "...");
+    const resultText = data.candidates[0].content.parts[0].text;
+    console.log("Texto de respuesta:", resultText.substring(0, 200) + "...");
     
-    return responseText;
+    return resultText;
   } catch (error) {
     if (error instanceof GeminiError) {
       throw error;
@@ -265,6 +286,8 @@ export const analyzeCustomerMessage = async (
     // Intentar hasta 3 veces en caso de error
     let attempts = 0;
     const maxAttempts = 3;
+    let lastError: GeminiError | null = null;
+    let lastJsonResponse: string | null = null;
     
     while (attempts < maxAttempts) {
       try {
@@ -295,7 +318,10 @@ export const analyzeCustomerMessage = async (
           .replace('{messageText}', message);
         
         const responseText = await callGeminiAPI(prompt);
+        lastJsonResponse = responseText;
+        
         let jsonText = extractJsonFromResponse(responseText);
+        lastJsonResponse = jsonText;
         
         try {
           // Intentar analizar el JSON
@@ -334,20 +360,33 @@ export const analyzeCustomerMessage = async (
           console.error("Error al analizar JSON (intento #" + attempts + "):", parseError);
           console.error("Texto JSON recibido:", jsonText);
           
+          // Guardamos el error para devolver en caso de fallo total
+          lastError = new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
+            apiResponse: parseError,
+            rawJsonResponse: jsonText
+          });
+          
           // Si no es el último intento, intentamos de nuevo
           if (attempts < maxAttempts) {
             console.log("Reintentando análisis con formato mejorado...");
             continue;
           }
           
-          throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
-            apiResponse: jsonText
+          throw lastError;
+        }
+      } catch (attemptError: any) {
+        // Capturar el error y la respuesta JSON para devolverla en caso de fallo total
+        if (attemptError instanceof GeminiError) {
+          lastError = attemptError;
+        } else {
+          lastError = new GeminiError(`Error en el intento #${attempts}: ${attemptError.message}`, {
+            rawJsonResponse: lastJsonResponse || "No disponible"
           });
         }
-      } catch (attemptError) {
+        
         // Si es el último intento, propagamos el error
         if (attempts >= maxAttempts) {
-          throw attemptError;
+          throw lastError;
         }
         
         console.log(`Error en intento #${attempts}, reintentando...`, attemptError);
@@ -357,7 +396,9 @@ export const analyzeCustomerMessage = async (
     }
     
     // Este código no debería ejecutarse, pero por si acaso
-    throw new GeminiError("Error al analizar el mensaje después de múltiples intentos");
+    throw new GeminiError("Error al analizar el mensaje después de múltiples intentos", {
+      rawJsonResponse: lastJsonResponse || "No disponible"
+    });
     
   } catch (error) {
     console.error("Error final en analyzeCustomerMessage:", error);
