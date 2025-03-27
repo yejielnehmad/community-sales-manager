@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import {
   Code
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
-import { analyzeCustomerMessage, GeminiError, getUseTwoPhasesAnalysis, setUseTwoPhasesAnalysis } from "@/services/geminiService";
+import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
 import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
@@ -60,7 +61,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Página Mensaje Mágico
- * v1.0.35
+ * v1.0.40
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -223,6 +224,15 @@ const MagicOrder = () => {
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
     if (stage) setProgressStage(stage);
+    
+    // Disparamos un evento para actualizar la insignia AI
+    const event = new CustomEvent('analysisStateChange', {
+      detail: { 
+        isAnalyzing: value > 0 && value < 100,
+        stage: stage 
+      }
+    });
+    window.dispatchEvent(event);
   };
 
   const handleAnalyzeMessage = async () => {
@@ -241,30 +251,19 @@ const MagicOrder = () => {
     setPhase2Response(null);
     setPhase3Response(null);
     setProgress(5);
-    setProgressStage("Preparando análisis en tres fases...");
+    setProgressStage("Preparando análisis...");
+    
+    // Disparamos un evento para actualizar la insignia AI
+    const event = new CustomEvent('analysisStateChange', {
+      detail: { 
+        isAnalyzing: true,
+        stage: "Preparando análisis..." 
+      }
+    });
+    window.dispatchEvent(event);
 
     try {
-      setUseTwoPhasesAnalysis(true);
-      
-      const result = await analyzeCustomerMessage(message, (progressValue) => {
-        let stage = "";
-        
-        if (progressValue < 20) {
-          stage = "Preparando análisis...";
-        } else if (progressValue < 40) {
-          stage = "Cargando datos de contexto...";
-        } else if (progressValue < 55) {
-          stage = "Fase 1: Análisis general del mensaje...";
-        } else if (progressValue < 75) {
-          stage = "Fase 2: Estructurando en formato JSON...";
-        } else if (progressValue < 95) {
-          stage = "Fase 3: Validando y corrigiendo JSON...";
-        } else {
-          stage = "Finalizando...";
-        }
-        
-        updateProgress(progressValue, stage);
-      });
+      const result = await analyzeCustomerMessage(message, updateProgress);
       
       if (result.phase1Response) {
         setPhase1Response(result.phase1Response);
@@ -325,8 +324,7 @@ const MagicOrder = () => {
         setMessage("");
         setShowOrderSummary(true);
         
-        setShowAnalysisDialog(true);
-        
+        // No mostramos automáticamente el diálogo de análisis, solo notificamos
         toast({
           title: "Análisis completado",
           description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} pedido${newOrders.length === 1 ? '' : 's'}`,
@@ -353,7 +351,7 @@ const MagicOrder = () => {
         setPhase2Response(error.rawJsonResponse || null);
         
         if (error.phase1Response || error.rawJsonResponse) {
-          setShowAnalysisDialog(true);
+          // No mostramos automáticamente el diálogo de análisis
         }
         
         setRawJsonResponse(error.rawJsonResponse || "No disponible");
@@ -367,6 +365,11 @@ const MagicOrder = () => {
         message: errorMessage
       });
     } finally {
+      // Notificamos que el análisis ha terminado
+      window.dispatchEvent(new CustomEvent('analysisStateChange', {
+        detail: { isAnalyzing: false }
+      }));
+      
       setTimeout(() => {
         setIsAnalyzing(false);
         setProgress(0);
@@ -1081,7 +1084,7 @@ const MagicOrder = () => {
                   </div>
                 ) : (
                   <div className="text-center p-8 text-muted-foreground">
-                    No hay respuesta disponible para la tercera fase.
+                    No hay respuesta disponible para la tercera fase. Se usó un proceso optimizado de dos fases.
                   </div>
                 )}
               </TabsContent>

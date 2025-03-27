@@ -194,7 +194,7 @@ IMPORTANTE:
 ]`;
 
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
-let useNewTwoPhasesAnalysis = true; // Activamos por defecto el nuevo método de dos fases
+let useNewTwoPhasesAnalysis = true; // Activamos por defecto el análisis en dos fases
 
 export const setCustomAnalysisPrompt = (prompt: string) => {
   if (!prompt || prompt.trim() === '') {
@@ -387,6 +387,152 @@ export const fetchDatabaseContext = async () => {
 };
 
 /**
+ * Analiza un mensaje en dos fases:
+ * 1. Primero hace un análisis general y separación por cliente
+ * 2. Luego convierte ese análisis a formato JSON estructurado
+ * Si el JSON tiene errores, se utiliza una tercera fase para corregirlo
+ */
+export const analyzeTwoPhases = async (
+  message: string,
+  dbContext: any,
+  onProgress?: (progress: number, stage?: string) => void
+): Promise<{result: MessageAnalysis[], phase1Response: string, phase2Response: string, phase3Response?: string}> => {
+  try {
+    console.log("Analizando mensaje en dos fases (optimizado)...");
+    onProgress?.(10, "Preparando análisis...");
+    
+    // Preparamos los contextos para los prompts
+    const productsContext = dbContext.products.map(p => {
+      const variantsText = p.variants && p.variants.length 
+        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
+        : 'Sin variantes';
+      
+      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
+    }).join('\n');
+    
+    const clientsContext = dbContext.clients.map(c => 
+      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
+    ).join('\n');
+    
+    // FASE 1: Análisis inicial y separación por cliente
+    console.log("Fase 1: Iniciando análisis preliminar...");
+    onProgress?.(30, "Fase 1: Analizando mensaje...");
+    
+    const phase1Prompt = STEP_ONE_PROMPT
+      .replace('{productsContext}', productsContext)
+      .replace('{clientsContext}', clientsContext)
+      .replace('{messageText}', message);
+    
+    const phase1Response = await callGeminiAPI(phase1Prompt);
+    console.log("Fase 1 completada, análisis inicial obtenido");
+    onProgress?.(60, "Fase 2: Estructurando en JSON...");
+    
+    // FASE 2: Convertir el análisis a JSON estructurado
+    console.log("Fase 2: Estructurando respuesta en formato JSON...");
+    
+    const phase2Prompt = STEP_TWO_PROMPT
+      .replace('{analysisText}', phase1Response)
+      .replace('{productsContext}', productsContext)
+      .replace('{clientsContext}', clientsContext);
+    
+    const phase2Response = await callGeminiAPI(phase2Prompt);
+    onProgress?.(80, "Procesando resultado...");
+    
+    // Extraer el JSON de la respuesta
+    let jsonText = extractJsonFromResponse(phase2Response);
+    
+    try {
+      // Intentamos parsear el JSON directamente
+      const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
+      console.log("Análisis en dos fases completado exitosamente. Pedidos identificados:", parsedResult.length);
+      
+      onProgress?.(100, "Análisis completado");
+      
+      if (!Array.isArray(parsedResult)) {
+        throw new Error("El formato de los datos analizados no es válido (no es un array)");
+      }
+      
+      const processedResult = parsedResult.filter(result => {
+        if (!result.client || typeof result.client !== 'object') {
+          return false;
+        }
+        
+        if (!Array.isArray(result.items)) {
+          result.items = [];
+        }
+        
+        return true;
+      });
+      
+      return {
+        result: processedResult,
+        phase1Response,
+        phase2Response: jsonText
+      };
+    } catch (parseError: any) {
+      // Si hay un error en el JSON, usamos la fase 3 para corregirlo
+      console.log("Error en el JSON de la fase 2, usando fase 3 para corregir:", parseError.message);
+      onProgress?.(85, "Fase 3: Corrigiendo JSON...");
+      
+      // FASE 3: Validar y corregir el JSON
+      const phase3Prompt = STEP_THREE_PROMPT
+        .replace('{jsonText}', jsonText);
+      
+      const phase3Response = await callGeminiAPI(phase3Prompt);
+      onProgress?.(95, "Finalizando...");
+      
+      // Extraer el JSON validado y corregido
+      let validatedJsonText = extractJsonFromResponse(phase3Response);
+      
+      try {
+        const parsedResult = JSON.parse(validatedJsonText) as MessageAnalysis[];
+        console.log("Análisis con corrección en fase 3 completado. Pedidos identificados:", parsedResult.length);
+        
+        onProgress?.(100, "Análisis completado");
+        
+        if (!Array.isArray(parsedResult)) {
+          throw new Error("El formato de los datos analizados no es válido (no es un array)");
+        }
+        
+        const processedResult = parsedResult.filter(result => {
+          if (!result.client || typeof result.client !== 'object') {
+            return false;
+          }
+          
+          if (!Array.isArray(result.items)) {
+            result.items = [];
+          }
+          
+          return true;
+        });
+        
+        return {
+          result: processedResult,
+          phase1Response,
+          phase2Response: jsonText,
+          phase3Response: validatedJsonText
+        };
+      } catch (finalError: any) {
+        console.error("Error persistente en el análisis JSON:", finalError);
+        throw new GeminiError(`Error al procesar la respuesta JSON: ${finalError.message}`, {
+          apiResponse: finalError,
+          rawJsonResponse: validatedJsonText,
+          phase1Response,
+          phase2Response: jsonText,
+          phase3Response: validatedJsonText
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error en el análisis de dos fases:", error);
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    throw new GeminiError(`Error en el análisis de dos fases: ${(error as Error).message}`);
+  }
+};
+
+/**
  * Analiza un mensaje en tres fases:
  * 1. Primero hace un análisis general y separación por cliente
  * 2. Luego convierte ese análisis a formato JSON estructurado
@@ -501,262 +647,47 @@ export const analyzeThreePhases = async (
   }
 };
 
-/**
- * Analiza un mensaje en dos fases:
- * 1. Primero hace un análisis general y separación por cliente
- * 2. Luego convierte ese análisis a formato JSON estructurado
- */
-export const analyzeTwoPhases = async (
-  message: string,
-  dbContext: any,
-  onProgress?: (progress: number) => void
-): Promise<{result: MessageAnalysis[], phase1Response: string, phase2Response: string}> => {
-  try {
-    console.log("Analizando mensaje en dos fases...");
-    onProgress?.(10);
-    
-    // Preparamos los contextos para los prompts
-    const productsContext = dbContext.products.map(p => {
-      const variantsText = p.variants && p.variants.length 
-        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
-        : 'Sin variantes';
-      
-      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
-    }).join('\n');
-    
-    const clientsContext = dbContext.clients.map(c => 
-      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
-    ).join('\n');
-    
-    // FASE 1: Análisis inicial y separación por cliente
-    console.log("Fase 1: Iniciando análisis preliminar...");
-    onProgress?.(30);
-    
-    const phase1Prompt = STEP_ONE_PROMPT
-      .replace('{productsContext}', productsContext)
-      .replace('{clientsContext}', clientsContext)
-      .replace('{messageText}', message);
-    
-    const phase1Response = await callGeminiAPI(phase1Prompt);
-    console.log("Fase 1 completada, análisis inicial obtenido");
-    onProgress?.(60);
-    
-    // FASE 2: Convertir el análisis a JSON estructurado
-    console.log("Fase 2: Estructurando respuesta en formato JSON...");
-    
-    const phase2Prompt = STEP_TWO_PROMPT
-      .replace('{analysisText}', phase1Response)
-      .replace('{productsContext}', productsContext)
-      .replace('{clientsContext}', clientsContext);
-    
-    const phase2Response = await callGeminiAPI(phase2Prompt);
-    onProgress?.(90);
-    
-    // Extraer el JSON de la respuesta
-    let jsonText = extractJsonFromResponse(phase2Response);
-    
-    try {
-      const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
-      console.log("Análisis en dos fases completado. Pedidos identificados:", parsedResult.length);
-      
-      onProgress?.(100);
-      
-      if (!Array.isArray(parsedResult)) {
-        throw new Error("El formato de los datos analizados no es válido (no es un array)");
-      }
-      
-      const processedResult = parsedResult.filter(result => {
-        if (!result.client || typeof result.client !== 'object') {
-          return false;
-        }
-        
-        if (!Array.isArray(result.items)) {
-          result.items = [];
-        }
-        
-        return true;
-      });
-      
-      return {
-        result: processedResult,
-        phase1Response,
-        phase2Response: jsonText
-      };
-    } catch (parseError: any) {
-      console.error("Error al analizar JSON:", parseError);
-      console.error("Texto JSON recibido:", jsonText);
-      
-      throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
-        apiResponse: parseError,
-        rawJsonResponse: jsonText,
-        phase1Response,
-        phase2Response
-      });
-    }
-  } catch (error) {
-    console.error("Error en el análisis de dos fases:", error);
-    if (error instanceof GeminiError) {
-      throw error;
-    }
-    throw new GeminiError(`Error en el análisis de dos fases: ${(error as Error).message}`);
-  }
-};
-
 export const analyzeCustomerMessage = async (
   message: string, 
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number, stage?: string) => void
 ): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string}> => {
   try {
     console.log("Analizando mensaje...");
     
-    let attempts = 0;
-    const maxAttempts = 3;
-    let lastError: GeminiError | null = null;
-    let lastJsonResponse: string | null = null;
-    
-    onProgress?.(10);
+    onProgress?.(10, "Iniciando análisis...");
     
     const dbContext = await fetchDatabaseContext();
-    onProgress?.(20);
+    onProgress?.(20, "Cargando datos de contexto...");
     
-    // Usamos el análisis en tres fases por defecto
-    console.log("Usando el nuevo método de análisis en tres fases");
+    // Usamos el análisis en dos fases con corrección automática en fase 3 si es necesario
+    console.log("Usando el método optimizado de análisis en dos fases con corrección opcional");
     try {
-      const threePhaseResult = await analyzeThreePhases(message, dbContext, onProgress);
+      const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+      return {
+        result: twoPhaseResult.result,
+        phase1Response: twoPhaseResult.phase1Response,
+        phase2Response: twoPhaseResult.phase2Response,
+        phase3Response: twoPhaseResult.phase3Response
+      };
+    } catch (error) {
+      console.error("Error en el análisis optimizado, intentando método de reserva:", error);
+      
+      // Fallback al método de tres fases completo si el optimizado falla
+      console.log("Usando método de reserva: análisis en tres fases completo");
+      onProgress?.(30, "Usando método alternativo...");
+      
+      const threePhaseResult = await analyzeThreePhases(message, dbContext, 
+        (progress) => onProgress?.(30 + Math.floor(progress * 0.7), "Análisis alternativo en curso..."));
       return {
         result: threePhaseResult.result,
         phase1Response: threePhaseResult.phase1Response,
         phase2Response: threePhaseResult.phase2Response,
         phase3Response: threePhaseResult.phase3Response
       };
-    } catch (error) {
-      console.error("Error en el análisis de tres fases, intentando con dos fases:", error);
-      
-      // Si el análisis en tres fases falla, intentamos con dos fases como fallback
-      if (useNewTwoPhasesAnalysis) {
-        console.log("Usando método de fallback: análisis en dos fases");
-        const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
-        return {
-          result: twoPhaseResult.result,
-          phase1Response: twoPhaseResult.phase1Response,
-          phase2Response: twoPhaseResult.phase2Response
-        };
-      }
     }
-    
-    // Método original de un solo paso como último recurso
-    while (attempts < maxAttempts) {
-      try {
-        attempts++;
-        console.log(`Intento #${attempts} de analizar mensaje (método original)`);
-        
-        onProgress?.(20 + attempts * 10);
-        
-        const clientNames = dbContext.clients.map(client => client.name.toLowerCase());
-        
-        const productsContext = dbContext.products.map(p => {
-          const variantsText = p.variants && p.variants.length 
-            ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
-            : 'Sin variantes';
-          
-          return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
-        }).join('\n');
-        
-        const clientsContext = dbContext.clients.map(c => 
-          `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
-        ).join('\n');
-        
-        let prompt = currentAnalysisPrompt
-          .replace('{productsContext}', productsContext)
-          .replace('{clientsContext}', clientsContext)
-          .replace('{messageText}', message);
-        
-        onProgress?.(50 + attempts * 10);
-        
-        const responseText = await callGeminiAPI(prompt);
-        lastJsonResponse = responseText;
-        
-        onProgress?.(80 + attempts * 5);
-        
-        let jsonText = extractJsonFromResponse(responseText);
-        lastJsonResponse = jsonText;
-        
-        try {
-          const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
-          console.log("Análisis completado. Pedidos identificados:", parsedResult.length);
-          
-          onProgress?.(100);
-          
-          if (!Array.isArray(parsedResult)) {
-            throw new Error("El formato de los datos analizados no es válido (no es un array)");
-          }
-          
-          const processedResult = parsedResult.filter(result => {
-            if (!result.client || typeof result.client !== 'object') {
-              return false;
-            }
-            
-            if (!Array.isArray(result.items)) {
-              result.items = [];
-            }
-            
-            if (result.client.matchConfidence === "desconocido" && 
-                (!result.items || result.items.length === 0 || 
-                 result.items.every(item => !item.product.id))) {
-              console.log(`Nombre no reconocido: ${result.client.name}`);
-              return false;
-            }
-            
-            return true;
-          });
-          
-          return {
-            result: processedResult,
-            phase1Response: prompt,
-            phase2Response: responseText
-          };
-        } catch (parseError: any) {
-          console.error("Error al analizar JSON (intento #" + attempts + "):", parseError);
-          console.error("Texto JSON recibido:", jsonText);
-          
-          lastError = new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
-            apiResponse: parseError,
-            rawJsonResponse: jsonText,
-            phase1Response: prompt,
-            phase2Response: responseText
-          });
-          
-          if (attempts < maxAttempts) {
-            console.log("Reintentando análisis con formato mejorado...");
-            continue;
-          }
-          
-          throw lastError;
-        }
-      } catch (attemptError: any) {
-        if (attemptError instanceof GeminiError) {
-          lastError = attemptError;
-        } else {
-          lastError = new GeminiError(`Error en el intento #${attempts}: ${attemptError.message}`, {
-            rawJsonResponse: lastJsonResponse || "No disponible"
-          });
-        }
-        
-        if (attempts >= maxAttempts) {
-          throw lastError;
-        }
-        
-        console.log(`Error en intento #${attempts}, reintentando...`, attemptError);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-    
-    throw new GeminiError("Error al analizar el mensaje después de múltiples intentos", {
-      rawJsonResponse: lastJsonResponse || "No disponible"
-    });
   } catch (error) {
     console.error("Error final en analyzeCustomerMessage:", error);
-    onProgress?.(100);
+    onProgress?.(100, "Error en el análisis");
     if (error instanceof GeminiError) {
       throw error;
     }
