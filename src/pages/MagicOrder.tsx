@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ const ORDER_SAVED_KEY = 'magicOrder_ordersSaved';
 
 /**
  * Página Mensaje Mágico
- * v1.0.41
+ * v1.0.42
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState(() => {
@@ -215,6 +216,7 @@ const MagicOrder = () => {
   }, [phase3Response]);
   
   useEffect(() => {
+    // Creamos una función async dentro del useEffect para poder usar await
     const loadDatabaseData = async () => {
       if (clients.length === 0 || products.length === 0) {
         setIsLoadingData(true);
@@ -262,6 +264,7 @@ const MagicOrder = () => {
       }
     };
     
+    // Ejecutamos la función async
     loadDatabaseData();
   }, [toast, clients.length, products.length]);
 
