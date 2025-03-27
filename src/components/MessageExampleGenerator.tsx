@@ -27,7 +27,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
     try {
-      // Ahora generamos un solo ejemplo
+      // Generamos un mensaje de ejemplo basado en los clientes reales
       const generatedExample = await generateMultipleExamples();
       setExample(generatedExample);
     } catch (error) {
@@ -107,7 +107,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm text-muted-foreground">
-              Haz clic en "Generar con IA" para crear un ejemplo de mensaje de cliente basado en formato simplificado.
+              Haz clic en "Generar con IA" para crear un ejemplo de mensaje de cliente basado en clientes reales.
             </p>
           </div>
         )}
@@ -157,3 +157,4 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     </Card>
   );
 };
+

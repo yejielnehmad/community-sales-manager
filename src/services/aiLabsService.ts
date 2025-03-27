@@ -7,134 +7,159 @@ export const generateMessageExample = async (): Promise<string> => {
     // Fetch clients from database
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
-      .select('*')
-      .limit(15);
+      .select('*');
     
     if (clientsError) throw clientsError;
     
     // Fetch products from database
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('*')
-      .limit(20);
+      .select('*');
     
     if (productsError) throw productsError;
     
     // Fetch product variants from database
     const { data: variants, error: variantsError } = await supabase
       .from('product_variants')
-      .select('*')
-      .limit(30);
+      .select('*');
     
     if (variantsError) throw variantsError;
     
     if (!clients || clients.length === 0 || !products || products.length === 0) {
-      return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss marcos 5 g 5m 3 pastron netu 5 pañales g dos fiambre un rollo gracias";
+      return "moshe 3 pañales m, 4 g y cinco latas atún, graciasss";
     }
     
-    // Seleccionar 4-5 clientes aleatoriamente para el mensaje
-    const selectedClients = [];
-    const clientsCount = Math.min(Math.floor(Math.random() * 2) + 4, clients.length); // 4-5 clientes
+    // Elegir un cliente aleatorio para el mensaje
+    const randomClient = clients[Math.floor(Math.random() * clients.length)];
+    const clientName = randomClient.name.split(' ')[0].toLowerCase(); // Usar solo el primer nombre en minúsculas
     
-    for (let i = 0; i < clientsCount; i++) {
-      if (clients.length === 0) break;
-      const randomIndex = Math.floor(Math.random() * clients.length);
-      selectedClients.push(clients[randomIndex].name.split(' ')[0].toLowerCase()); // Usar solo el primer nombre en minúsculas
-      clients.splice(randomIndex, 1); // Eliminar para evitar duplicados
-    }
+    // Construir mensaje con formato informal
+    let message = clientName;
     
-    // Construir mensaje con formato informal con múltiples clientes
-    let message = '';
+    // Añadir entre 1 y 6 productos al pedido
+    const numProducts = Math.floor(Math.random() * 6) + 1;
+    const productsArray = [...products];
+    const selectedProducts = [];
     
-    for (let i = 0; i < selectedClients.length; i++) {
-      const clientName = selectedClients[i];
+    for (let i = 0; i < numProducts && productsArray.length > 0; i++) {
+      const randomProductIndex = Math.floor(Math.random() * productsArray.length);
+      const product = productsArray[randomProductIndex];
+      productsArray.splice(randomProductIndex, 1); // Eliminar para evitar duplicados
       
-      if (i > 0) {
-        message += ' ';
-        // Añadir una separación más clara entre clientes
-        if (Math.random() > 0.5) {
-          message += Math.random() > 0.5 ? '/ ' : '- ';
-        }
-      }
+      // Cantidad como número o texto aleatorio
+      const quantity = Math.floor(Math.random() * 5) + 1;
+      let quantityText = quantity.toString();
       
-      message += clientName;
-      
-      // Añadir 2-4 productos por cliente
-      const numProducts = Math.floor(Math.random() * 3) + 2;
-      const productsArray = [...products];
-      
-      for (let j = 0; j < numProducts && productsArray.length > 0; j++) {
-        const randomProductIndex = Math.floor(Math.random() * productsArray.length);
-        const product = productsArray[randomProductIndex];
-        productsArray.splice(randomProductIndex, 1); // Eliminar para evitar duplicados
-        
-        // Cantidad como número o texto aleatorio
-        const quantity = Math.floor(Math.random() * 5) + 1;
-        let quantityText = quantity.toString();
-        
-        // A veces usar texto para las cantidades
-        if (Math.random() > 0.7) {
-          const textNumbers = ['uno', 'dos', 'tres', 'cuatro', 'cinco'];
+      // A veces usar texto para las cantidades
+      if (Math.random() > 0.7) {
+        const textNumbers = ['uno', 'dos', 'tres', 'cuatro', 'cinco'];
+        if (quantity <= textNumbers.length) {
           quantityText = textNumbers[quantity - 1];
         }
-        
-        message += ' ' + quantityText + ' ';
-        
-        // Abreviar o simplificar nombres de productos
-        let productName = product.name.toLowerCase();
-        if (productName.length > 8 && Math.random() > 0.5) {
-          productName = productName.split(' ')[0]; // Usar solo la primera palabra
-        }
-        
-        message += productName;
-        
-        // Añadir variantes como letras simples (m, g, etc)
-        if (Math.random() > 0.5 && variants && variants.length > 0) {
-          // Buscar variantes para este producto
-          const productVariants = variants.filter(v => v.product_id === product.id);
-          
-          if (productVariants.length > 0) {
-            const randomVariant = productVariants[Math.floor(Math.random() * productVariants.length)];
-            message += ' ' + randomVariant.name.toLowerCase().charAt(0);
-          } else {
-            const variantLetters = ['m', 'g', 'p', 'c', 'x'];
-            message += ' ' + variantLetters[Math.floor(Math.random() * variantLetters.length)];
-          }
-        }
-        
-        // Separadores entre productos
-        if (j < numProducts - 1) {
-          const separators = [',', ' y ', ' '];
-          message += separators[Math.floor(Math.random() * separators.length)];
-        }
+      }
+
+      // Buscar variantes para este producto
+      const productVariants = variants.filter(v => v.product_id === product.id);
+      const hasVariant = productVariants.length > 0 && Math.random() > 0.3;
+      
+      let variant = null;
+      if (hasVariant) {
+        variant = productVariants[Math.floor(Math.random() * productVariants.length)];
       }
       
-      // A veces añadir "gracias" al final
-      if (Math.random() > 0.7) {
-        message += Math.random() > 0.5 ? ' gracias' : ' graciasss';
+      // Determinar tipo de pedido (solo producto, solo variante, o ambos)
+      const pedidoType = Math.floor(Math.random() * 3);
+      
+      let pedidoText = '';
+      switch (pedidoType) {
+        case 0: // Solo producto
+          if (Math.random() > 0.5) {
+            pedidoText = `${quantityText} ${product.name.toLowerCase()}`;
+          } else {
+            pedidoText = `${product.name.toLowerCase()} ${quantityText}`;
+          }
+          break;
+        case 1: // Solo variante (si tiene variante, sino producto)
+          if (hasVariant) {
+            if (Math.random() > 0.5) {
+              pedidoText = `${quantityText} ${variant.name.toLowerCase()}`;
+            } else {
+              pedidoText = `${variant.name.toLowerCase()} ${quantityText}`;
+            }
+          } else {
+            pedidoText = `${quantityText} ${product.name.toLowerCase()}`;
+          }
+          break;
+        case 2: // Producto y variante
+          if (hasVariant) {
+            if (Math.random() > 0.5) {
+              pedidoText = `${quantityText} ${product.name.toLowerCase()} ${variant.name.toLowerCase()}`;
+            } else {
+              pedidoText = `${quantityText} ${variant.name.toLowerCase()} de ${product.name.toLowerCase()}`;
+            }
+            // A veces invertir el orden
+            if (Math.random() > 0.7) {
+              const parts = pedidoText.split(' ');
+              const reordered = [parts[0], ...parts.slice(2), parts[1]].join(' ');
+              pedidoText = reordered;
+            }
+          } else {
+            pedidoText = `${quantityText} ${product.name.toLowerCase()}`;
+          }
+          break;
       }
+      
+      selectedProducts.push(pedidoText);
     }
     
-    // Asegurar que el mensaje tenga elementos típicos del formato solicitado
-    if (!message.includes('g') && !message.includes('m')) {
-      message += ' 3 pañales g 2m';
+    // Unir productos con separadores aleatorios
+    for (let i = 0; i < selectedProducts.length; i++) {
+      if (i > 0) {
+        const separators = [', ', ' y ', ' también ', ' + ', ' '];
+        message += separators[Math.floor(Math.random() * separators.length)];
+      } else {
+        message += ' ';
+      }
+      message += selectedProducts[i];
+    }
+    
+    // A veces añadir "gracias" al final
+    if (Math.random() > 0.7) {
+      const gracias = [' gracias', ' graciasss', ' xfa', ' por favor', ''];
+      message += gracias[Math.floor(Math.random() * gracias.length)];
     }
     
     return message;
   } catch (error) {
     console.error("Error al generar ejemplo:", error);
-    return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss marcos 5 g 5m 3 pastron netu 5 pañales g dos fiambre un rollo gracias";
+    return "moshe 3 pañales m, 4 g y cinco latas atún, graciasss";
   }
 };
 
 // Función para generar múltiples mensajes de ejemplo con diferentes clientes y productos
-export const generateMultipleExamples = async (count = 5): Promise<string> => {
+export const generateMultipleExamples = async (): Promise<string> => {
   try {
-    // Solo generamos un único ejemplo como solicitado
+    // Fetch todos los clientes de la base de datos
+    const { data: clients, error: clientsError } = await supabase
+      .from('clients')
+      .select('*');
+    
+    if (clientsError) throw clientsError;
+    
+    if (!clients || clients.length === 0) {
+      return "moshe 3 pañales m, 4 g y cinco latas atún, graciasss";
+    }
+    
+    // Elegir un cliente aleatorio
+    const randomClient = clients[Math.floor(Math.random() * clients.length)];
+    
+    // Generar un mensaje para ese cliente
     const message = await generateMessageExample();
+    
     return message;
   } catch (error) {
     console.error("Error al generar múltiples ejemplos:", error);
-    return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss";
+    return "moshe 3 pañales m, 4 g y cinco latas atún, graciasss";
   }
 };
+
