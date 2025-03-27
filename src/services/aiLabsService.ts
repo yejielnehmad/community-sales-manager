@@ -8,7 +8,7 @@ export const generateMessageExample = async (): Promise<string> => {
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
       .select('*')
-      .limit(15);
+      .limit(20);
     
     if (clientsError) throw clientsError;
     
@@ -24,113 +24,113 @@ export const generateMessageExample = async (): Promise<string> => {
     const { data: variants, error: variantsError } = await supabase
       .from('product_variants')
       .select('*')
-      .limit(30);
+      .limit(40);
     
     if (variantsError) throw variantsError;
     
     if (!clients || clients.length === 0 || !products || products.length === 0) {
-      return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss marcos 5 g 5m 3 pastron netu 5 pañales g dos fiambre un rollo gracias";
+      return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss";
     }
     
-    // Seleccionar 4-5 clientes aleatoriamente para el mensaje
+    // Agrupar variantes por producto
+    const variantsByProduct = variants?.reduce((acc, variant) => {
+      if (!acc[variant.product_id]) {
+        acc[variant.product_id] = [];
+      }
+      acc[variant.product_id].push(variant);
+      return acc;
+    }, {} as Record<string, any[]>) || {};
+    
+    // Crear un mensaje de ejemplo con clientes y productos reales
     const selectedClients = [];
-    const clientsCount = Math.min(Math.floor(Math.random() * 2) + 4, clients.length); // 4-5 clientes
+    const clientCount = Math.min(Math.floor(Math.random() * 3) + 3, clients.length); // 3-5 clientes aleatorios
     
-    for (let i = 0; i < clientsCount; i++) {
-      if (clients.length === 0) break;
-      const randomIndex = Math.floor(Math.random() * clients.length);
-      selectedClients.push(clients[randomIndex].name.split(' ')[0].toLowerCase()); // Usar solo el primer nombre en minúsculas
-      clients.splice(randomIndex, 1); // Eliminar para evitar duplicados
-    }
+    // Seleccionar clientes aleatorios sin repetición
+    const shuffledClients = [...clients].sort(() => 0.5 - Math.random());
+    const clientsToUse = shuffledClients.slice(0, clientCount);
     
-    // Construir mensaje con formato informal con múltiples clientes
     let message = '';
     
-    for (let i = 0; i < selectedClients.length; i++) {
-      const clientName = selectedClients[i];
+    // Para cada cliente, generar un pedido con 1-5 productos aleatorios
+    clientsToUse.forEach((client, clientIndex) => {
+      // Usar solo el primer nombre o nickname del cliente, en minúsculas
+      const clientName = client.name.split(' ')[0].toLowerCase();
       
-      if (i > 0) {
-        message += ' ';
-        // Añadir una separación más clara entre clientes
-        if (Math.random() > 0.5) {
-          message += Math.random() > 0.5 ? '/ ' : '- ';
-        }
+      if (clientIndex > 0) {
+        // Separadores entre clientes
+        message += Math.random() > 0.3 ? ' - ' : ' ';
       }
       
       message += clientName;
       
-      // Añadir 2-4 productos por cliente
-      const numProducts = Math.floor(Math.random() * 3) + 2;
-      const productsArray = [...products];
+      // Determinar cuántos productos incluir para este cliente (1-5)
+      const productCount = Math.floor(Math.random() * 5) + 1;
       
-      for (let j = 0; j < numProducts && productsArray.length > 0; j++) {
-        const randomProductIndex = Math.floor(Math.random() * productsArray.length);
-        const product = productsArray[randomProductIndex];
-        productsArray.splice(randomProductIndex, 1); // Eliminar para evitar duplicados
+      // Seleccionar productos aleatorios para este cliente
+      const shuffledProducts = [...products].sort(() => 0.5 - Math.random());
+      const productsToUse = shuffledProducts.slice(0, productCount);
+      
+      productsToUse.forEach((product, productIndex) => {
+        // Cantidad aleatoria (1-6)
+        const quantity = Math.floor(Math.random() * 6) + 1;
         
-        // Cantidad como número o texto aleatorio
-        const quantity = Math.floor(Math.random() * 5) + 1;
+        // A veces usar texto para cantidades
         let quantityText = quantity.toString();
-        
-        // A veces usar texto para las cantidades
         if (Math.random() > 0.7) {
-          const textNumbers = ['uno', 'dos', 'tres', 'cuatro', 'cinco'];
+          const textNumbers = ['un', 'dos', 'tres', 'cuatro', 'cinco', 'seis'];
           quantityText = textNumbers[quantity - 1];
         }
         
-        message += ' ' + quantityText + ' ';
-        
-        // Abreviar o simplificar nombres de productos
-        let productName = product.name.toLowerCase();
-        if (productName.length > 8 && Math.random() > 0.5) {
-          productName = productName.split(' ')[0]; // Usar solo la primera palabra
-        }
-        
-        message += productName;
-        
-        // Añadir variantes como letras simples (m, g, etc)
-        if (Math.random() > 0.5 && variants && variants.length > 0) {
-          // Buscar variantes para este producto
-          const productVariants = variants.filter(v => v.product_id === product.id);
-          
-          if (productVariants.length > 0) {
-            const randomVariant = productVariants[Math.floor(Math.random() * productVariants.length)];
-            message += ' ' + randomVariant.name.toLowerCase().charAt(0);
-          } else {
-            const variantLetters = ['m', 'g', 'p', 'c', 'x'];
-            message += ' ' + variantLetters[Math.floor(Math.random() * variantLetters.length)];
-          }
-        }
-        
-        // Separadores entre productos
-        if (j < numProducts - 1) {
-          const separators = [',', ' y ', ' '];
+        // Separador antes del producto
+        if (productIndex === 0) {
+          message += ' ';
+        } else {
+          const separators = [', ', ' y ', ' '];
           message += separators[Math.floor(Math.random() * separators.length)];
         }
-      }
+        
+        // Agregar cantidad
+        message += quantityText + ' ';
+        
+        // Estilo del mensaje: 
+        // 1. Solo producto sin variante
+        // 2. Producto y variante juntos 
+        // 3. Solo la variante directamente
+        const messageStyle = Math.floor(Math.random() * 3);
+        
+        // Obtener variantes disponibles para este producto
+        const productVariants = variantsByProduct[product.id] || [];
+        
+        if (messageStyle === 0 || productVariants.length === 0) {
+          // Caso 1: Solo producto
+          message += product.name.toLowerCase();
+        } else if (messageStyle === 1 && productVariants.length > 0) {
+          // Caso 2: Producto con variante
+          const variant = productVariants[Math.floor(Math.random() * productVariants.length)];
+          message += product.name.toLowerCase() + ' ' + variant.name.toLowerCase();
+        } else if (messageStyle === 2 && productVariants.length > 0) {
+          // Caso 3: Solo la variante directamente (asumiendo que es claro qué producto es)
+          const variant = productVariants[Math.floor(Math.random() * productVariants.length)];
+          message += variant.name.toLowerCase();
+        }
+      });
       
-      // A veces añadir "gracias" al final
+      // A veces agregar "gracias" al final del pedido de un cliente
       if (Math.random() > 0.7) {
         message += Math.random() > 0.5 ? ' gracias' : ' graciasss';
       }
-    }
-    
-    // Asegurar que el mensaje tenga elementos típicos del formato solicitado
-    if (!message.includes('g') && !message.includes('m')) {
-      message += ' 3 pañales g 2m';
-    }
+    });
     
     return message;
   } catch (error) {
     console.error("Error al generar ejemplo:", error);
-    return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss marcos 5 g 5m 3 pastron netu 5 pañales g dos fiambre un rollo gracias";
+    return "moshe 3 pañales m, 4 g y cinco latas atún , graciasss";
   }
 };
 
-// Función para generar múltiples mensajes de ejemplo con diferentes clientes y productos
-export const generateMultipleExamples = async (count = 5): Promise<string> => {
+// Función para generar múltiples mensajes de ejemplo
+export const generateMultipleExamples = async (): Promise<string> => {
   try {
-    // Solo generamos un único ejemplo como solicitado
     const message = await generateMessageExample();
     return message;
   } catch (error) {
