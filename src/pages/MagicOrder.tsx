@@ -64,7 +64,7 @@ const ORDER_SAVED_KEY = 'magicOrder_ordersSaved';
 
 /**
  * Página Mensaje Mágico
- * v1.0.37
+ * v1.0.41
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState(() => {
@@ -143,10 +143,11 @@ const MagicOrder = () => {
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
   
-  const messageToAnalyze = useRef<string>(() => {
-    const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
-    return savedAnalysisState ? JSON.parse(savedAnalysisState).messageToAnalyze : "";
-  });
+  const messageToAnalyze = useRef<string>(
+    localStorage.getItem(ANALYSIS_KEY) 
+      ? JSON.parse(localStorage.getItem(ANALYSIS_KEY)!).messageToAnalyze || ""
+      : ""
+  );
   
   const abortControllerRef = useRef<AbortController | null>(null);
   
@@ -214,50 +215,54 @@ const MagicOrder = () => {
   }, [phase3Response]);
   
   useEffect(() => {
-    if (clients.length === 0 || products.length === 0) {
-      setIsLoadingData(true);
-      try {
-        const { data: clientsData, error: clientsError } = await supabase
-          .from('clients')
-          .select('id, name, phone');
-        
-        if (clientsError) throw new Error(clientsError.message);
-        if (clientsData && clientsData.length > 0) setClients(clientsData);
-        
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('id, name, price, description');
-        
-        if (productsError) throw new Error(productsError.message);
-        
-        if (productsData && productsData.length > 0) {
-          const { data: variantsData, error: variantsError } = await supabase
-            .from('product_variants')
-            .select('id, product_id, name, price');
+    const loadDatabaseData = async () => {
+      if (clients.length === 0 || products.length === 0) {
+        setIsLoadingData(true);
+        try {
+          const { data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('id, name, phone');
           
-          if (variantsError) throw new Error(variantsError.message);
+          if (clientsError) throw new Error(clientsError.message);
+          if (clientsData && clientsData.length > 0) setClients(clientsData);
           
-          const productsWithVariants = productsData.map(product => {
-            const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
-            return {
-              ...product,
-              variants: productVariants
-            };
+          const { data: productsData, error: productsError } = await supabase
+            .from('products')
+            .select('id, name, price, description');
+          
+          if (productsError) throw new Error(productsError.message);
+          
+          if (productsData && productsData.length > 0) {
+            const { data: variantsData, error: variantsError } = await supabase
+              .from('product_variants')
+              .select('id, product_id, name, price');
+            
+            if (variantsError) throw new Error(variantsError.message);
+            
+            const productsWithVariants = productsData.map(product => {
+              const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
+              return {
+                ...product,
+                variants: productVariants
+              };
+            });
+            
+            setProducts(productsWithVariants);
+          }
+        } catch (error) {
+          console.error("Error al cargar datos de contexto:", error);
+          toast({
+            title: "Error al cargar datos",
+            description: "No se pudieron cargar todos los productos y clientes",
+            variant: "destructive"
           });
-          
-          setProducts(productsWithVariants);
+        } finally {
+          setIsLoadingData(false);
         }
-      } catch (error) {
-        console.error("Error al cargar datos de contexto:", error);
-        toast({
-          title: "Error al cargar datos",
-          description: "No se pudieron cargar todos los productos y clientes",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoadingData(false);
       }
-    }
+    };
+    
+    loadDatabaseData();
   }, [toast, clients.length, products.length]);
 
   useEffect(() => {
