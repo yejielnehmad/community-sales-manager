@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.24
+ * v1.0.26
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -64,8 +63,7 @@ const MagicOrder = () => {
   const [isSavingAllOrders, setIsSavingAllOrders] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analyzeError, setAnalysisError] = useState<string | null>(null);
   const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [progressStage, setProgressStage] = useState<string>("");
@@ -141,7 +139,6 @@ const MagicOrder = () => {
     }
 
     setIsAnalyzing(true);
-    setUnmatchedNames([]);
     setAnalysisError(null);
     setRawJsonResponse(null);
     setProgress(5);
@@ -169,39 +166,6 @@ const MagicOrder = () => {
       
       setProgress(100);
       setProgressStage("¡Análisis completado!");
-      
-      // Extraer nombres no reconocidos para mostrar una alerta
-      const namesNotInDB: string[] = [];
-      
-      // Procesar resultados para detectar posibles nombres no reconocidos
-      const messageWords = message.toLowerCase().split(/\s+/);
-      const clientNamesLower = clients.map(c => c.name.toLowerCase());
-      
-      // Verificar palabras que podrían ser nombres pero no están en la BD
-      const potentialNames = messageWords.filter(word => 
-        word.length > 2 && 
-        !word.match(/^\d+$/) && // No es un número
-        !clientNamesLower.some(name => name.includes(word)) && // No está en ningún nombre de cliente
-        !products.some(p => p.name.toLowerCase().includes(word)) // No está en ningún nombre de producto
-      );
-      
-      if (potentialNames.length > 0) {
-        // Filtrar nombres que ya están en los resultados
-        const resultsNames = results.map(r => r.client.name.toLowerCase());
-        const possibleMissedNames = potentialNames.filter(name => 
-          !resultsNames.some(resultName => resultName.includes(name))
-        );
-        
-        if (possibleMissedNames.length > 0) {
-          setUnmatchedNames(possibleMissedNames);
-          
-          toast({
-            title: "Nombres no reconocidos",
-            description: `Estos nombres no fueron identificados como clientes: ${possibleMissedNames.join(", ")}`,
-            variant: "warning"
-          });
-        }
-      }
       
       const newOrders = results.map(result => ({
         client: {
@@ -330,10 +294,8 @@ const MagicOrder = () => {
         return false;
       }
 
-      // Incluir ubicación de recogida si existe
       const metadata = order.pickupLocation ? { pickupLocation: order.pickupLocation } : undefined;
 
-      // Usar una transacción para guardar el pedido y sus items
       const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -352,7 +314,7 @@ const MagicOrder = () => {
 
       if (orderError) {
         console.error("Error al crear pedido:", orderError);
-        throw orderError;
+        throw new Error(`Error al crear pedido: ${orderError.message}`);
       }
 
       if (!newOrder || !newOrder.id) {
@@ -363,7 +325,8 @@ const MagicOrder = () => {
         const productPrice = products.find(p => p.id === item.product.id)?.price || 0;
         const variantPrice = item.variant?.id ? 
           products.find(p => p.id === item.product.id)?.variants?.find(v => v.id === item.variant?.id)?.price || 0 : 0;
-        const price = variantPrice || productPrice;
+        
+        const price = variantPrice > 0 ? variantPrice : productPrice;
         
         return {
           order_id: newOrder.id,
@@ -372,7 +335,7 @@ const MagicOrder = () => {
           quantity: item.quantity,
           price: price,
           total: item.quantity * price,
-          notes: item.notes
+          notes: item.notes || null
         };
       });
 
@@ -383,10 +346,9 @@ const MagicOrder = () => {
       if (itemsError) {
         console.error("Error al crear items del pedido:", itemsError);
         
-        // Intentar eliminar el pedido para mantener consistencia
         await supabase.from('orders').delete().eq('id', newOrder.id);
         
-        throw itemsError;
+        throw new Error(`Error al crear items del pedido: ${itemsError.message}`);
       }
 
       const updatedOrders = [...orders];
@@ -421,7 +383,6 @@ const MagicOrder = () => {
     setIsSavingAllOrders(true);
     
     try {
-      // Filtrar pedidos que se pueden guardar (no tienen dudas)
       const validOrders = orders.filter(order => 
         order.status !== 'saved' && 
         !order.items.some(item => item.status === 'duda') && 
@@ -441,11 +402,9 @@ const MagicOrder = () => {
       let successCount = 0;
       let errorCount = 0;
       
-      // Guardar cada pedido válido con barra de progreso
       for (let i = 0; i < validOrders.length; i++) {
         const orderIndex = orders.findIndex(o => o === validOrders[i]);
         if (orderIndex >= 0) {
-          // Actualizar progreso
           setProgressStage(`Guardando pedido ${i + 1} de ${validOrders.length}...`);
           setProgress(Math.round((i / validOrders.length) * 100));
           
@@ -458,11 +417,9 @@ const MagicOrder = () => {
         }
       }
       
-      // Finalizar progreso
       setProgress(100);
       setProgressStage(`¡Pedidos guardados!`);
       
-      // Mostrar resultado al finalizar todas las operaciones
       if (successCount > 0) {
         setAlertMessage({
           title: "Pedidos guardados",
@@ -525,7 +482,6 @@ const MagicOrder = () => {
     });
   };
 
-  // Separar pedidos completos e incompletos
   const incompleteOrders = orders.filter(order => 
     !order.client.id || 
     order.client.matchConfidence !== 'alto' || 
@@ -538,7 +494,6 @@ const MagicOrder = () => {
     !order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
   );
   
-  // Verificar si todos los pedidos están completos para habilitar el botón guardar
   const allOrdersComplete = orders.length > 0 && 
     orders.every(order => 
       order.client.id && 
@@ -546,7 +501,6 @@ const MagicOrder = () => {
       !order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
     );
 
-  // Agrupar pedidos por cliente
   const ordersByClient = useMemo(() => {
     return orders.reduce((acc, order, index) => {
       const clientId = order.client.id || `unknown-${index}`;
@@ -592,8 +546,7 @@ const MagicOrder = () => {
           )}
         </div>
 
-        {/* Mostrar error de análisis si existe */}
-        {analysisError && (
+        {analyzeError && (
           <Card className="bg-red-50 border-red-200">
             <CardHeader className="py-3">
               <CardTitle className="text-red-800 text-base flex items-center gap-2">
@@ -603,7 +556,7 @@ const MagicOrder = () => {
             </CardHeader>
             <CardContent className="py-2">
               <p className="text-red-700 text-sm">
-                {analysisError}
+                {analyzeError}
               </p>
               {rawJsonResponse && (
                 <div className="mt-3">
@@ -710,33 +663,6 @@ const MagicOrder = () => {
           </CardFooter>
         </Card>
 
-        {/* Mostrar nombres no reconocidos */}
-        {unmatchedNames.length > 0 && (
-          <Card className="bg-amber-50 border-amber-200">
-            <CardHeader className="py-3">
-              <CardTitle className="text-amber-800 text-base flex items-center gap-2">
-                <InfoIcon className="h-4 w-4" />
-                Posibles nombres no reconocidos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="py-0">
-              <p className="text-amber-700 text-sm mb-2">
-                Estos nombres no fueron reconocidos como clientes existentes:
-              </p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {unmatchedNames.map((name, i) => (
-                  <Badge key={i} variant="outline" className="bg-white text-amber-700 border-amber-300">
-                    {name}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-xs text-amber-600 italic">
-                Si alguno debería ser un cliente, asegúrate de agregarlo a la base de datos.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
         {orders.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -806,7 +732,6 @@ const MagicOrder = () => {
             
             <Separator />
             
-            {/* Indicador de progreso para guardar todos los pedidos */}
             {isSavingAllOrders && progress > 0 && (
               <div className="w-full my-2">
                 <div className="flex justify-between mb-1 text-sm">
@@ -823,9 +748,7 @@ const MagicOrder = () => {
             
             <Collapsible open={showOrderSummary} onOpenChange={setShowOrderSummary}>
               <CollapsibleContent>
-                {/* Pedidos agrupados por cliente */}
                 <div className="space-y-6">
-                  {/* Pedidos con problemas primero */}
                   {incompleteOrders.length > 0 && (
                     <div className="mb-6">
                       <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
@@ -870,7 +793,6 @@ const MagicOrder = () => {
                     </div>
                   )}
                   
-                  {/* Pedidos confirmados */}
                   {completeOrders.length > 0 && (
                     <div>
                       <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
@@ -957,4 +879,3 @@ const MagicOrder = () => {
 };
 
 export default MagicOrder;
-

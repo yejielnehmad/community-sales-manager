@@ -35,13 +35,13 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       // que permite espacio para actualizar cuando la respuesta real llegue
       const interval = setInterval(() => {
         setGenerationProgress(prev => {
-          if (prev >= 60) {
-            // Nos detenemos en 60% para dejar que el progreso real tome el control
-            return 60;
+          if (prev >= 75) {
+            // Aumentamos hasta 75% para evitar que se quede en 60%
+            return 75;
           }
-          return prev + 3; // Incrementos más pequeños
+          return prev + 5; // Incrementos más rápidos
         });
-      }, 200);
+      }, 150);
       
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
       const generatedExample = await generateMultipleExamples();
@@ -50,7 +50,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       clearInterval(interval);
       
       // Simulamos la finalización del progreso
-      setGenerationProgress(80);
+      setGenerationProgress(85);
       setTimeout(() => setGenerationProgress(95), 100);
       setTimeout(() => {
         setGenerationProgress(100);
@@ -135,8 +135,8 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="w-full mb-4">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-muted-foreground">
-                {generationProgress < 60 ? "Preparando ejemplos..." : 
-                 generationProgress < 80 ? "Procesando datos..." : 
+                {generationProgress < 50 ? "Preparando ejemplos..." : 
+                 generationProgress < 75 ? "Procesando datos..." : 
                  generationProgress < 95 ? "Finalizando..." : 
                  "¡Completado!"}
               </span>
