@@ -1,3 +1,4 @@
+
 import { GOOGLE_API_KEY, OPENROUTER_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -28,6 +29,7 @@ export const AI_MODEL_TYPE = {
   OPENROUTER: 'openrouter'
 };
 
+// Establecer OpenRouter como modelo predeterminado
 let currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
 
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea o parte del mensaje puede contener pedidos distintos.
@@ -116,7 +118,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.3:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.4:", prompt.substring(0, 100) + "...");
     
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
