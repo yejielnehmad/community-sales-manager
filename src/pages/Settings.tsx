@@ -6,24 +6,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Settings2, Wand, RefreshCcw, Save, PlusCircle } from 'lucide-react';
+import { Settings2, Wand, RefreshCcw, Save, PlusCircle, Cpu } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { 
   DEFAULT_ANALYSIS_PROMPT, 
   getCurrentAnalysisPrompt, 
   setCustomAnalysisPrompt, 
-  resetAnalysisPrompt 
+  resetAnalysisPrompt,
+  AI_MODEL_TYPE,
+  getCurrentAiModelType,
+  setAiModelType
 } from "@/services/geminiService";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const Settings = () => {
   const [currentTab, setCurrentTab] = useState("ia");
   const [customPrompt, setCustomPrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    // Cargar el prompt actual
+    // Cargar el prompt actual y el modelo seleccionado
     setCustomPrompt(getCurrentAnalysisPrompt());
+    setSelectedModel(getCurrentAiModelType());
   }, []);
 
   const handleSavePrompt = () => {
@@ -56,6 +63,22 @@ const Settings = () => {
     });
   };
 
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value);
+    if (setAiModelType(value)) {
+      toast({
+        title: "Modelo de IA cambiado",
+        description: `Se ha cambiado el modelo a ${value === AI_MODEL_TYPE.GEMINI ? 'Google Gemini' : 'Claude 3 Haiku (OpenRouter)'}`,
+      });
+    } else {
+      toast({
+        title: "Error al cambiar el modelo",
+        description: "No se pudo cambiar el modelo de IA.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -79,6 +102,40 @@ const Settings = () => {
           </TabsList>
           
           <TabsContent value="ia" className="space-y-4 pt-4">
+            {/* Selector de modelo IA */}
+            <Card className="rounded-xl shadow-sm overflow-hidden">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cpu className="h-5 w-5 text-primary" />
+                  Modelo de IA
+                </CardTitle>
+                <CardDescription>
+                  Selecciona el modelo de inteligencia artificial para el análisis de mensajes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup value={selectedModel} onValueChange={handleModelChange} className="space-y-3">
+                  <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
+                    <RadioGroupItem value={AI_MODEL_TYPE.GEMINI} id="gemini" />
+                    <Label htmlFor="gemini" className="flex-1 cursor-pointer font-medium">
+                      Google Gemini
+                      <p className="text-sm font-normal text-muted-foreground">Modelo de Google Gemini 2.0 Flash</p>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
+                    <RadioGroupItem value={AI_MODEL_TYPE.OPENROUTER} id="claude" />
+                    <Label htmlFor="claude" className="flex-1 cursor-pointer font-medium">
+                      Claude 3 Haiku (OpenRouter)
+                      <p className="text-sm font-normal text-muted-foreground">Anthropic Claude 3 Haiku vía OpenRouter</p>
+                      <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border-green-200">
+                        Recomendado
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
             <Card className="rounded-xl shadow-sm overflow-hidden">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

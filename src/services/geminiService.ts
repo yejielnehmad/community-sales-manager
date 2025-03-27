@@ -1,4 +1,5 @@
-import { GOOGLE_API_KEY } from "@/lib/api-config";
+
+import { GOOGLE_API_KEY, OPENROUTER_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
 
@@ -22,6 +23,15 @@ export class GeminiError extends Error {
     this.rawJsonResponse = details?.rawJsonResponse;
   }
 }
+
+// Constantes para selección de modelo
+export const AI_MODEL_TYPE = {
+  GEMINI: 'gemini',
+  OPENROUTER: 'openrouter'
+};
+
+// Configuración por defecto
+let currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
 
 // Prompt para análisis de pedidos - versión por defecto
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea o parte del mensaje puede contener pedidos distintos.
@@ -88,9 +98,110 @@ export const getCurrentAnalysisPrompt = () => {
   return currentAnalysisPrompt;
 };
 
+// Función para cambiar el modelo de IA
+export const setAiModelType = (modelType: string) => {
+  if (Object.values(AI_MODEL_TYPE).includes(modelType as any)) {
+    currentAiModelType = modelType;
+    return true;
+  }
+  return false;
+};
+
+// Función para obtener el modelo actual
+export const getCurrentAiModelType = () => {
+  return currentAiModelType;
+};
+
 // Función para restablecer el prompt por defecto
 export const resetAnalysisPrompt = () => {
   currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+};
+
+/**
+ * Función para realizar peticiones a OpenRouter (Claude 3 Haiku)
+ */
+export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
+  if (!OPENROUTER_API_KEY) {
+    throw new GeminiError("API Key de OpenRouter no configurada");
+  }
+
+  try {
+    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.1:", prompt.substring(0, 100) + "...");
+    
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "VentasCom App"
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-3-haiku",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      })
+    });
+
+    const responseText = await response.text();
+    console.log("Respuesta raw de OpenRouter:", responseText.substring(0, 200) + "...");
+    
+    if (!response.ok) {
+      console.error("Error en respuesta HTTP:", response.status, response.statusText, responseText);
+      throw new GeminiError(`Error HTTP: ${response.status} ${response.statusText}`, {
+        status: response.status,
+        statusText: response.statusText,
+        apiResponse: responseText,
+        rawJsonResponse: responseText
+      });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Error al parsear respuesta de OpenRouter:", parseError, responseText);
+      throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
+        apiResponse: parseError,
+        rawJsonResponse: responseText
+      });
+    }
+
+    console.log("Respuesta de OpenRouter (resumida):", JSON.stringify(data).substring(0, 200) + "...");
+
+    if (data.error) {
+      console.error("Error devuelto por la API de OpenRouter:", data.error);
+      throw new GeminiError(`Error de la API de OpenRouter: ${data.error.message || "Error desconocido"}`, {
+        apiResponse: data.error,
+        rawJsonResponse: responseText
+      });
+    }
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error("Respuesta completa con formato incorrecto:", JSON.stringify(data, null, 2));
+      throw new GeminiError("Formato de respuesta inesperado de la API de OpenRouter", {
+        apiResponse: data,
+        rawJsonResponse: responseText
+      });
+    }
+
+    const resultText = data.choices[0].message.content;
+    console.log("Texto de respuesta:", resultText.substring(0, 200) + "...");
+    
+    return resultText;
+  } catch (error) {
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    console.error("Error inesperado al llamar a OpenRouter API:", error);
+    throw new GeminiError(`Error al conectar con OpenRouter API: ${(error as Error).message}`);
+  }
 };
 
 /**
@@ -178,6 +289,17 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     }
     console.error("Error inesperado al llamar a Gemini API:", error);
     throw new GeminiError(`Error al conectar con Gemini API: ${(error as Error).message}`);
+  }
+};
+
+/**
+ * Función para llamar a la API seleccionada actualmente
+ */
+export const callAiApi = async (prompt: string): Promise<string> => {
+  if (currentAiModelType === AI_MODEL_TYPE.OPENROUTER) {
+    return callOpenRouterAPI(prompt);
+  } else {
+    return callGeminiAPI(prompt);
   }
 };
 
@@ -412,7 +534,7 @@ export const analyzeCustomerMessage = async (
             .replace('{clientsContext}', clientsContext)
             .replace('{messageText}', segment);
           
-          const responseText = await callGeminiAPI(prompt);
+          const responseText = await callAiApi(prompt);
           let jsonText = extractJsonFromResponse(responseText);
           
           try {
@@ -526,7 +648,7 @@ export const chatWithAssistant = async (
   `;
 
   try {
-    const response = await callGeminiAPI(prompt);
+    const response = await callAiApi(prompt);
     return response;
   } catch (error) {
     console.error("Error en chatWithAssistant:", error);
