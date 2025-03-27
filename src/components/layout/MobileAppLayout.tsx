@@ -13,7 +13,8 @@ import {
   MessageCircle,
   Database,
   Wand,
-  Info
+  Info,
+  Settings2
 } from "lucide-react";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { APP_VERSION } from "@/lib/app-config";
@@ -45,6 +46,7 @@ export function MobileAppLayout({ children }: MobileAppLayoutProps) {
     { path: "/products", label: "Catálogo", icon: <ShoppingBag className="h-5 w-5" /> },
     { path: "/orders", label: "Pedidos", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/magic-order", label: "Mensaje Mágico", icon: <Wand className="h-5 w-5" /> },
+    { path: "/settings", label: "Configuración", icon: <Settings2 className="h-5 w-5" /> },
   ];
 
   // Asegurar que se restaure la capacidad de interacción después de cerrar componentes de UI
