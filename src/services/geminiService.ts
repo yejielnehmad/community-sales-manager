@@ -1,9 +1,9 @@
 
-import { GOOGLE_API_KEY, OPENROUTER_API_KEY } from "@/lib/api-config";
-import { MessageAnalysis, Product } from "@/types";
+import { OPENROUTER_API_KEY } from "@/lib/api-config";
+import { MessageAnalysis } from "@/types";
 import { supabase } from "@/lib/supabase";
 
-export class GeminiError extends Error {
+export class AIServiceError extends Error {
   status?: number;
   statusText?: string;
   apiResponse?: any;
@@ -16,18 +16,13 @@ export class GeminiError extends Error {
     rawJsonResponse?: string 
   }) {
     super(message);
-    this.name = "GeminiError";
+    this.name = "AIServiceError";
     this.status = details?.status;
     this.statusText = details?.statusText;
     this.apiResponse = details?.apiResponse;
     this.rawJsonResponse = details?.rawJsonResponse;
   }
 }
-
-export const AI_MODEL_TYPE = {
-  GEMINI: 'gemini',
-  OPENROUTER: 'openrouter'
-};
 
 // Definimos primero DEFAULT_ANALYSIS_PROMPT antes de cualquier referencia a ella
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea o parte del mensaje puede contener pedidos distintos.
@@ -77,10 +72,7 @@ Estructura JSON:
   }
 ]`;
 
-// Usar exclusivamente OpenRouter (Claude 3 Haiku)
-let currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
-
-// Establecer OpenRouter como modelo predeterminado
+// Variable para almacenar el prompt personalizado
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 
 export const setCustomAnalysisPrompt = (prompt: string) => {
@@ -95,22 +87,6 @@ export const getCurrentAnalysisPrompt = () => {
   return currentAnalysisPrompt;
 };
 
-export const setAiModelType = (modelType: string) => {
-  console.log("Intentando cambiar modelo a:", modelType);
-  // Ya no permitimos cambiar a Gemini, solo permitimos OpenRouter
-  if (modelType === AI_MODEL_TYPE.OPENROUTER) {
-    currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
-    console.log("Modelo cambiado a OpenRouter");
-    return true;
-  }
-  console.log("Cambio de modelo rechazado, solo se permite OpenRouter");
-  return false;
-};
-
-export const getCurrentAiModelType = () => {
-  return currentAiModelType;
-};
-
 export const resetAnalysisPrompt = () => {
   currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 };
@@ -120,11 +96,11 @@ export const resetAnalysisPrompt = () => {
  */
 export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
   if (!OPENROUTER_API_KEY) {
-    throw new GeminiError("API Key de OpenRouter no configurada");
+    throw new AIServiceError("API Key de OpenRouter no configurada");
   }
 
   try {
-    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.5:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.7:", prompt.substring(0, 100) + "...");
     
     // Construir el cuerpo de la solicitud con el formato correcto
     const requestBody = {
@@ -164,7 +140,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
     
     if (!response.ok) {
       console.error("Error en respuesta HTTP:", response.status, response.statusText, responseText);
-      throw new GeminiError(`Error HTTP: ${response.status} ${response.statusText}`, {
+      throw new AIServiceError(`Error HTTP: ${response.status} ${response.statusText}`, {
         status: response.status,
         statusText: response.statusText,
         apiResponse: responseText,
@@ -177,7 +153,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
       data = JSON.parse(responseText);
     } catch (parseError) {
       console.error("Error al parsear respuesta de OpenRouter:", parseError, responseText);
-      throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
+      throw new AIServiceError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
         apiResponse: parseError,
         rawJsonResponse: responseText
       });
@@ -187,7 +163,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
 
     if (data.error) {
       console.error("Error devuelto por la API de OpenRouter:", data.error);
-      throw new GeminiError(`Error de la API de OpenRouter: ${data.error.message || "Error desconocido"}`, {
+      throw new AIServiceError(`Error de la API de OpenRouter: ${data.error.message || "Error desconocido"}`, {
         apiResponse: data.error,
         rawJsonResponse: responseText
       });
@@ -195,7 +171,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
       console.error("Respuesta completa con formato incorrecto:", JSON.stringify(data, null, 2));
-      throw new GeminiError("Formato de respuesta inesperado de la API de OpenRouter", {
+      throw new AIServiceError("Formato de respuesta inesperado de la API de OpenRouter", {
         apiResponse: data,
         rawJsonResponse: responseText
       });
@@ -206,28 +182,18 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
     
     return resultText;
   } catch (error) {
-    if (error instanceof GeminiError) {
+    if (error instanceof AIServiceError) {
       throw error;
     }
     console.error("Error inesperado al llamar a OpenRouter API:", error);
-    throw new GeminiError(`Error al conectar con OpenRouter API: ${(error as Error).message}`);
+    throw new AIServiceError(`Error al conectar con OpenRouter API: ${(error as Error).message}`);
   }
 };
 
 /**
- * Función para realizar peticiones a la API de Google Gemini con soporte mejorado para respuestas largas
- * NOTA: Esta función está en desuso, se mantiene solo por compatibilidad
- */
-export const callGeminiAPI = async (prompt: string): Promise<string> => {
-  console.warn("ADVERTENCIA: La función callGeminiAPI está en desuso, use callOpenRouterAPI");
-  return callOpenRouterAPI(prompt);
-};
-
-/**
- * Función para llamar a la API seleccionada actualmente
+ * Función principal para llamar a la API
  */
 export const callAiApi = async (prompt: string): Promise<string> => {
-  // Siempre usamos OpenRouter independientemente del modelo seleccionado
   return callOpenRouterAPI(prompt);
 };
 
@@ -406,7 +372,7 @@ export const analyzeCustomerMessage = async (
     ).join('\n');
     
     const allResults: MessageAnalysis[][] = [];
-    let lastError: GeminiError | null = null;
+    let lastError: AIServiceError | null = null;
     
     for (let i = 0; i < messageSegments.length; i++) {
       const segment = messageSegments[i];
@@ -452,7 +418,7 @@ export const analyzeCustomerMessage = async (
           } catch (parseError: any) {
             console.error(`Error al procesar JSON del segmento ${i+1} (intento ${attempts}):`, parseError);
             console.error("Texto JSON recibido:", jsonText);
-            lastError = new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
+            lastError = new AIServiceError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
               apiResponse: parseError,
               rawJsonResponse: jsonText
             });
@@ -464,7 +430,7 @@ export const analyzeCustomerMessage = async (
           }
         } catch (error: any) {
           console.error(`Error al analizar segmento ${i+1} (intento ${attempts}):`, error);
-          lastError = error instanceof GeminiError ? error : new GeminiError(error.message);
+          lastError = error instanceof AIServiceError ? error : new AIServiceError(error.message);
           
           if (attempts < maxAttempts) {
             console.log(`Reintentando análisis del segmento ${i+1}...`);
@@ -491,10 +457,10 @@ export const analyzeCustomerMessage = async (
     return combinedResults;
   } catch (error) {
     console.error("Error final en analyzeCustomerMessage:", error);
-    if (error instanceof GeminiError) {
+    if (error instanceof AIServiceError) {
       throw error;
     }
-    throw new GeminiError(`Error al analizar el mensaje: ${(error as Error).message}`);
+    throw new AIServiceError(`Error al analizar el mensaje: ${(error as Error).message}`);
   }
 };
 
@@ -528,9 +494,9 @@ export const chatWithAssistant = async (
     return response;
   } catch (error) {
     console.error("Error en chatWithAssistant:", error);
-    if (error instanceof GeminiError) {
+    if (error instanceof AIServiceError) {
       throw error;
     }
-    throw new GeminiError(`Error al procesar tu consulta: ${(error as Error).message}`);
+    throw new AIServiceError(`Error al procesar tu consulta: ${(error as Error).message}`);
   }
 };

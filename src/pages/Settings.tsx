@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +12,7 @@ import {
   DEFAULT_ANALYSIS_PROMPT, 
   getCurrentAnalysisPrompt, 
   setCustomAnalysisPrompt, 
-  resetAnalysisPrompt,
-  AI_MODEL_TYPE,
-  getCurrentAiModelType,
-  setAiModelType
+  resetAnalysisPrompt
 } from "@/services/geminiService";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -23,13 +21,11 @@ const Settings = () => {
   const [currentTab, setCurrentTab] = useState("ia");
   const [customPrompt, setCustomPrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    // Cargar el prompt actual y el modelo seleccionado
+    // Cargar el prompt actual
     setCustomPrompt(getCurrentAnalysisPrompt());
-    setSelectedModel(getCurrentAiModelType());
   }, []);
 
   const handleSavePrompt = () => {
@@ -62,21 +58,6 @@ const Settings = () => {
     });
   };
 
-  const handleModelChange = (value: string) => {
-    setSelectedModel(value);
-    if (setAiModelType(value)) {
-      toast({
-        title: "Modelo de IA cambiado",
-        description: `Se ha cambiado el modelo a Claude 3 Haiku (OpenRouter)`,
-      });
-    } else {
-      toast({
-        title: "Información",
-        description: "Solo se permite usar Claude 3 Haiku (OpenRouter) en esta versión.",
-      });
-    }
-  };
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -100,7 +81,7 @@ const Settings = () => {
           </TabsList>
           
           <TabsContent value="ia" className="space-y-4 pt-4">
-            {/* Selector de modelo IA */}
+            {/* Información sobre el modelo IA */}
             <Card className="rounded-xl shadow-sm overflow-hidden">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -112,28 +93,15 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <RadioGroup value={selectedModel} onValueChange={handleModelChange} className="space-y-3">
-                  <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30 opacity-50">
-                    <RadioGroupItem value={AI_MODEL_TYPE.GEMINI} id="gemini" disabled />
-                    <Label htmlFor="gemini" className="flex-1 cursor-not-allowed font-medium text-muted-foreground">
-                      Google Gemini
-                      <p className="text-sm font-normal text-muted-foreground">Modelo de Google Gemini 2.0 Flash (Desactivado)</p>
-                      <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-50 text-yellow-700 border-yellow-200">
-                        No disponible
-                      </div>
-                    </Label>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <div className="flex-1 font-medium">
+                    Claude 3 Haiku (OpenRouter)
+                    <p className="text-sm font-normal text-muted-foreground">Anthropic Claude 3 Haiku vía OpenRouter</p>
+                    <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border-green-200">
+                      Activo
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
-                    <RadioGroupItem value={AI_MODEL_TYPE.OPENROUTER} id="claude" />
-                    <Label htmlFor="claude" className="flex-1 cursor-pointer font-medium">
-                      Claude 3 Haiku (OpenRouter)
-                      <p className="text-sm font-normal text-muted-foreground">Anthropic Claude 3 Haiku vía OpenRouter</p>
-                      <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border-green-200">
-                        Activo
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
+                </div>
               </CardContent>
             </Card>
 
