@@ -1,3 +1,4 @@
+
 import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -120,6 +121,56 @@ Devuelve únicamente un array JSON con esta estructura:
       }
     ],
     "unmatchedText": "Texto no asociado a cliente o producto"
+  }
+]`;
+
+// Definición del prompt predeterminado para el análisis de mensajes
+export const DEFAULT_ANALYSIS_PROMPT = `Analiza el siguiente mensaje y detecta los pedidos que se solicitan. El mensaje puede ser informal y contener múltiples pedidos de diferentes clientes.
+
+CONTEXTO (productos y clientes existentes en la base de datos):
+
+PRODUCTOS:
+{productsContext}
+
+CLIENTES:
+{clientsContext}
+
+MENSAJE A ANALIZAR:
+"{messageText}"
+
+Analiza el mensaje y devuelve un array JSON con la siguiente estructura exacta. El JSON debe contener todos los pedidos identificados, separados por cliente. Si un mismo cliente hace múltiples pedidos, agrúpalos en una sola entrada.
+
+IMPORTANTE:
+- El resultado DEBE ser un array JSON válido y bien formado.
+- NO incluyas explicaciones adicionales, código markdown, ni nada fuera del JSON.
+- Si no puedes identificar algún cliente o producto, marca su ID como null.
+- Si hay ambigüedad o falta claridad en algún ítem, marca su estado como "duda".
+- Para clientes no reconocidos claramente, usa matchConfidence "bajo" o "desconocido".
+
+[
+  {
+    "client": {
+      "id": "ID del cliente o null",
+      "name": "Nombre del cliente",
+      "matchConfidence": "alto|medio|bajo|desconocido"
+    },
+    "items": [
+      {
+        "product": {
+          "id": "ID del producto o null",
+          "name": "Nombre de producto identificado"
+        },
+        "quantity": 1,
+        "variant": {
+          "id": "ID de la variante o null",
+          "name": "Nombre de la variante"
+        },
+        "status": "confirmado|duda",
+        "alternatives": [],
+        "notes": "Notas o dudas específicas de este ítem"
+      }
+    ],
+    "unmatchedText": "Texto que no pudiste asociar a ningún cliente o producto"
   }
 ]`;
 
