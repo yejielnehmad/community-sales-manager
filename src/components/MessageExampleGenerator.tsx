@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Sparkles, Copy, Check } from "lucide-react";
 import { generateMultipleExamples } from "@/services/aiLabsService";
+import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,32 +30,39 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     setIsGenerating(true);
     setGenerationProgress(0);
     
-    // Simulación de progreso mientras se genera el ejemplo
-    const interval = setInterval(() => {
-      setGenerationProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        return prev + 5;
-      });
-    }, 150);
-    
     try {
+      // Configuramos un intervalo menos agresivo para la simulación del progreso
+      // que permite espacio para actualizar cuando la respuesta real llegue
+      const interval = setInterval(() => {
+        setGenerationProgress(prev => {
+          if (prev >= 60) {
+            // Nos detenemos en 60% para dejar que el progreso real tome el control
+            return 60;
+          }
+          return prev + 3; // Incrementos más pequeños
+        });
+      }, 200);
+      
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
       const generatedExample = await generateMultipleExamples();
-      setExample(generatedExample);
-      setGenerationProgress(100);
+      
+      // Completamos el progreso de forma más natural
+      clearInterval(interval);
+      
+      // Simulamos la finalización del progreso
+      setGenerationProgress(80);
+      setTimeout(() => setGenerationProgress(95), 100);
+      setTimeout(() => {
+        setGenerationProgress(100);
+        setExample(generatedExample);
+        setTimeout(() => setIsGenerating(false), 300);
+      }, 200);
+      
     } catch (error) {
       console.error("Error al generar ejemplo:", error);
       setAlertMessage("No se pudo generar el ejemplo. Por favor, intenta nuevamente.");
-    } finally {
-      clearInterval(interval);
-      setGenerationProgress(100);
-      setTimeout(() => {
-        setIsGenerating(false);
-        setGenerationProgress(0);
-      }, 500);
+      setIsGenerating(false);
+      setGenerationProgress(0);
     }
   };
 
@@ -123,6 +131,21 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           )}
         </div>
         
+        {isGenerating && (
+          <div className="w-full mb-4">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm text-muted-foreground">
+                {generationProgress < 60 ? "Preparando ejemplos..." : 
+                 generationProgress < 80 ? "Procesando datos..." : 
+                 generationProgress < 95 ? "Finalizando..." : 
+                 "¡Completado!"}
+              </span>
+              <span className="text-sm font-medium">{Math.round(generationProgress)}%</span>
+            </div>
+            <Progress value={generationProgress} className="h-2" />
+          </div>
+        )}
+        
         {!example && !isGenerating && (
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
@@ -132,7 +155,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           </div>
         )}
         
-        {isGenerating && !example && (
+        {isGenerating && !example && generationProgress < 100 && (
           <div className="text-center p-6 border border-dashed rounded-md animate-pulse">
             <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary/50 animate-spin" />
             <p className="text-sm text-muted-foreground">
@@ -186,4 +209,3 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     </Card>
   );
 };
-
