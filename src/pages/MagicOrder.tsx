@@ -146,7 +146,7 @@ const MagicOrder = () => {
   const messageToAnalyze = useRef<string>(() => {
     const savedAnalysisState = localStorage.getItem(ANALYSIS_KEY);
     return savedAnalysisState ? JSON.parse(savedAnalysisState).messageToAnalyze : "";
-  }());
+  });
   
   const abortControllerRef = useRef<AbortController | null>(null);
   
