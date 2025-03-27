@@ -1,3 +1,4 @@
+
 import { GOOGLE_API_KEY, OPENROUTER_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -28,12 +29,7 @@ export const AI_MODEL_TYPE = {
   OPENROUTER: 'openrouter'
 };
 
-// Usar exclusivamente OpenRouter (Claude 3 Haiku)
-let currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
-
-// Establecer OpenRouter como modelo predeterminado
-let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
-
+// Definimos primero DEFAULT_ANALYSIS_PROMPT antes de cualquier referencia a ella
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea o parte del mensaje puede contener pedidos distintos.
 
 CONTEXTO (productos y clientes existentes):
@@ -80,6 +76,12 @@ Estructura JSON:
     "unmatchedText": "Texto no identificado"
   }
 ]`;
+
+// Usar exclusivamente OpenRouter (Claude 3 Haiku)
+let currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
+
+// Establecer OpenRouter como modelo predeterminado
+let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 
 export const setCustomAnalysisPrompt = (prompt: string) => {
   if (!prompt || prompt.trim() === '') {
