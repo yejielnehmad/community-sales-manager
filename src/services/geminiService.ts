@@ -1,4 +1,5 @@
-import { OPENROUTER_API_KEY, GOOGLE_API_KEY } from "@/lib/api-config";
+
+import { OPENROUTER_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
 
@@ -115,7 +116,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a OpenRouter API v1.0.15 (Claude 3 Haiku):", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a OpenRouter API v1.0.17 (Claude 3 Haiku):", prompt.substring(0, 100) + "...");
     
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
