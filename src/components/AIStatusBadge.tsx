@@ -10,8 +10,8 @@ interface AIStatusBadgeProps {
 
 const AIStatusBadge = ({
   initialStatus = "connected",
-  initialMessage = "Cohere conectado correctamente",
-  initialDetailedInfo = "Conexión exitosa con Cohere API\nModelo: command-r-plus",
+  initialMessage = "IA",
+  initialDetailedInfo = "Conexión exitosa con Gemini API",
 }: AIStatusBadgeProps) => {
   const [status, setStatus] = useState(initialStatus);
   const [message, setMessage] = useState(initialMessage);
@@ -38,12 +38,12 @@ const AIStatusBadge = ({
       
       if (isAnalyzing) {
         setStatus("analyzing");
-        setMessage(stage || "Analizando mensaje...");
-        setDetailedInfo("El módulo de Mensaje Mágico está procesando un mensaje. La IA está analizando el contenido para detectar pedidos.");
+        setMessage("IA");
+        setDetailedInfo(`Análisis en proceso: ${stage || "Procesando mensaje"}`);
       } else if (statusRef.current === "analyzing") {
         setStatus("connected");
-        setMessage("Cohere conectado correctamente");
-        setDetailedInfo("Conexión exitosa con Cohere API\nModelo: command-r-plus");
+        setMessage("IA");
+        setDetailedInfo("Conexión exitosa con Gemini API");
       }
     };
 

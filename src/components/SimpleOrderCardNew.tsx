@@ -1,4 +1,3 @@
-
 import { HelpCircle, Check, AlertCircle, ChevronDown, User, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +27,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.37
+ * v1.0.42
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -239,6 +238,12 @@ export const SimpleOrderCardNew = ({
       item.notes?.toLowerCase().includes('cuántos') ||
       item.notes?.toLowerCase().includes('cuántas');
 
+    // No mostrar botón de confirmar cuando se requiere seleccionar variante
+    const needsVariantSelection = item.product.id && (() => {
+      const productInfo = products.find(p => p.id === item.product.id);
+      return productInfo && productInfo.variants && productInfo.variants.length > 0 && !item.variant?.id;
+    })();
+
     if (isQuantityIssue || !item.quantity) {
       return (
         <div className="mt-2">
@@ -255,6 +260,31 @@ export const SimpleOrderCardNew = ({
               onChange={(e) => setCustomQuantity(parseInt(e.target.value) || 0)}
               onFocus={() => setEditingItemIndex(itemIndex)}
             />
+            {!needsVariantSelection && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                onClick={() => handleResolveIssue(itemIndex)}
+              >
+                <Check className="h-3 w-3 mr-1" />
+                Confirmar
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Para dudas genéricas sin opciones específicas
+    // No mostrar el botón de "Marcar como correcto" cuando se necesita seleccionar variante
+    return (
+      <div className="mt-2">
+        <div className="text-xs font-medium mb-1 text-amber-700">
+          Opciones de resolución:
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!needsVariantSelection && (
             <Button 
               size="sm" 
               variant="outline" 
@@ -262,29 +292,9 @@ export const SimpleOrderCardNew = ({
               onClick={() => handleResolveIssue(itemIndex)}
             >
               <Check className="h-3 w-3 mr-1" />
-              Confirmar
+              Marcar como correcto
             </Button>
-          </div>
-        </div>
-      );
-    }
-
-    // Para dudas genéricas sin opciones específicas
-    return (
-      <div className="mt-2">
-        <div className="text-xs font-medium mb-1 text-amber-700">
-          Opciones de resolución:
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="h-8 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-            onClick={() => handleResolveIssue(itemIndex)}
-          >
-            <Check className="h-3 w-3 mr-1" />
-            Marcar como correcto
-          </Button>
+          )}
           <Button 
             size="sm" 
             variant="outline" 
