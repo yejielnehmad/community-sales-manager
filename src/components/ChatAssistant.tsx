@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { AIStatusBadge } from "@/components/AIStatusBadge";
 import { supabase } from "@/lib/supabase";
 import { callGeminiAPI, chatWithAssistant } from "@/services/geminiService";
-import { GOOGLE_API_KEY } from "@/lib/api-config";
+import { OPENROUTER_API_KEY } from "@/lib/api-config";
 import { Progress } from "@/components/ui/progress";
 
 type Message = {
@@ -68,7 +68,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
   useEffect(() => {
     // Verificar si la API está disponible
     const checkApiAvailability = async () => {
-      if (!GOOGLE_API_KEY) {
+      if (!OPENROUTER_API_KEY) {
         setIsApiAvailable(false);
         return;
       }
@@ -154,7 +154,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
           const assistantMessage: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: "Lo siento, el servicio de asistente IA no está disponible en este momento. Por favor, verifica tu conexión o la configuración de la API de Google Gemini.",
+            content: "Lo siento, el servicio de asistente IA no está disponible en este momento. Por favor, verifica tu conexión o la configuración de la API de OpenRouter.",
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, assistantMessage]);
@@ -190,7 +190,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
         currentDateTime: new Date().toISOString()
       };
       
-      // Llamar a la API de Gemini
+      // Llamar a la API de Claude 3 Haiku a través de OpenRouter
       try {
         const aiResponse = await chatWithAssistant(inputMessage, appContext);
         setProgress(100);
@@ -282,7 +282,7 @@ export function ChatAssistant({ onClose }: ChatAssistantProps) {
                       <p className="font-medium">Servicio no disponible</p>
                     </div>
                     <p className="text-sm">
-                      El asistente por IA no está disponible en este momento. Por favor, verifica la configuración de la API de Google Gemini.
+                      El asistente por IA no está disponible en este momento. Por favor, verifica la configuración de la API de OpenRouter.
                     </p>
                   </div>
                 )}
