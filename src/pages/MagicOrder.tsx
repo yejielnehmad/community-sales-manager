@@ -26,14 +26,7 @@ import {
   Code
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
-import { 
-  analyzeCustomerMessage, 
-  GeminiError, 
-  getUseTwoPhasesAnalysis, 
-  setUseTwoPhasesAnalysis,
-  getUseOptimizedAnalysis,
-  setUseOptimizedAnalysis 
-} from "@/services/geminiService";
+import { analyzeCustomerMessage, GeminiError, getUseTwoPhasesAnalysis, setUseTwoPhasesAnalysis } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
 import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
@@ -64,12 +57,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AIStatusBadge } from "@/components/AIStatusBadge";
-import { APP_VERSION } from "@/lib/app-config";
 
 /**
  * Página Mensaje Mágico
- * v1.0.37
+ * v1.0.34
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -130,7 +121,7 @@ const MagicOrder = () => {
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
-
+  
   // Guardar estado en localStorage cuando cambie
   useEffect(() => {
     localStorage.setItem('magicOrder_message', message);
@@ -176,6 +167,7 @@ const MagicOrder = () => {
     }
   }, [phase3Response]);
   
+  // Verificar si existen datos en local storage y cargar desde la base de datos solo si no hay datos locales
   useEffect(() => {
     const loadContextData = async () => {
       // Solo cargar datos si no hay ya datos en localStorage
@@ -249,13 +241,10 @@ const MagicOrder = () => {
     setPhase2Response(null);
     setPhase3Response(null);
     setProgress(5);
-    setProgressStage("Preparando análisis...");
+    setProgressStage("Preparando análisis en tres fases...");
 
     try {
-      // Usar tres fases si es necesario para una validación más completa
       setUseTwoPhasesAnalysis(true);
-      // Usar el modo optimizado que intenta primero una fase y luego tres si falla
-      setUseOptimizedAnalysis(true);
       
       const result = await analyzeCustomerMessage(message, (progressValue) => {
         let stage = "";
@@ -265,11 +254,11 @@ const MagicOrder = () => {
         } else if (progressValue < 40) {
           stage = "Cargando datos de contexto...";
         } else if (progressValue < 55) {
-          stage = "Analizando el mensaje...";
+          stage = "Fase 1: Análisis general del mensaje...";
         } else if (progressValue < 75) {
-          stage = "Estructurando información...";
-        } else if (progressValue < 90) {
-          stage = "Validando resultados...";
+          stage = "Fase 2: Estructurando en formato JSON...";
+        } else if (progressValue < 95) {
+          stage = "Fase 3: Validando y corrigiendo JSON...";
         } else {
           stage = "Finalizando...";
         }
@@ -551,7 +540,10 @@ const MagicOrder = () => {
       setProgressStage(`¡Pedidos guardados!`);
       
       if (successCount > 0) {
-        resetMagicOrderSection(successCount, errorCount);
+        setAlertMessage({
+          title: "Pedidos guardados",
+          message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
+        });
       } else if (errorCount > 0) {
         setAlertMessage({
           title: "Error al guardar pedidos",
@@ -571,27 +563,6 @@ const MagicOrder = () => {
         setProgressStage("");
       }, 1000);
     }
-  };
-  
-  const resetMagicOrderSection = (successCount: number, errorCount: number = 0) => {
-    setOrders([]);
-    localStorage.removeItem('magicOrder_orders');
-    
-    setPhase1Response(null);
-    setPhase2Response(null);
-    setPhase3Response(null);
-    localStorage.removeItem('magicOrder_phase1Response');
-    localStorage.removeItem('magicOrder_phase2Response');
-    localStorage.removeItem('magicOrder_phase3Response');
-    
-    setMessage("");
-    setAnalysisError(null);
-    setRawJsonResponse(null);
-    
-    setAlertMessage({
-      title: "Pedidos guardados",
-      message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
-    });
   };
 
   const handleConfirmDeleteOrder = () => {
@@ -623,14 +594,6 @@ const MagicOrder = () => {
   
   const handleResetAllOrders = () => {
     setOrders([]);
-    setPhase1Response(null);
-    setPhase2Response(null);
-    setPhase3Response(null);
-    localStorage.removeItem('magicOrder_orders');
-    localStorage.removeItem('magicOrder_phase1Response');
-    localStorage.removeItem('magicOrder_phase2Response');
-    localStorage.removeItem('magicOrder_phase3Response');
-    
     toast({
       title: "Pedidos reiniciados",
       description: "Se han eliminado todos los pedidos en proceso",
@@ -713,10 +676,6 @@ const MagicOrder = () => {
                 Reiniciar pedidos mágicos
               </Button>
             )}
-            
-            <div className="ml-2">
-              <AIStatusBadge isProcessing={isAnalyzing} />
-            </div>
           </div>
         </div>
 
