@@ -1,10 +1,11 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, SendIcon, Loader2, X, AlertTriangle, Brain } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { AIStatusBadge } from "@/components/AIStatusBadge";
+import AIStatusBadge from "@/components/AIStatusBadge";
 import { supabase } from "@/lib/supabase";
 import { callGeminiAPI, chatWithAssistant } from "@/services/geminiService";
 import { OPENROUTER_API_KEY, COHERE_API_KEY } from "@/lib/api-config";

@@ -16,7 +16,7 @@ import {
   Info,
   Settings2
 } from "lucide-react";
-import { AIStatusBadge } from "@/components/AIStatusBadge";
+import AIStatusBadge from "@/components/AIStatusBadge";
 import { APP_VERSION } from "@/lib/app-config";
 import { ChatAssistant } from "@/components/ChatAssistant";
 import { 

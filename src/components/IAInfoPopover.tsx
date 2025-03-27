@@ -5,7 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { AIStatusBadge } from "@/components/AIStatusBadge";
+import AIStatusBadge from "@/components/AIStatusBadge";
 import { 
   Brain, 
   Sparkles, 

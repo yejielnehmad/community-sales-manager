@@ -1,16 +1,17 @@
+
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState, useRef } from "react";
 
 interface AIStatusBadgeProps {
-  initialStatus: "connected" | "disconnected" | "analyzing";
-  initialMessage: string;
-  initialDetailedInfo: string;
+  initialStatus?: "connected" | "disconnected" | "analyzing";
+  initialMessage?: string;
+  initialDetailedInfo?: string;
 }
 
 const AIStatusBadge = ({
-  initialStatus,
-  initialMessage,
-  initialDetailedInfo,
+  initialStatus = "connected",
+  initialMessage = "Cohere conectado correctamente",
+  initialDetailedInfo = "Conexión exitosa con Cohere API\nModelo: command-r-plus",
 }: AIStatusBadgeProps) => {
   const [status, setStatus] = useState(initialStatus);
   const [message, setMessage] = useState(initialMessage);
@@ -65,4 +66,6 @@ const AIStatusBadge = ({
   );
 };
 
+// Exportamos tanto por defecto como un named export para flexibilidad
+export { AIStatusBadge };
 export default AIStatusBadge;
