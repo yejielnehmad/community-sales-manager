@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { COHERE_API_KEY, COHERE_ENDPOINT, API_CONFIG_UPDATED } from "@/lib/api-config";
@@ -24,20 +25,59 @@ import { logDebug, logError } from "@/lib/debug-utils";
 
 // Clave para localStorage para evitar verificaciones repetidas
 const API_CHECK_STORAGE_KEY = "cohere_api_checked";
+// Período de caducidad para la verificación de API (30 minutos en ms)
+const API_CHECK_EXPIRY = 30 * 60 * 1000;
 
-export const AIStatusBadge = () => {
-  const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
-  const [message, setMessage] = useState<string>("Verificando conexión...");
+export const AIStatusBadge = ({ isProcessing = false }: { isProcessing?: boolean }) => {
+  const [status, setStatus] = useState<"checking" | "connected" | "error" | "processing">(
+    isProcessing ? "processing" : "checking"
+  );
+  const [message, setMessage] = useState<string>(
+    isProcessing ? "Procesando con IA..." : "Verificando conexión..."
+  );
   const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Cohere");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isManualCheck, setIsManualCheck] = useState(false);
   const [apiResponse, setApiResponse] = useState<string | null>(null);
   const statusRef = useRef(status);
   const checkPerformedRef = useRef(false);
+  const lastCheckTimeRef = useRef<number | null>(null);
 
+  // Actualizar la referencia cuando cambia el estado
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  // Actualizar el estado cuando cambia isProcessing
+  useEffect(() => {
+    if (isProcessing) {
+      setStatus("processing");
+      setMessage("Procesando con IA...");
+    } else if (status === "processing") {
+      // Si estaba procesando y ya no, volver al estado anterior o verificar
+      if (lastCheckTimeRef.current && Date.now() - lastCheckTimeRef.current < API_CHECK_EXPIRY) {
+        // Usar el último estado conocido si la verificación es reciente
+        const savedCheck = localStorage.getItem(API_CHECK_STORAGE_KEY);
+        if (savedCheck) {
+          try {
+            const parsedCheck = JSON.parse(savedCheck);
+            setStatus(parsedCheck.status);
+            setMessage(parsedCheck.message);
+            setDetailedInfo(parsedCheck.detailedInfo);
+          } catch (e) {
+            setStatus("checking");
+            checkConnection(true);
+          }
+        } else {
+          setStatus("checking");
+          checkConnection(true);
+        }
+      } else {
+        setStatus("checking");
+        checkConnection(true);
+      }
+    }
+  }, [isProcessing]);
 
   const checkConnection = async (forceCheck = false) => {
     // Si ya se ha verificado y no es una verificación forzada, usamos el estado guardado
@@ -46,12 +86,37 @@ export const AIStatusBadge = () => {
       return;
     }
     
+    // Intentar recuperar verificación desde localStorage
+    if (!forceCheck) {
+      try {
+        const savedCheck = localStorage.getItem(API_CHECK_STORAGE_KEY);
+        if (savedCheck) {
+          const parsedCheck = JSON.parse(savedCheck);
+          const checkTime = parsedCheck.timestamp;
+          
+          // Si la verificación es reciente (menos de 30 minutos), usamos el estado guardado
+          if (Date.now() - checkTime < API_CHECK_EXPIRY) {
+            logDebug("AIStatus", "Usando estado de API guardado, verificación reciente");
+            setStatus(parsedCheck.status);
+            setMessage(parsedCheck.message);
+            setDetailedInfo(parsedCheck.detailedInfo);
+            checkPerformedRef.current = true;
+            lastCheckTimeRef.current = checkTime;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Error al recuperar estado guardado:", e);
+      }
+    }
+    
     // Si no hay API key configurada
     if (!COHERE_API_KEY) {
       setStatus("error");
       setMessage("API Key de Cohere no configurada");
       setDetailedInfo("No se ha configurado una API Key para Cohere. Por favor, configura una clave válida.");
       checkPerformedRef.current = true;
+      saveCheckStatus("error", "API Key de Cohere no configurada", "No se ha configurado una API Key para Cohere. Por favor, configura una clave válida.");
       return;
     }
 
@@ -97,15 +162,18 @@ export const AIStatusBadge = () => {
         setMessage(`Error HTTP: ${response.status} ${response.statusText}`);
         
         // Mejorar mensaje de error basado en código de respuesta
+        let detailedError = "";
         if (response.status === 401) {
-          setDetailedInfo(`Error de autenticación: La clave API no es válida o ha expirado.\n\nRespuesta del servidor: ${responseText}`);
+          detailedError = `Error de autenticación: La clave API no es válida o ha expirado.\n\nRespuesta del servidor: ${responseText}`;
         } else if (response.status === 429) {
-          setDetailedInfo(`Error de límite: Has excedido el límite de peticiones permitidas. Espera unos minutos o actualiza tu plan.\n\nRespuesta del servidor: ${responseText}`);
+          detailedError = `Error de límite: Has excedido el límite de peticiones permitidas. Espera unos minutos o actualiza tu plan.\n\nRespuesta del servidor: ${responseText}`;
         } else {
-          setDetailedInfo(`Error en la respuesta del servidor: ${response.status} ${response.statusText}\n${responseText}`);
+          detailedError = `Error en la respuesta del servidor: ${response.status} ${response.statusText}\n${responseText}`;
         }
         
+        setDetailedInfo(detailedError);
         checkPerformedRef.current = true;
+        saveCheckStatus("error", `Error HTTP: ${response.status} ${response.statusText}`, detailedError);
         return;
       }
 
@@ -117,96 +185,95 @@ export const AIStatusBadge = () => {
         logError("AIStatus", "Error al parsear respuesta JSON:", parseError);
         setStatus("error");
         setMessage("Error al procesar respuesta");
-        setDetailedInfo(`Error al parsear la respuesta JSON: ${(parseError as Error).message}\n\nRespuesta recibida: ${responseText}`);
+        const detailedError = `Error al parsear la respuesta JSON: ${(parseError as Error).message}\n\nRespuesta recibida: ${responseText}`;
+        setDetailedInfo(detailedError);
         checkPerformedRef.current = true;
+        saveCheckStatus("error", "Error al procesar respuesta", detailedError);
         return;
       }
 
       if (data.error) {
         setStatus("error");
-        setMessage(`Error: ${data.error.message || "Error de conexión"}`);
-        setDetailedInfo(`Error reportado por la API de Cohere:\n${JSON.stringify(data.error, null, 2)}`);
+        const errorMsg = `Error: ${data.error.message || "Error de conexión"}`;
+        setMessage(errorMsg);
+        const detailedError = `Error reportado por la API de Cohere:\n${JSON.stringify(data.error, null, 2)}`;
+        setDetailedInfo(detailedError);
         logError("AIStatus", "Error de la API de Cohere:", data.error);
+        saveCheckStatus("error", errorMsg, detailedError);
       } else if (
         data.text && 
         data.text.toLowerCase().includes("conectado")
       ) {
         setStatus("connected");
         setMessage("Cohere conectado correctamente");
-        setDetailedInfo(`Conexión exitosa con Cohere API\nModelo: command-r-plus\nRespuesta: "${data.text}"\nFecha de verificación: ${new Date().toLocaleString()}`);
+        const detailedSuccess = `Conexión exitosa con Cohere API\nModelo: command-r-plus\nRespuesta: "${data.text}"\nFecha de verificación: ${new Date().toLocaleString()}`;
+        setDetailedInfo(detailedSuccess);
+        saveCheckStatus("connected", "Cohere conectado correctamente", detailedSuccess);
       } else {
         setStatus("error");
         setMessage("Respuesta inesperada de Cohere");
-        setDetailedInfo(`Respuesta inesperada de la API. Respuesta completa:\n${JSON.stringify(data, null, 2)}`);
+        const detailedError = `Respuesta inesperada de la API. Respuesta completa:\n${JSON.stringify(data, null, 2)}`;
+        setDetailedInfo(detailedError);
         logDebug("AIStatus", "Respuesta completa:", JSON.stringify(data, null, 2));
+        saveCheckStatus("error", "Respuesta inesperada de Cohere", detailedError);
       }
       
       // Marcar que la verificación se ha realizado
       checkPerformedRef.current = true;
       
-      // Guardar el estado en localStorage para persistir entre páginas
-      try {
-        localStorage.setItem(API_CHECK_STORAGE_KEY, JSON.stringify({
-          status,
-          message,
-          detailedInfo,
-          timestamp: Date.now()
-        }));
-      } catch (e) {
-        console.warn("No se pudo guardar el estado en localStorage:", e);
-      }
-      
     } catch (error: any) {
       logError("AIStatus", "Error al verificar conexión con Cohere:", error);
       setStatus("error");
       let errorMessage = "Error de conexión";
+      let detailedError = "";
       
       if (error.name === 'TimeoutError' || error.name === 'AbortError') {
         errorMessage = "Timeout al conectar con la API";
-        setDetailedInfo(`La conexión con Cohere API ha tardado demasiado tiempo. Esto puede indicar problemas con la API o con tu conexión a Internet.\n\nDetalle del error: ${error.message}`);
+        detailedError = `La conexión con Cohere API ha tardado demasiado tiempo. Esto puede indicar problemas con la API o con tu conexión a Internet.\n\nDetalle del error: ${error.message}`;
       } else {
-        setDetailedInfo(`Error durante la verificación de la conexión:\n${error.name} - ${error.message}\n${error.stack || ''}`);
+        detailedError = `Error durante la verificación de la conexión:\n${error.name} - ${error.message}\n${error.stack || ''}`;
       }
       
       setMessage(`Error al conectar con Cohere API: ${errorMessage}`);
+      setDetailedInfo(detailedError);
       checkPerformedRef.current = true;
+      saveCheckStatus("error", `Error al conectar con Cohere API: ${errorMessage}`, detailedError);
+    }
+  };
+
+  // Guardar el estado de verificación en localStorage
+  const saveCheckStatus = (
+    statusValue: "checking" | "connected" | "error" | "processing",
+    messageValue: string,
+    detailedInfoValue: string
+  ) => {
+    try {
+      const timestamp = Date.now();
+      lastCheckTimeRef.current = timestamp;
+      
+      localStorage.setItem(API_CHECK_STORAGE_KEY, JSON.stringify({
+        status: statusValue,
+        message: messageValue,
+        detailedInfo: detailedInfoValue,
+        timestamp
+      }));
+    } catch (e) {
+      console.warn("No se pudo guardar el estado en localStorage:", e);
     }
   };
 
   // Verificar la conexión solo al cargar el componente por primera vez
   useEffect(() => {
-    // Intentar recuperar el estado guardado en localStorage
-    try {
-      const savedCheck = localStorage.getItem(API_CHECK_STORAGE_KEY);
-      if (savedCheck) {
-        const parsedCheck = JSON.parse(savedCheck);
-        const checkTime = new Date(parsedCheck.timestamp);
-        const now = new Date();
-        const hoursSinceLastCheck = (now.getTime() - checkTime.getTime()) / (1000 * 60 * 60);
-        
-        // Si la verificación tiene menos de 30 minutos, usamos el estado guardado (reducido a 30 minutos en lugar de 1 hora)
-        if (hoursSinceLastCheck < 0.5) {
-          logDebug("AIStatus", "Usando estado de API guardado, verificación reciente");
-          setStatus(parsedCheck.status);
-          setMessage(parsedCheck.message);
-          setDetailedInfo(parsedCheck.detailedInfo);
-          checkPerformedRef.current = true;
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn("Error al recuperar estado guardado:", e);
+    if (!isProcessing) {
+      checkConnection();
     }
-    
-    // Solo verificamos inicialmente y no reintentamos automáticamente
-    checkConnection();
   }, []);
 
   const handleOpenDialog = () => {
     // Si se hace clic en la insignia, verificamos solo si es una verificación manual
     setIsDialogOpen(true);
     
-    if (!isManualCheck) {
+    if (!isManualCheck && status !== "processing") {
       setIsManualCheck(true);
       checkConnection(true); // Forzar verificación cuando el usuario hace clic
       setTimeout(() => setIsManualCheck(false), 5000); // Prevenir múltiples verificaciones rápidas
@@ -221,15 +288,18 @@ export const AIStatusBadge = () => {
         className={`
           ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
             status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
+            status === "processing" ? "bg-blue-100 text-blue-800 border-blue-300" :
             "bg-yellow-100 text-yellow-800 border-yellow-300"} 
           flex items-center gap-1 cursor-pointer hover:opacity-80 transition-all hover:scale-105 duration-300
           active:bg-muted active:scale-95 touch-manipulation
         `}
       >
         {status === "connected" ? (
-          <CheckCircle className="h-3 w-3 animate-pulse" />
+          <CheckCircle className="h-3 w-3" />
         ) : status === "error" ? (
           <AlertTriangle className="h-3 w-3" />
+        ) : status === "processing" ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
         ) : (
           <Loader2 className="h-3 w-3 animate-spin" />
         )}

@@ -4,6 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { Home, Users, ShoppingBag, ClipboardList, Wand, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/app-config";
+import { AIStatusBadge } from "@/components/AIStatusBadge";
 
 export function SidebarNavigation() {
   const location = useLocation();
@@ -20,8 +21,9 @@ export function SidebarNavigation() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="px-2 py-4">
+        <div className="px-2 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-primary">VentasCom</h1>
+          <AIStatusBadge />
         </div>
       </SidebarHeader>
       <SidebarContent>
