@@ -60,79 +60,165 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Página Mensaje Mágico
- * v1.0.33
+ * v1.0.34
  */
 const MagicOrder = () => {
-  const [message, setMessage] = useState("");
+  // Recuperar estado del localStorage al cargar la página
+  const [message, setMessage] = useState(() => {
+    const savedMessage = localStorage.getItem('magicOrder_message');
+    return savedMessage || "";
+  });
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [orders, setOrders] = useState<OrderCardType[]>([]);
+  
+  const [orders, setOrders] = useState<OrderCardType[]>(() => {
+    const savedOrders = localStorage.getItem('magicOrder_orders');
+    return savedOrders ? JSON.parse(savedOrders) : [];
+  });
+  
   const [showGenerator, setShowGenerator] = useState(false);
-  const [showOrderSummary, setShowOrderSummary] = useState(true);
+  
+  const [showOrderSummary, setShowOrderSummary] = useState(() => {
+    const savedShowOrderSummary = localStorage.getItem('magicOrder_showOrderSummary');
+    return savedShowOrderSummary ? JSON.parse(savedShowOrderSummary) : true;
+  });
+  
   const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{index: number, name: string} | null>(null);
   const [isSavingAllOrders, setIsSavingAllOrders] = useState(false);
-  const [clients, setClients] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  
+  const [clients, setClients] = useState<any[]>(() => {
+    const savedClients = localStorage.getItem('magicOrder_clients');
+    return savedClients ? JSON.parse(savedClients) : [];
+  });
+  
+  const [products, setProducts] = useState<any[]>(() => {
+    const savedProducts = localStorage.getItem('magicOrder_products');
+    return savedProducts ? JSON.parse(savedProducts) : [];
+  });
+  
   const [analyzeError, setAnalysisError] = useState<string | null>(null);
   const [rawJsonResponse, setRawJsonResponse] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [progressStage, setProgressStage] = useState<string>("");
-  const [phase1Response, setPhase1Response] = useState<string | null>(null);
-  const [phase2Response, setPhase2Response] = useState<string | null>(null);
-  const [phase3Response, setPhase3Response] = useState<string | null>(null);
+  
+  const [phase1Response, setPhase1Response] = useState<string | null>(() => {
+    const savedPhase1 = localStorage.getItem('magicOrder_phase1Response');
+    return savedPhase1 || null;
+  });
+  
+  const [phase2Response, setPhase2Response] = useState<string | null>(() => {
+    const savedPhase2 = localStorage.getItem('magicOrder_phase2Response');
+    return savedPhase2 || null;
+  });
+  
+  const [phase3Response, setPhase3Response] = useState<string | null>(() => {
+    const savedPhase3 = localStorage.getItem('magicOrder_phase3Response');
+    return savedPhase3 || null;
+  });
+  
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
-
+  
+  // Guardar estado en localStorage cuando cambie
+  useEffect(() => {
+    localStorage.setItem('magicOrder_message', message);
+  }, [message]);
+  
+  useEffect(() => {
+    if (orders.length > 0) {
+      localStorage.setItem('magicOrder_orders', JSON.stringify(orders));
+    }
+  }, [orders]);
+  
+  useEffect(() => {
+    localStorage.setItem('magicOrder_showOrderSummary', JSON.stringify(showOrderSummary));
+  }, [showOrderSummary]);
+  
+  useEffect(() => {
+    if (clients.length > 0) {
+      localStorage.setItem('magicOrder_clients', JSON.stringify(clients));
+    }
+  }, [clients]);
+  
+  useEffect(() => {
+    if (products.length > 0) {
+      localStorage.setItem('magicOrder_products', JSON.stringify(products));
+    }
+  }, [products]);
+  
+  useEffect(() => {
+    if (phase1Response) {
+      localStorage.setItem('magicOrder_phase1Response', phase1Response);
+    }
+  }, [phase1Response]);
+  
+  useEffect(() => {
+    if (phase2Response) {
+      localStorage.setItem('magicOrder_phase2Response', phase2Response);
+    }
+  }, [phase2Response]);
+  
+  useEffect(() => {
+    if (phase3Response) {
+      localStorage.setItem('magicOrder_phase3Response', phase3Response);
+    }
+  }, [phase3Response]);
+  
+  // Verificar si existen datos en local storage y cargar desde la base de datos solo si no hay datos locales
   useEffect(() => {
     const loadContextData = async () => {
-      setIsLoadingData(true);
-      try {
-        const { data: clientsData, error: clientsError } = await supabase
-          .from('clients')
-          .select('id, name, phone');
-        
-        if (clientsError) throw new Error(clientsError.message);
-        if (clientsData) setClients(clientsData);
-        
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('id, name, price, description');
-        
-        if (productsError) throw new Error(productsError.message);
-        
-        if (productsData) {
-          const { data: variantsData, error: variantsError } = await supabase
-            .from('product_variants')
-            .select('id, product_id, name, price');
+      // Solo cargar datos si no hay ya datos en localStorage
+      if (clients.length === 0 || products.length === 0) {
+        setIsLoadingData(true);
+        try {
+          const { data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('id, name, phone');
           
-          if (variantsError) throw new Error(variantsError.message);
+          if (clientsError) throw new Error(clientsError.message);
+          if (clientsData && clientsData.length > 0) setClients(clientsData);
           
-          const productsWithVariants = productsData.map(product => {
-            const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
-            return {
-              ...product,
-              variants: productVariants
-            };
+          const { data: productsData, error: productsError } = await supabase
+            .from('products')
+            .select('id, name, price, description');
+          
+          if (productsError) throw new Error(productsError.message);
+          
+          if (productsData && productsData.length > 0) {
+            const { data: variantsData, error: variantsError } = await supabase
+              .from('product_variants')
+              .select('id, product_id, name, price');
+            
+            if (variantsError) throw new Error(variantsError.message);
+            
+            const productsWithVariants = productsData.map(product => {
+              const productVariants = variantsData ? variantsData.filter(v => v.product_id === product.id) : [];
+              return {
+                ...product,
+                variants: productVariants
+              };
+            });
+            
+            setProducts(productsWithVariants);
+          }
+        } catch (error) {
+          console.error("Error al cargar datos de contexto:", error);
+          toast({
+            title: "Error al cargar datos",
+            description: "No se pudieron cargar todos los productos y clientes",
+            variant: "destructive"
           });
-          
-          setProducts(productsWithVariants);
+        } finally {
+          setIsLoadingData(false);
         }
-      } catch (error) {
-        console.error("Error al cargar datos de contexto:", error);
-        toast({
-          title: "Error al cargar datos",
-          description: "No se pudieron cargar todos los productos y clientes",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoadingData(false);
       }
     };
     
     loadContextData();
-  }, [toast]);
+  }, [toast, clients.length, products.length]);
 
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
