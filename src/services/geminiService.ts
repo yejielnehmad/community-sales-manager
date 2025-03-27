@@ -126,7 +126,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.1:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.2:", prompt.substring(0, 100) + "...");
     
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
