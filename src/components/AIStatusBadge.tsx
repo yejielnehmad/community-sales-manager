@@ -46,23 +46,30 @@ export const AIStatusBadge = () => {
     const handleAnalysisStateChange = (event: CustomEvent) => {
       const { isAnalyzing } = event.detail;
       
-      if (isAnalyzing && status !== "error") {
+      console.log("Evento de análisis detectado:", isAnalyzing ? "Analizando" : "Finalizado");
+      
+      if (isAnalyzing) {
         setStatus("analyzing");
         setMessage("Analizando mensaje...");
         setDetailedInfo("El módulo de Mensaje Mágico está procesando un mensaje. La IA está analizando el contenido para detectar pedidos.");
-      } else if (status === "analyzing") {
+      } else if (statusRef.current === "analyzing") {
         setStatus("connected");
         setMessage("Cohere conectado correctamente");
         setDetailedInfo("Conexión exitosa con Cohere API\nModelo: command-r-plus");
       }
     };
 
+    // Añadir el listener para el evento personalizado
     window.addEventListener('analysisStateChange', handleAnalysisStateChange as EventListener);
+    
+    // Debug para verificar que el listener se ha registrado
+    console.log("AIStatusBadge: Registrado listener para evento analysisStateChange");
     
     return () => {
       window.removeEventListener('analysisStateChange', handleAnalysisStateChange as EventListener);
+      console.log("AIStatusBadge: Eliminado listener para evento analysisStateChange");
     };
-  }, [status]);
+  }, []);
 
   const checkConnection = async (forceCheck = false) => {
     // Si ya se ha verificado y no es una verificación forzada, usamos el estado guardado
