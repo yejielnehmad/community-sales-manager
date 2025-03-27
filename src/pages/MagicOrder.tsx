@@ -60,7 +60,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Página Mensaje Mágico
- * v1.0.34
+ * v1.0.35
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -281,18 +281,39 @@ const MagicOrder = () => {
       setProgress(100);
       setProgressStage("¡Análisis completado!");
       
-      const newOrders = result.result.map(result => ({
-        client: {
-          ...result.client,
-          matchConfidence: (result.client.matchConfidence as 'alto' | 'medio' | 'bajo') || 'bajo'
-        },
-        items: result.items.map(item => ({
-          ...item,
-          status: (item.status as 'duda' | 'confirmado') || 'duda'
-        })) || [],
-        isPaid: false,
-        status: 'pending' as const
-      }));
+      const newOrders = result.result.map(result => {
+        const processedItems = result.items.map(item => {
+          let status: 'duda' | 'confirmado' = item.status as 'duda' | 'confirmado' || 'duda';
+          let notes = item.notes || '';
+          
+          if (item.product?.id) {
+            const productInfo = products.find(p => p.id === item.product.id);
+            
+            if (productInfo && productInfo.variants && productInfo.variants.length > 0) {
+              if (!item.variant || !item.variant.id) {
+                status = 'duda';
+                notes = `No se especificó la variante de ${productInfo.name}`;
+              }
+            }
+          }
+          
+          return {
+            ...item,
+            status,
+            notes
+          };
+        });
+        
+        return {
+          client: {
+            ...result.client,
+            matchConfidence: (result.client.matchConfidence as 'alto' | 'medio' | 'bajo') || 'bajo'
+          },
+          items: processedItems,
+          isPaid: false,
+          status: 'pending' as const
+        };
+      });
       
       if (newOrders.length === 0) {
         setAlertMessage({
@@ -544,6 +565,17 @@ const MagicOrder = () => {
           title: "Pedidos guardados",
           message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
         });
+        
+        setOrders([]);
+        
+        setPhase1Response(null);
+        setPhase2Response(null);
+        setPhase3Response(null);
+        
+        localStorage.removeItem('magicOrder_orders');
+        localStorage.removeItem('magicOrder_phase1Response');
+        localStorage.removeItem('magicOrder_phase2Response');
+        localStorage.removeItem('magicOrder_phase3Response');
       } else if (errorCount > 0) {
         setAlertMessage({
           title: "Error al guardar pedidos",

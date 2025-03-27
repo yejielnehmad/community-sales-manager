@@ -26,7 +26,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.1
+ * v1.0.2
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -50,7 +50,13 @@ export const SimpleOrderCardNew = ({
     if (!mainIssue.product.id) {
       issueMessage = "¿Qué producto pidió?";
     } else if (mainIssue.product.name && !mainIssue.variant?.id) {
-      issueMessage = `¿Qué variante de ${mainIssue.product.name} pidió ${order.client.name}?`;
+      // Verificamos si el producto requiere variante
+      const productInfo = products.find(p => p.id === mainIssue.product.id);
+      if (productInfo && productInfo.variants && productInfo.variants.length > 0) {
+        issueMessage = mainIssue.notes || `¿Qué variante de ${mainIssue.product.name} pidió ${order.client.name}?`;
+      } else {
+        issueMessage = mainIssue.notes || "Requiere confirmación";
+      }
     } else if (!mainIssue.quantity) {
       issueMessage = `¿Qué cantidad de ${mainIssue.product.name} pidió ${order.client.name}?`;
     } else {
@@ -90,8 +96,8 @@ export const SimpleOrderCardNew = ({
           name: selectedProduct.name,
           price: selectedProduct.price
         },
-        status: hasVariants && !updatedItems[itemIndex].variant?.id ? 'duda' as const : 'confirmado' as const,
-        notes: hasVariants && !updatedItems[itemIndex].variant?.id ? 
+        status: hasVariants ? 'duda' as const : 'confirmado' as const,
+        notes: hasVariants ? 
           `¿Qué variante de ${selectedProduct.name}?` : 
           updatedItems[itemIndex].notes
       };
@@ -167,12 +173,18 @@ export const SimpleOrderCardNew = ({
   // Handler para actualizar cantidad
   const handleQuantityUpdate = (itemIndex: number, quantity: number) => {
     const updatedItems = [...order.items];
+    const item = updatedItems[itemIndex];
+    
+    // Verificar si el producto tiene variantes y requiere selección
+    const productInfo = item.product.id ? products.find(p => p.id === item.product.id) : null;
+    const requiresVariant = productInfo && productInfo.variants && productInfo.variants.length > 0 && !item.variant?.id;
+    
     updatedItems[itemIndex] = {
-      ...updatedItems[itemIndex],
+      ...item,
       quantity,
-      status: updatedItems[itemIndex].product.id ? 
-        (updatedItems[itemIndex].product.id && !updatedItems[itemIndex].variant?.id ? 'duda' as const : 'confirmado' as const) 
-        : 'duda' as const
+      status: !item.product.id ? 'duda' as const : 
+              requiresVariant ? 'duda' as const : 
+              'confirmado' as const
     };
     
     const updatedOrder = {
@@ -356,6 +368,14 @@ export const SimpleOrderCardNew = ({
                           </Badge>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Mensaje de notas/error */}
+                  {item.notes && item.status === 'duda' && (
+                    <div className="mt-2 text-xs text-amber-700 flex items-center">
+                      <AlertCircle size={12} className="mr-1" />
+                      {item.notes}
                     </div>
                   )}
                 </div>
