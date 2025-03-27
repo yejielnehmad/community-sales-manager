@@ -1,7 +1,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { OPENROUTER_API_KEY, OPENROUTER_ENDPOINT, API_CONFIG_UPDATED } from "@/lib/api-config";
+import { COHERE_API_KEY, COHERE_ENDPOINT, API_CONFIG_UPDATED } from "@/lib/api-config";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -24,12 +24,12 @@ import { Button } from "@/components/ui/button";
 import { logDebug, logError } from "@/lib/debug-utils";
 
 // Clave para localStorage para evitar verificaciones repetidas
-const API_CHECK_STORAGE_KEY = "claude_api_checked";
+const API_CHECK_STORAGE_KEY = "cohere_api_checked";
 
 export const AIStatusBadge = () => {
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
-  const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Claude 3 Haiku");
+  const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Cohere");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isManualCheck, setIsManualCheck] = useState(false);
   const [apiResponse, setApiResponse] = useState<string | null>(null);
@@ -48,21 +48,21 @@ export const AIStatusBadge = () => {
     }
     
     // Si no hay API key configurada
-    if (!OPENROUTER_API_KEY) {
+    if (!COHERE_API_KEY) {
       setStatus("error");
-      setMessage("API Key de OpenRouter no configurada");
-      setDetailedInfo("No se ha configurado una API Key para OpenRouter (Claude 3 Haiku). Por favor, configura una clave válida.");
+      setMessage("API Key de Cohere no configurada");
+      setDetailedInfo("No se ha configurado una API Key para Cohere. Por favor, configura una clave válida.");
       checkPerformedRef.current = true;
       return;
     }
 
     try {
-      logDebug("AIStatus", "Verificando conexión con OpenRouter API (Claude 3 Haiku)...");
-      setDetailedInfo("Enviando solicitud de prueba a la API de OpenRouter (Claude 3 Haiku)...");
+      logDebug("AIStatus", "Verificando conexión con Cohere API...");
+      setDetailedInfo("Enviando solicitud de prueba a la API de Cohere...");
       
-      const endpoint = OPENROUTER_ENDPOINT || "https://openrouter.ai/api/v1/chat/completions";
+      const endpoint = COHERE_ENDPOINT || "https://api.cohere.ai/v1/chat";
       logDebug("AIStatus", `Usando endpoint: ${endpoint}`);
-      logDebug("AIStatus", `API Key (primeros 10 caracteres): ${OPENROUTER_API_KEY.substring(0, 10)}...`);
+      logDebug("AIStatus", `API Key (primeros 10 caracteres): ${COHERE_API_KEY.substring(0, 10)}...`);
       
       const response = await fetch(
         endpoint,
@@ -70,20 +70,14 @@ export const AIStatusBadge = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": window.location.origin, // Requerido por OpenRouter
-            "X-Title": "VentasCom" // Nombre de la aplicación
+            "Authorization": `Bearer ${COHERE_API_KEY}`
           },
           body: JSON.stringify({
-            model: "anthropic/claude-3-haiku",
-            messages: [
-              {
-                role: "user",
-                content: "Responde solamente con la palabra 'conectado' sin explicaciones adicionales."
-              }
-            ],
+            model: "command-r-plus",
+            message: "Responde solamente con la palabra 'conectado' sin explicaciones adicionales.",
             temperature: 0.1,
-            max_tokens: 10
+            max_tokens: 10,
+            chat_history: []
           }),
           signal: AbortSignal.timeout(15000) // Aumentamos el timeout a 15 segundos
         }
@@ -113,7 +107,7 @@ export const AIStatusBadge = () => {
       let data;
       try {
         data = JSON.parse(responseText);
-        logDebug("AIStatus", "Respuesta de verificación de Claude:", data);
+        logDebug("AIStatus", "Respuesta de verificación de Cohere:", data);
       } catch (parseError) {
         logError("AIStatus", "Error al parsear respuesta JSON:", parseError);
         setStatus("error");
@@ -126,21 +120,18 @@ export const AIStatusBadge = () => {
       if (data.error) {
         setStatus("error");
         setMessage(`Error: ${data.error.message || "Error de conexión"}`);
-        setDetailedInfo(`Error reportado por la API de OpenRouter:\n${JSON.stringify(data.error, null, 2)}`);
-        logError("AIStatus", "Error de la API de OpenRouter:", data.error);
+        setDetailedInfo(`Error reportado por la API de Cohere:\n${JSON.stringify(data.error, null, 2)}`);
+        logError("AIStatus", "Error de la API de Cohere:", data.error);
       } else if (
-        data.choices && 
-        data.choices[0] && 
-        data.choices[0].message && 
-        data.choices[0].message.content && 
-        data.choices[0].message.content.toLowerCase().includes("conectado")
+        data.text && 
+        data.text.toLowerCase().includes("conectado")
       ) {
         setStatus("connected");
-        setMessage("Claude 3 Haiku conectado correctamente");
-        setDetailedInfo(`Conexión exitosa con OpenRouter API (Claude 3 Haiku)\nModelo: anthropic/claude-3-haiku\nRespuesta: "${data.choices[0].message.content}"\nFecha de verificación: ${new Date().toLocaleString()}`);
+        setMessage("Cohere conectado correctamente");
+        setDetailedInfo(`Conexión exitosa con Cohere API\nModelo: command-r-plus\nRespuesta: "${data.text}"\nFecha de verificación: ${new Date().toLocaleString()}`);
       } else {
         setStatus("error");
-        setMessage("Respuesta inesperada de Claude 3 Haiku");
+        setMessage("Respuesta inesperada de Cohere");
         setDetailedInfo(`Respuesta inesperada de la API. Respuesta completa:\n${JSON.stringify(data, null, 2)}`);
         logDebug("AIStatus", "Respuesta completa:", JSON.stringify(data, null, 2));
       }
@@ -161,18 +152,18 @@ export const AIStatusBadge = () => {
       }
       
     } catch (error: any) {
-      logError("AIStatus", "Error al verificar conexión con Claude 3 Haiku:", error);
+      logError("AIStatus", "Error al verificar conexión con Cohere:", error);
       setStatus("error");
       let errorMessage = "Error de conexión";
       
       if (error.name === 'TimeoutError' || error.name === 'AbortError') {
         errorMessage = "Timeout al conectar con la API";
-        setDetailedInfo(`La conexión con OpenRouter API ha tardado demasiado tiempo. Esto puede indicar problemas con la API o con tu conexión a Internet.\n\nDetalle del error: ${error.message}`);
+        setDetailedInfo(`La conexión con Cohere API ha tardado demasiado tiempo. Esto puede indicar problemas con la API o con tu conexión a Internet.\n\nDetalle del error: ${error.message}`);
       } else {
         setDetailedInfo(`Error durante la verificación de la conexión:\n${error.name} - ${error.message}\n${error.stack || ''}`);
       }
       
-      setMessage(`Error al conectar con OpenRouter API: ${errorMessage}`);
+      setMessage(`Error al conectar con Cohere API: ${errorMessage}`);
       checkPerformedRef.current = true;
     }
   };
@@ -248,7 +239,7 @@ export const AIStatusBadge = () => {
               Inteligencia Artificial en tu Aplicación
             </DialogTitle>
             <DialogDescription>
-              Potencia tus ventas con tecnología de Claude 3 Haiku
+              Potencia tus ventas con tecnología de Cohere AI
             </DialogDescription>
           </DialogHeader>
           
@@ -298,15 +289,15 @@ export const AIStatusBadge = () => {
                 <div className="mt-4 space-y-2">
                   <h5 className="text-sm font-medium text-red-600">Soluciones posibles:</h5>
                   <ul className="text-xs space-y-1 text-red-600">
-                    <li>• Verifica que tu clave API de OpenRouter sea válida y esté activa</li>
-                    <li>• Asegúrate de tener saldo suficiente en tu cuenta de OpenRouter</li>
+                    <li>• Verifica que tu clave API de Cohere sea válida y esté activa</li>
+                    <li>• Asegúrate de tener saldo suficiente en tu cuenta de Cohere</li>
                     <li>• Configura correctamente la API key en la aplicación</li>
                     <li>• Verifica tu conexión a internet</li>
                   </ul>
                   
                   <div className="flex items-center justify-between pt-2">
                     <a 
-                      href="https://openrouter.ai/keys" 
+                      href="https://dashboard.cohere.com/api-keys" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-xs flex items-center gap-1 text-blue-600 hover:underline"

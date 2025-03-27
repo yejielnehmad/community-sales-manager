@@ -1,5 +1,4 @@
-
-import { OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
+import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { logDebug, logError } from "@/lib/debug-utils";
@@ -109,21 +108,21 @@ export const resetAnalysisPrompt = () => {
 };
 
 /**
- * Función para realizar peticiones a la API de OpenRouter (Claude 3 Haiku)
+ * Función para realizar peticiones a la API de Cohere
  */
 export const callGeminiAPI = async (prompt: string): Promise<string> => {
-  if (!OPENROUTER_API_KEY) {
-    logError("API", "API Key de OpenRouter no configurada");
-    throw new GeminiError("API Key de OpenRouter no configurada");
+  if (!COHERE_API_KEY) {
+    logError("API", "API Key de Cohere no configurada");
+    throw new GeminiError("API Key de Cohere no configurada");
   }
 
   try {
     // Usar endpoint desde la configuración
-    const endpoint = OPENROUTER_ENDPOINT || "https://openrouter.ai/api/v1/chat/completions";
+    const endpoint = COHERE_ENDPOINT || "https://api.cohere.ai/v1/chat";
     
-    logDebug("API", `Enviando petición a OpenRouter API v1.0.18 (Claude 3 Haiku): ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Enviando petición a Cohere API v1.0.19: ${prompt.substring(0, 100)}...`);
     logDebug("API", `Usando endpoint: ${endpoint}`);
-    logDebug("API", `API Key (primeros 10 caracteres): ${OPENROUTER_API_KEY.substring(0, 10)}...`);
+    logDebug("API", `API Key (primeros 10 caracteres): ${COHERE_API_KEY.substring(0, 10)}...`);
     
     const response = await fetch(
       endpoint,
@@ -131,26 +130,20 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": window.location.origin, // Requerido por OpenRouter
-          "X-Title": "VentasCom" // Nombre de la aplicación
+          "Authorization": `Bearer ${COHERE_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "anthropic/claude-3-haiku",
-          messages: [
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.2, // Bajo para respuestas consistentes
-          max_tokens: 1024
+          model: "command-r-plus",
+          message: prompt,
+          temperature: 0.2,
+          max_tokens: 1024,
+          chat_history: []
         }),
       }
     );
 
     const responseText = await response.text();
-    logDebug("API", `Respuesta raw de OpenRouter: ${responseText.substring(0, 200)}...`);
+    logDebug("API", `Respuesta raw de Cohere: ${responseText.substring(0, 200)}...`);
     
     if (!response.ok) {
       logError("API", `Error en respuesta HTTP: ${response.status} ${response.statusText}`, responseText);
@@ -166,32 +159,32 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     try {
       data = JSON.parse(responseText);
     } catch (parseError) {
-      logError("API", `Error al parsear respuesta de OpenRouter:`, parseError);
+      logError("API", `Error al parsear respuesta de Cohere:`, parseError);
       throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
         apiResponse: parseError,
         rawJsonResponse: responseText
       });
     }
 
-    logDebug("API", `Respuesta de OpenRouter (resumida): ${JSON.stringify(data).substring(0, 200)}...`);
+    logDebug("API", `Respuesta de Cohere (resumida): ${JSON.stringify(data).substring(0, 200)}...`);
 
     if (data.error) {
-      logError("API", `Error devuelto por la API de OpenRouter:`, data.error);
-      throw new GeminiError(`Error de la API de OpenRouter: ${data.error.message || "Error desconocido"}`, {
+      logError("API", `Error devuelto por la API de Cohere:`, data.error);
+      throw new GeminiError(`Error de la API de Cohere: ${data.error.message || "Error desconocido"}`, {
         apiResponse: data.error,
         rawJsonResponse: responseText
       });
     }
 
-    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    if (!data.text) {
       logError("API", `Respuesta completa con formato incorrecto:`, data);
-      throw new GeminiError("Formato de respuesta inesperado de la API de OpenRouter", {
+      throw new GeminiError("Formato de respuesta inesperado de la API de Cohere", {
         apiResponse: data,
         rawJsonResponse: responseText
       });
     }
 
-    const resultText = data.choices[0].message.content;
+    const resultText = data.text;
     logDebug("API", `Texto de respuesta: ${resultText.substring(0, 200)}...`);
     
     return resultText;
@@ -199,8 +192,8 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     if (error instanceof GeminiError) {
       throw error;
     }
-    logError("API", `Error inesperado al llamar a OpenRouter API:`, error);
-    throw new GeminiError(`Error al conectar con OpenRouter API: ${(error as Error).message}`);
+    logError("API", `Error inesperado al llamar a Cohere API:`, error);
+    throw new GeminiError(`Error al conectar con Cohere API: ${(error as Error).message}`);
   }
 };
 
