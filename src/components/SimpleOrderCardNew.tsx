@@ -1,5 +1,5 @@
 
-import { HelpCircle, Check, AlertCircle, ChevronDown, User } from 'lucide-react';
+import { HelpCircle, Check, AlertCircle, ChevronDown, User, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -14,6 +14,8 @@ import {
 import { OrderCard as OrderCardType, MessageItem } from '@/types';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { APP_VERSION } from '@/lib/app-config';
 
 interface SimpleOrderCardProps {
   order: OrderCardType;
@@ -26,7 +28,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.2
+ * v1.0.3
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -37,6 +39,8 @@ export const SimpleOrderCardNew = ({
   onDelete
 }: SimpleOrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [customQuantity, setCustomQuantity] = useState<number | null>(null);
   
   // Verificamos si hay información faltante
   const hasMissingInfo = !order.client.id || order.items.some(item => !item.product.id || item.status === 'duda' || !item.quantity);
@@ -192,6 +196,106 @@ export const SimpleOrderCardNew = ({
       items: updatedItems
     };
     onUpdate(updatedOrder);
+  };
+
+  // Handler para resolver issues por notas o ambigüedades
+  const handleResolveIssue = (itemIndex: number) => {
+    const updatedItems = [...order.items];
+    const item = updatedItems[itemIndex];
+    
+    // Si estamos editando la cantidad, aplicar ese valor
+    if (customQuantity !== null && editingItemIndex === itemIndex) {
+      updatedItems[itemIndex] = {
+        ...item,
+        quantity: customQuantity,
+        status: 'confirmado' as const,
+        notes: '' // Limpiamos las notas ya que la duda fue resuelta
+      };
+      
+      setCustomQuantity(null);
+      setEditingItemIndex(null);
+    } else {
+      // Si no estamos editando, simplemente marcar como resuelto
+      updatedItems[itemIndex] = {
+        ...item,
+        status: 'confirmado' as const,
+        notes: '' // Limpiamos las notas ya que marcamos como resuelto manualmente
+      };
+    }
+    
+    const updatedOrder = {
+      ...order,
+      items: updatedItems
+    };
+    onUpdate(updatedOrder);
+  };
+
+  // Función para mostrar una interfaz de edición para un ítem con dudas
+  const renderIssueEditor = (item: MessageItem, itemIndex: number) => {
+    // Si el problema es relacionado con cantidades o contiene palabras clave de cantidad
+    const isQuantityIssue = 
+      item.notes?.toLowerCase().includes('cantidad') ||
+      item.notes?.toLowerCase().includes('cuánto') ||
+      item.notes?.toLowerCase().includes('cuántos') ||
+      item.notes?.toLowerCase().includes('cuántas');
+
+    if (isQuantityIssue) {
+      return (
+        <div className="mt-2">
+          <div className="text-xs font-medium mb-1 text-amber-700">
+            Corregir cantidad:
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="1"
+              className="w-24 h-8 border-amber-300 bg-amber-50 text-amber-800"
+              placeholder="Cantidad"
+              value={customQuantity !== null ? customQuantity : item.quantity || ''}
+              onChange={(e) => setCustomQuantity(parseInt(e.target.value) || 0)}
+              onFocus={() => setEditingItemIndex(itemIndex)}
+            />
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-8 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+              onClick={() => handleResolveIssue(itemIndex)}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Confirmar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Para dudas genéricas sin opciones específicas
+    return (
+      <div className="mt-2">
+        <div className="text-xs font-medium mb-1 text-amber-700">
+          Opciones de resolución:
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-8 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+            onClick={() => handleResolveIssue(itemIndex)}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            Marcar como correcto
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-8 border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
+            onClick={onDelete}
+          >
+            Eliminar pedido
+          </Button>
+        </div>
+      </div>
+    );
   };
   
   return (
@@ -371,12 +475,15 @@ export const SimpleOrderCardNew = ({
                     </div>
                   )}
                   
-                  {/* Mensaje de notas/error */}
+                  {/* Mensaje de notas/error y editor de problemas */}
                   {item.notes && item.status === 'duda' && (
-                    <div className="mt-2 text-xs text-amber-700 flex items-center">
-                      <AlertCircle size={12} className="mr-1" />
-                      {item.notes}
-                    </div>
+                    <>
+                      <div className="mt-2 text-xs text-amber-700 flex items-center">
+                        <AlertCircle size={12} className="mr-1" />
+                        {item.notes}
+                      </div>
+                      {renderIssueEditor(item, itemIndex)}
+                    </>
                   )}
                 </div>
               );
