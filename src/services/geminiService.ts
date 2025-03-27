@@ -1,4 +1,3 @@
-
 import { GOOGLE_API_KEY, OPENROUTER_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -24,16 +23,13 @@ export class GeminiError extends Error {
   }
 }
 
-// Constantes para selección de modelo
 export const AI_MODEL_TYPE = {
   GEMINI: 'gemini',
   OPENROUTER: 'openrouter'
 };
 
-// Configuración por defecto
 let currentAiModelType = AI_MODEL_TYPE.OPENROUTER;
 
-// Prompt para análisis de pedidos - versión por defecto
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea o parte del mensaje puede contener pedidos distintos.
 
 CONTEXTO (productos y clientes existentes):
@@ -81,10 +77,8 @@ Estructura JSON:
   }
 ]`;
 
-// Variable para almacenar el prompt personalizado
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 
-// Función para establecer un prompt personalizado
 export const setCustomAnalysisPrompt = (prompt: string) => {
   if (!prompt || prompt.trim() === '') {
     currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
@@ -93,12 +87,10 @@ export const setCustomAnalysisPrompt = (prompt: string) => {
   currentAnalysisPrompt = prompt;
 };
 
-// Función para obtener el prompt actual
 export const getCurrentAnalysisPrompt = () => {
   return currentAnalysisPrompt;
 };
 
-// Función para cambiar el modelo de IA
 export const setAiModelType = (modelType: string) => {
   if (Object.values(AI_MODEL_TYPE).includes(modelType as any)) {
     currentAiModelType = modelType;
@@ -107,12 +99,10 @@ export const setAiModelType = (modelType: string) => {
   return false;
 };
 
-// Función para obtener el modelo actual
 export const getCurrentAiModelType = () => {
   return currentAiModelType;
 };
 
-// Función para restablecer el prompt por defecto
 export const resetAnalysisPrompt = () => {
   currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 };
@@ -126,7 +116,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.2:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.3:", prompt.substring(0, 100) + "...");
     
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -231,7 +221,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
           generationConfig: {
             temperature: 0.1,
             topP: 0.9,
-            maxOutputTokens: 4096, // Aumentado de 1024 a 4096 para permitir respuestas más largas
+            maxOutputTokens: 4096,
           }
         }),
       }
@@ -303,35 +293,25 @@ export const callAiApi = async (prompt: string): Promise<string> => {
   }
 };
 
-/**
- * Función mejorada para limpiar y extraer JSON de la respuesta
- */
 const extractJsonFromResponse = (text: string): string => {
-  // Eliminar posibles comentarios y marcadores de código
   let jsonText = text.trim();
   
-  // Eliminar backticks y marcadores de código
   if (jsonText.includes("```")) {
-    // Extraer contenido entre los primeros backticks
     const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match && match[1]) {
       jsonText = match[1].trim();
     } else {
-      // Si no podemos extraer correctamente, intentamos quitar todos los backticks
       jsonText = jsonText.replace(/```(?:json)?|```/g, "").trim();
     }
   }
   
-  // Eliminar caracteres problemáticos
   jsonText = jsonText
-    .replace(/[\u2018\u2019]/g, "'") // Reemplazar comillas simples tipográficas
-    .replace(/[\u201C\u201D]/g, '"') // Reemplazar comillas dobles tipográficas
-    .replace(/\n+/g, ' ') // Reemplazar saltos de línea múltiples por espacio
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\n+/g, ' ')
     .trim();
   
-  // Verificar si el texto empieza y termina con corchetes para array JSON
   if (!jsonText.startsWith('[') || !jsonText.endsWith(']')) {
-    // Intentar encontrar el array JSON dentro del texto
     const arrayMatch = jsonText.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (arrayMatch) {
       jsonText = arrayMatch[0];
@@ -341,20 +321,15 @@ const extractJsonFromResponse = (text: string): string => {
   return jsonText;
 };
 
-/**
- * Función para dividir mensajes largos en segmentos para procesamiento por lotes
- */
 const splitLongMessage = (message: string, maxLength: number = 1500): string[] => {
   if (message.length <= maxLength) {
     return [message];
   }
   
-  // Identificar separadores naturales (guiones, saltos de línea, etc.)
   const separators = [' - ', '\n', '.', ','];
   const segments: string[] = [];
   let currentSegment = '';
   
-  // Dividir por líneas primero
   const lines = message.split(/\n|(?= - )/);
   
   for (const line of lines) {
@@ -375,14 +350,9 @@ const splitLongMessage = (message: string, maxLength: number = 1500): string[] =
   return segments;
 };
 
-/**
- * Función para combinar resultados de múltiples análisis
- */
 const combineAnalysisResults = (results: MessageAnalysis[][]): MessageAnalysis[] => {
-  // Combinamos todos los resultados
   const combinedResults = results.flat();
   
-  // Agrupamos por cliente para consolidar
   const clientGroups: Record<string, MessageAnalysis> = {};
   
   for (const result of combinedResults) {
@@ -395,20 +365,16 @@ const combineAnalysisResults = (results: MessageAnalysis[][]): MessageAnalysis[]
         unmatchedText: result.unmatchedText || ""
       };
     } else {
-      // Si este resultado tiene mejor confianza, actualizar la info del cliente
       if (confidenceRank(result.client.matchConfidence) > confidenceRank(clientGroups[clientKey].client.matchConfidence)) {
         clientGroups[clientKey].client = result.client;
       }
       
-      // Combinar unmatchedText si existe
       if (result.unmatchedText) {
         clientGroups[clientKey].unmatchedText += (clientGroups[clientKey].unmatchedText ? " " : "") + result.unmatchedText;
       }
     }
     
-    // Añadir items, evitando duplicados
     for (const item of result.items) {
-      // Verificar si el ítem ya existe (mismo producto, variante y notas)
       const existingItemIndex = clientGroups[clientKey].items.findIndex(i => 
         i.product.id === item.product.id &&
         (i.variant?.id || null) === (item.variant?.id || null) &&
@@ -416,10 +382,8 @@ const combineAnalysisResults = (results: MessageAnalysis[][]): MessageAnalysis[]
       );
       
       if (existingItemIndex >= 0) {
-        // Si existe, sumar la cantidad
         clientGroups[clientKey].items[existingItemIndex].quantity += item.quantity;
       } else {
-        // Si no existe, añadirlo
         clientGroups[clientKey].items.push({...item});
       }
     }
@@ -428,7 +392,6 @@ const combineAnalysisResults = (results: MessageAnalysis[][]): MessageAnalysis[]
   return Object.values(clientGroups);
 };
 
-// Función auxiliar para clasificar niveles de confianza
 const confidenceRank = (confidence: string): number => {
   switch (confidence) {
     case 'alto': return 3;
@@ -438,9 +401,6 @@ const confidenceRank = (confidence: string): number => {
   }
 };
 
-/**
- * Función para obtener productos y clientes de la base de datos
- */
 export const fetchDatabaseContext = async () => {
   const { data: products, error: productsError } = await supabase
     .from('products')
@@ -483,23 +443,18 @@ export const fetchDatabaseContext = async () => {
   };
 };
 
-/**
- * Función mejorada para analizar mensajes largos de clientes
- */
 export const analyzeCustomerMessage = async (
   message: string
 ): Promise<MessageAnalysis[]> => {
   try {
     console.log("Analizando mensaje de longitud:", message.length);
     
-    // Si el mensaje es muy largo, lo dividimos en segmentos
     const isLongMessage = message.length > 1000;
     const messageSegments = isLongMessage ? splitLongMessage(message) : [message];
     console.log(`Mensaje dividido en ${messageSegments.length} segmentos para análisis`);
     
     const dbContext = await fetchDatabaseContext();
     
-    // Preparar el contexto para el prompt
     const productsContext = dbContext.products.map(p => {
       const variantsText = p.variants && p.variants.length 
         ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
@@ -512,7 +467,6 @@ export const analyzeCustomerMessage = async (
       `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
     ).join('\n');
     
-    // Analizar todos los segmentos
     const allResults: MessageAnalysis[][] = [];
     let lastError: GeminiError | null = null;
     
@@ -520,7 +474,6 @@ export const analyzeCustomerMessage = async (
       const segment = messageSegments[i];
       console.log(`Analizando segmento ${i+1}/${messageSegments.length} (longitud: ${segment.length})`);
       
-      // Intentar hasta 2 veces para cada segmento
       let attempts = 0;
       const maxAttempts = 2;
       let segmentResults: MessageAnalysis[] | null = null;
@@ -528,7 +481,6 @@ export const analyzeCustomerMessage = async (
       while (attempts < maxAttempts && !segmentResults) {
         attempts++;
         try {
-          // Obtener el prompt personalizado y reemplazar placeholders
           let prompt = currentAnalysisPrompt
             .replace('{productsContext}', productsContext)
             .replace('{clientsContext}', clientsContext)
@@ -538,21 +490,17 @@ export const analyzeCustomerMessage = async (
           let jsonText = extractJsonFromResponse(responseText);
           
           try {
-            // Intentar analizar el JSON
             const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
             
             if (!Array.isArray(parsedResult)) {
               throw new Error("El formato de los datos analizados no es válido (no es un array)");
             }
             
-            // Filtrar resultados inválidos
             const processedResult = parsedResult.filter(result => {
-              // Asegurarse de que hay un cliente válido
               if (!result.client || typeof result.client !== 'object') {
                 return false;
               }
               
-              // Asegurarse de que items es un array
               if (!Array.isArray(result.items)) {
                 result.items = [];
               }
@@ -571,45 +519,38 @@ export const analyzeCustomerMessage = async (
               rawJsonResponse: jsonText
             });
             
-            // Si no es el último intento, continuamos
             if (attempts < maxAttempts) {
               console.log(`Reintentando análisis del segmento ${i+1}...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar un segundo
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
         } catch (error: any) {
           console.error(`Error al analizar segmento ${i+1} (intento ${attempts}):`, error);
           lastError = error instanceof GeminiError ? error : new GeminiError(error.message);
           
-          // Si no es el último intento, continuamos
           if (attempts < maxAttempts) {
             console.log(`Reintentando análisis del segmento ${i+1}...`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar un segundo
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
       }
       
-      // Si no pudimos analizar este segmento después de todos los intentos
       if (!segmentResults) {
         console.warn(`No se pudo analizar el segmento ${i+1} después de ${maxAttempts} intentos`);
-        // Si es el único segmento, propagamos el error
         if (messageSegments.length === 1 && lastError) {
           throw lastError;
         }
       }
     }
     
-    // Si no tenemos resultados y hubo error en el último segmento
     if (allResults.length === 0 && lastError) {
       throw lastError;
     }
     
-    // Combinar los resultados de todos los segmentos
     const combinedResults = combineAnalysisResults(allResults);
     console.log("Análisis combinado completado. Pedidos totales identificados:", combinedResults.length);
     
     return combinedResults;
-    
   } catch (error) {
     console.error("Error final en analyzeCustomerMessage:", error);
     if (error instanceof GeminiError) {
@@ -619,9 +560,6 @@ export const analyzeCustomerMessage = async (
   }
 };
 
-/**
- * Función para interactuar con el asistente virtual
- */
 export const chatWithAssistant = async (
   message: string, 
   appContext: {
