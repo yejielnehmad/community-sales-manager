@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.9
+ * v1.0.10
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -236,5 +236,313 @@ const MagicOrder = () => {
     }
   };
 
-  // ... rest of the component remains unchanged
+  const handleDeleteOrder = (index: number, name: string) => {
+    setOrderToDelete({ index, name });
+  };
+
+  const confirmDeleteOrder = () => {
+    if (orderToDelete) {
+      setOrders(prevOrders => {
+        const newOrders = [...prevOrders];
+        newOrders.splice(orderToDelete.index, 1);
+        return newOrders;
+      });
+      setOrderToDelete(null);
+    }
+  };
+
+  const cancelDeleteOrder = () => {
+    setOrderToDelete(null);
+  };
+
+  const handleClearOrders = () => {
+    setAlertMessage({
+      title: "¿Borrar todos los pedidos?",
+      message: "¿Estás seguro de que quieres borrar todos los pedidos? Esta acción no se puede deshacer."
+    });
+  };
+
+  const confirmClearOrders = () => {
+    setOrders([]);
+    setAlertMessage(null);
+  };
+
+  const handleSaveAllOrders = async () => {
+    setIsSavingAllOrders(true);
+    try {
+      for (const order of orders) {
+        const client = clients.find(c => c.name === order.client.name);
+        if (!client) {
+          console.warn(`Cliente no encontrado: ${order.client.name}`);
+          continue;
+        }
+
+        const { data: newOrder, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            client_id: client.id,
+            total: 0,
+            status: order.status,
+            is_paid: order.isPaid
+          })
+          .select()
+          .single();
+
+        if (orderError) {
+          console.error("Error al crear la orden:", orderError);
+          continue;
+        }
+
+        let totalOrder = 0;
+
+        for (const item of order.items) {
+          const product = products.find(p => p.name === item.name);
+          if (!product) {
+            console.warn(`Producto no encontrado: ${item.name}`);
+            continue;
+          }
+
+          const itemPrice = product.price || 0;
+          totalOrder += itemPrice * item.quantity;
+
+          const { error: orderItemError } = await supabase
+            .from('order_items')
+            .insert({
+              order_id: newOrder.id,
+              product_id: product.id,
+              quantity: item.quantity,
+              price: itemPrice
+            });
+
+          if (orderItemError) {
+            console.error("Error al crear el order_item:", orderItemError);
+          }
+        }
+
+        // Actualizar el total de la orden
+        const { error: updateOrderError } = await supabase
+          .from('orders')
+          .update({ total: totalOrder })
+          .eq('id', newOrder.id);
+
+        if (updateOrderError) {
+          console.error("Error al actualizar el total de la orden:", updateOrderError);
+        }
+      }
+
+      toast({
+        title: "Pedidos guardados",
+        description: "Todos los pedidos han sido guardados exitosamente.",
+        variant: "success"
+      });
+      setOrders([]);
+    } catch (error) {
+      console.error("Error al guardar los pedidos:", error);
+      toast({
+        title: "Error al guardar pedidos",
+        description: "Hubo un error al guardar los pedidos. Por favor, inténtalo de nuevo.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingAllOrders(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (index: number, status: 'pending' | 'processing' | 'completed' | 'cancelled') => {
+    setOrders(prevOrders => {
+      const newOrders = [...prevOrders];
+      newOrders[index] = { ...newOrders[index], status: status };
+      return newOrders;
+    });
+  };
+
+  const handleUpdateOrderIsPaid = (index: number, isPaid: boolean) => {
+    setOrders(prevOrders => {
+      const newOrders = [...prevOrders];
+      newOrders[index] = { ...newOrders[index], isPaid: isPaid };
+      return newOrders;
+    });
+  };
+
+  const handleUpdateOrderItemStatus = (orderIndex: number, itemIndex: number, status: 'duda' | 'confirmado') => {
+    setOrders(prevOrders => {
+      const newOrders = [...prevOrders];
+      const updatedItems = [...newOrders[orderIndex].items];
+      updatedItems[itemIndex] = { ...updatedItems[itemIndex], status: status };
+      newOrders[orderIndex] = { ...newOrders[orderIndex], items: updatedItems };
+      return newOrders;
+    });
+  };
+
+  return (
+    <AppLayout>
+      <div className="md:flex md:items-start md:justify-between gap-4">
+        <div className="md:w-1/2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageSquareText className="h-5 w-5 text-blue-500" />
+                Mensaje del cliente
+              </CardTitle>
+              <CardDescription>
+                Ingresa el mensaje del cliente para analizar los pedidos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <MessageExampleGenerator onSelectExample={setMessage} />
+              <Textarea
+                placeholder="Escribe el mensaje del cliente aquí..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                clearable={true}
+                onClear={() => setMessage("")}
+                rows={4}
+                disabled={isAnalyzing}
+              />
+              <Button
+                className="w-full flex items-center gap-2 justify-center"
+                onClick={handleAnalyzeMessage}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analizando...
+                  </>
+                ) : (
+                  <>
+                    <Wand className="h-4 w-4" />
+                    Analizar mensaje
+                  </>
+                )}
+              </Button>
+              {isAnalyzing && (
+                <Progress value={progress} className="mt-2" />
+              )}
+              {analysisError && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Error en el análisis:</span>
+                  </div>
+                  <p className="mt-2">{analysisError}</p>
+                  {rawJsonResponse && (
+                    <>
+                      <Separator className="my-2" />
+                      <Collapsible>
+                        <CollapsibleTrigger className="w-full text-left text-muted-foreground hover:underline flex items-center justify-between">
+                          Mostrar respuesta JSON
+                          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-300 peer-data-[state=open]:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <pre className="mt-2 rounded-md bg-muted/5 p-2 text-xs">
+                            {rawJsonResponse}
+                          </pre>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="md:w-1/2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Clipboard className="h-5 w-5 text-primary" />
+              Resumen de pedidos
+            </h2>
+            <div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleClearOrders}
+                disabled={orders.length === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Borrar todo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-2"
+                onClick={handleSaveAllOrders}
+                disabled={orders.length === 0 || isSavingAllOrders}
+              >
+                {isSavingAllOrders ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Guardar todo
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {orders.length === 0 ? (
+            <Card className="opacity-70">
+              <CardContent className="grid place-items-center p-10">
+                <HelpCircle className="h-10 w-10 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground mt-4">
+                  No hay pedidos para mostrar.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {orders.map((order, index) => (
+                <SimpleOrderCardNew
+                  key={index}
+                  order={order}
+                  index={index}
+                  clients={clients}
+                  products={products}
+                  onDelete={() => handleDeleteOrder(index, order.client.name)}
+                  onUpdateStatus={(status) => handleUpdateOrderStatus(index, status)}
+                  onUpdateIsPaid={(isPaid) => handleUpdateOrderIsPaid(index, isPaid)}
+                  onUpdateOrderItemStatus={(itemIndex, status) => handleUpdateOrderItemStatus(index, itemIndex, status)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Alerta genérica reutilizable */}
+      <AlertDialog open={alertMessage !== null} onOpenChange={(open) => !open && setAlertMessage(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alertMessage?.title || "Información"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertMessage?.message || ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {alertMessage?.title === "¿Borrar todos los pedidos?" ? (
+              <>
+                <AlertDialogCancel onClick={() => setAlertMessage(null)}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmClearOrders}>Confirmar</AlertDialogAction>
+              </>
+            ) : orderToDelete ? (
+              <>
+                <AlertDialogCancel onClick={cancelDeleteOrder}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteOrder}>Confirmar</AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction onClick={() => setAlertMessage(null)}>Aceptar</AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AppLayout>
+  );
 };
+
+export default MagicOrder;
