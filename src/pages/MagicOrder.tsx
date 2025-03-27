@@ -60,7 +60,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Página Mensaje Mágico
- * v1.0.29
+ * v1.0.33
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -80,6 +80,7 @@ const MagicOrder = () => {
   const [progressStage, setProgressStage] = useState<string>("");
   const [phase1Response, setPhase1Response] = useState<string | null>(null);
   const [phase2Response, setPhase2Response] = useState<string | null>(null);
+  const [phase3Response, setPhase3Response] = useState<string | null>(null);
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
@@ -152,8 +153,9 @@ const MagicOrder = () => {
     setRawJsonResponse(null);
     setPhase1Response(null);
     setPhase2Response(null);
+    setPhase3Response(null);
     setProgress(5);
-    setProgressStage("Preparando análisis en dos fases...");
+    setProgressStage("Preparando análisis en tres fases...");
 
     try {
       setUseTwoPhasesAnalysis(true);
@@ -165,12 +167,12 @@ const MagicOrder = () => {
           stage = "Preparando análisis...";
         } else if (progressValue < 40) {
           stage = "Cargando datos de contexto...";
-        } else if (progressValue < 60) {
+        } else if (progressValue < 55) {
           stage = "Fase 1: Análisis general del mensaje...";
-        } else if (progressValue < 80) {
+        } else if (progressValue < 75) {
           stage = "Fase 2: Estructurando en formato JSON...";
         } else if (progressValue < 95) {
-          stage = "Generando pedidos...";
+          stage = "Fase 3: Validando y corrigiendo JSON...";
         } else {
           stage = "Finalizando...";
         }
@@ -184,6 +186,10 @@ const MagicOrder = () => {
       
       if (result.phase2Response) {
         setPhase2Response(result.phase2Response);
+      }
+      
+      if (result.phase3Response) {
+        setPhase3Response(result.phase3Response);
       }
       
       setProgress(100);
@@ -561,7 +567,7 @@ const MagicOrder = () => {
           </div>
           
           <div className="flex gap-2">
-            {(phase1Response || phase2Response) && (
+            {(phase1Response || phase2Response || phase3Response) && (
               <Button 
                 variant="outline" 
                 size="sm"
@@ -610,7 +616,7 @@ const MagicOrder = () => {
               <p className="text-xs text-red-600 italic mt-2">
                 Intenta con un mensaje más simple o contacta al soporte si el problema persiste.
               </p>
-              {(phase1Response || phase2Response) && (
+              {(phase1Response || phase2Response || phase3Response) && (
                 <div className="mt-3">
                   <Button 
                     variant="outline" 
@@ -902,7 +908,7 @@ const MagicOrder = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Detalle del análisis en dos fases
+              Detalle del análisis completo
             </DialogTitle>
             <DialogDescription>
               Visualiza los resultados de cada paso del análisis para entender mejor cómo se procesó el mensaje.
@@ -910,14 +916,18 @@ const MagicOrder = () => {
           </DialogHeader>
           
           <Tabs value={analysisDialogTab} onValueChange={setAnalysisDialogTab} className="w-full overflow-hidden flex-1 flex flex-col">
-            <TabsList className="grid grid-cols-2 mb-2">
+            <TabsList className="grid grid-cols-3 mb-2">
               <TabsTrigger value="phase1" className="flex items-center gap-1">
                 <FileText size={14} />
-                Fase 1: Análisis del mensaje
+                Fase 1: Análisis
               </TabsTrigger>
               <TabsTrigger value="phase2" className="flex items-center gap-1">
                 <Code size={14} />
-                Fase 2: Formato JSON
+                Fase 2: JSON Inicial
+              </TabsTrigger>
+              <TabsTrigger value="phase3" className="flex items-center gap-1">
+                <Check size={14} />
+                Fase 3: JSON Corregido
               </TabsTrigger>
             </TabsList>
             
@@ -945,6 +955,18 @@ const MagicOrder = () => {
                   </div>
                 )}
               </TabsContent>
+              
+              <TabsContent value="phase3" className="h-full">
+                {phase3Response ? (
+                  <div className="bg-slate-50 p-4 rounded-md border border-slate-200 overflow-auto h-full">
+                    <pre className="whitespace-pre-wrap text-sm font-mono text-slate-800 break-words">{phase3Response}</pre>
+                  </div>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No hay respuesta disponible para la tercera fase.
+                  </div>
+                )}
+              </TabsContent>
             </div>
           </Tabs>
           
@@ -955,7 +977,11 @@ const MagicOrder = () => {
             <Button 
               variant="default"
               onClick={() => {
-                const textToCopy = analysisDialogTab === 'phase1' ? phase1Response : phase2Response;
+                let textToCopy = "";
+                if (analysisDialogTab === 'phase1') textToCopy = phase1Response || "";
+                else if (analysisDialogTab === 'phase2') textToCopy = phase2Response || "";
+                else if (analysisDialogTab === 'phase3') textToCopy = phase3Response || "";
+                
                 if (textToCopy) {
                   navigator.clipboard.writeText(textToCopy)
                     .then(() => toast({

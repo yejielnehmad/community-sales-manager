@@ -1,4 +1,3 @@
-
 import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +10,7 @@ export class GeminiError extends Error {
   rawJsonResponse?: string;
   phase1Response?: string;
   phase2Response?: string;
+  phase3Response?: string;
   
   constructor(message: string, details?: { 
     status?: number, 
@@ -18,7 +18,8 @@ export class GeminiError extends Error {
     apiResponse?: any,
     rawJsonResponse?: string,
     phase1Response?: string,
-    phase2Response?: string
+    phase2Response?: string,
+    phase3Response?: string
   }) {
     super(message);
     this.name = "GeminiError";
@@ -28,12 +29,12 @@ export class GeminiError extends Error {
     this.rawJsonResponse = details?.rawJsonResponse;
     this.phase1Response = details?.phase1Response;
     this.phase2Response = details?.phase2Response;
+    this.phase3Response = details?.phase3Response;
   }
 }
 
 export { GeminiError as AIServiceError };
 
-// Primer paso: Prompt para análisis inicial de mensajes y separación por cliente
 export const STEP_ONE_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos por cliente. Cada línea o párrafo puede contener un pedido distinto de un cliente diferente.
 
 CONTEXTO (productos y clientes existentes en la base de datos):
@@ -69,7 +70,6 @@ Pedido: 5 pollos, 1 queso muzarela
 Notas: Todo claro  
 ---`;
 
-// Segundo paso: Prompt para convertir el análisis a JSON estructurado
 export const STEP_TWO_PROMPT = `Ahora, convierte el siguiente análisis de pedidos en un formato JSON estructurado:
 
 ANÁLISIS PREVIO:
@@ -124,7 +124,26 @@ Devuelve únicamente un array JSON con esta estructura:
   }
 ]`;
 
-// Definición del prompt predeterminado para el análisis de mensajes
+export const STEP_THREE_PROMPT = `Valida y corrige el siguiente JSON para asegurar que esté bien formado y cumpla con la estructura esperada:
+
+JSON A VALIDAR:
+{jsonText}
+
+INSTRUCCIONES IMPORTANTES:
+1. Verifica la sintaxis del JSON: comillas faltantes, comas, llaves o corchetes mal cerrados.
+2. Asegúrate de que todos los valores para cada campo tengan el tipo correcto:
+   - Los IDs pueden ser string o null
+   - Las cantidades ("quantity") deben ser números
+   - El "matchConfidence" debe ser uno de: "alto", "medio", "bajo", "desconocido"
+   - El "status" debe ser uno de: "confirmado", "duda"
+3. NO cambies la estructura del JSON ni agregues campos nuevos.
+4. NO agregues comentarios ni explicaciones, devuelve SOLO el JSON corregido.
+5. Si el JSON ya está bien formado, devuélvelo igual.
+6. Mantén los arrays vacíos como están (p.ej., "alternatives": []).
+7. El JSON DEBE ser un array válido que comience con [ y termine con ].
+
+Devuelve EXCLUSIVAMENTE el JSON corregido, sin explicaciones ni marcadores adicionales.`;
+
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza el siguiente mensaje y detecta los pedidos que se solicitan. El mensaje puede ser informal y contener múltiples pedidos de diferentes clientes.
 
 CONTEXTO (productos y clientes existentes en la base de datos):
@@ -368,6 +387,121 @@ export const fetchDatabaseContext = async () => {
 };
 
 /**
+ * Analiza un mensaje en tres fases:
+ * 1. Primero hace un análisis general y separación por cliente
+ * 2. Luego convierte ese análisis a formato JSON estructurado
+ * 3. Finalmente valida y corrige el JSON para asegurar que esté bien formado
+ */
+export const analyzeThreePhases = async (
+  message: string,
+  dbContext: any,
+  onProgress?: (progress: number) => void
+): Promise<{result: MessageAnalysis[], phase1Response: string, phase2Response: string, phase3Response: string}> => {
+  try {
+    console.log("Analizando mensaje en tres fases...");
+    onProgress?.(10);
+    
+    // Preparamos los contextos para los prompts
+    const productsContext = dbContext.products.map(p => {
+      const variantsText = p.variants && p.variants.length 
+        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
+        : 'Sin variantes';
+      
+      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
+    }).join('\n');
+    
+    const clientsContext = dbContext.clients.map(c => 
+      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
+    ).join('\n');
+    
+    // FASE 1: Análisis inicial y separación por cliente
+    console.log("Fase 1: Iniciando análisis preliminar...");
+    onProgress?.(25);
+    
+    const phase1Prompt = STEP_ONE_PROMPT
+      .replace('{productsContext}', productsContext)
+      .replace('{clientsContext}', clientsContext)
+      .replace('{messageText}', message);
+    
+    const phase1Response = await callGeminiAPI(phase1Prompt);
+    console.log("Fase 1 completada, análisis inicial obtenido");
+    onProgress?.(50);
+    
+    // FASE 2: Convertir el análisis a JSON estructurado
+    console.log("Fase 2: Estructurando respuesta en formato JSON...");
+    
+    const phase2Prompt = STEP_TWO_PROMPT
+      .replace('{analysisText}', phase1Response)
+      .replace('{productsContext}', productsContext)
+      .replace('{clientsContext}', clientsContext);
+    
+    const phase2Response = await callGeminiAPI(phase2Prompt);
+    onProgress?.(75);
+    
+    // FASE 3: Validar y corregir el JSON
+    console.log("Fase 3: Validando y corrigiendo el JSON...");
+    
+    // Extraemos el JSON de la respuesta de la fase 2
+    let jsonText = extractJsonFromResponse(phase2Response);
+    
+    const phase3Prompt = STEP_THREE_PROMPT
+      .replace('{jsonText}', jsonText);
+    
+    const phase3Response = await callGeminiAPI(phase3Prompt);
+    onProgress?.(90);
+    
+    // Extraer el JSON validado y corregido
+    let validatedJsonText = extractJsonFromResponse(phase3Response);
+    
+    try {
+      const parsedResult = JSON.parse(validatedJsonText) as MessageAnalysis[];
+      console.log("Análisis en tres fases completado. Pedidos identificados:", parsedResult.length);
+      
+      onProgress?.(100);
+      
+      if (!Array.isArray(parsedResult)) {
+        throw new Error("El formato de los datos analizados no es válido (no es un array)");
+      }
+      
+      const processedResult = parsedResult.filter(result => {
+        if (!result.client || typeof result.client !== 'object') {
+          return false;
+        }
+        
+        if (!Array.isArray(result.items)) {
+          result.items = [];
+        }
+        
+        return true;
+      });
+      
+      return {
+        result: processedResult,
+        phase1Response,
+        phase2Response: jsonText,
+        phase3Response: validatedJsonText
+      };
+    } catch (parseError: any) {
+      console.error("Error al analizar JSON:", parseError);
+      console.error("Texto JSON recibido:", validatedJsonText);
+      
+      throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
+        apiResponse: parseError,
+        rawJsonResponse: validatedJsonText,
+        phase1Response,
+        phase2Response
+      });
+    }
+  } catch (error) {
+    console.error("Error en el análisis de tres fases:", error);
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    throw new GeminiError(`Error en el análisis de tres fases: ${(error as Error).message}`);
+  }
+};
+
+/**
  * Analiza un mensaje en dos fases:
  * 1. Primero hace un análisis general y separación por cliente
  * 2. Luego convierte ese análisis a formato JSON estructurado
@@ -471,7 +605,7 @@ export const analyzeTwoPhases = async (
 export const analyzeCustomerMessage = async (
   message: string, 
   onProgress?: (progress: number) => void
-): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string}> => {
+): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string}> => {
   try {
     console.log("Analizando mensaje...");
     
@@ -485,18 +619,32 @@ export const analyzeCustomerMessage = async (
     const dbContext = await fetchDatabaseContext();
     onProgress?.(20);
     
-    // Si está activado el análisis en dos fases, usamos ese método
-    if (useNewTwoPhasesAnalysis) {
-      console.log("Usando el nuevo método de análisis en dos fases");
-      const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+    // Usamos el análisis en tres fases por defecto
+    console.log("Usando el nuevo método de análisis en tres fases");
+    try {
+      const threePhaseResult = await analyzeThreePhases(message, dbContext, onProgress);
       return {
-        result: twoPhaseResult.result,
-        phase1Response: twoPhaseResult.phase1Response,
-        phase2Response: twoPhaseResult.phase2Response
+        result: threePhaseResult.result,
+        phase1Response: threePhaseResult.phase1Response,
+        phase2Response: threePhaseResult.phase2Response,
+        phase3Response: threePhaseResult.phase3Response
       };
+    } catch (error) {
+      console.error("Error en el análisis de tres fases, intentando con dos fases:", error);
+      
+      // Si el análisis en tres fases falla, intentamos con dos fases como fallback
+      if (useNewTwoPhasesAnalysis) {
+        console.log("Usando método de fallback: análisis en dos fases");
+        const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+        return {
+          result: twoPhaseResult.result,
+          phase1Response: twoPhaseResult.phase1Response,
+          phase2Response: twoPhaseResult.phase2Response
+        };
+      }
     }
     
-    // Método original de un solo paso
+    // Método original de un solo paso como último recurso
     while (attempts < maxAttempts) {
       try {
         attempts++;
