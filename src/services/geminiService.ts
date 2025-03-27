@@ -1,4 +1,3 @@
-
 import { OPENROUTER_API_KEY } from "@/lib/api-config";
 import { MessageAnalysis } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -24,7 +23,6 @@ export class AIServiceError extends Error {
   }
 }
 
-// Definimos primero DEFAULT_ANALYSIS_PROMPT antes de cualquier referencia a ella
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea o parte del mensaje puede contener pedidos distintos.
 
 CONTEXTO (productos y clientes existentes):
@@ -72,7 +70,6 @@ Estructura JSON:
   }
 ]`;
 
-// Variable para almacenar el prompt personalizado
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 
 export const setCustomAnalysisPrompt = (prompt: string) => {
@@ -100,7 +97,7 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
   }
 
   try {
-    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.7:", prompt.substring(0, 100) + "...");
+    console.log("Enviando petición a OpenRouter (Claude 3 Haiku) v1.0.8:", prompt.substring(0, 100) + "...");
     
     // Construir el cuerpo de la solicitud con el formato correcto
     const requestBody = {
@@ -190,9 +187,11 @@ export const callOpenRouterAPI = async (prompt: string): Promise<string> => {
   }
 };
 
-/**
- * Función principal para llamar a la API
- */
+export const callGeminiAPI = async (prompt: string): Promise<string> => {
+  console.log("Redirigiendo llamada a callGeminiAPI hacia OpenRouter");
+  return callOpenRouterAPI(prompt);
+};
+
 export const callAiApi = async (prompt: string): Promise<string> => {
   return callOpenRouterAPI(prompt);
 };
