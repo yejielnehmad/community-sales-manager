@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ import {
   InfoIcon
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
-import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
+import { analyzeCustomerMessage, GeminiError, getUseTwoPhasesAnalysis, setUseTwoPhasesAnalysis } from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
 import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
@@ -49,7 +50,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Página Mensaje Mágico
- * v1.0.27
+ * v1.0.28
  */
 const MagicOrder = () => {
   const [message, setMessage] = useState("");
@@ -142,19 +143,24 @@ const MagicOrder = () => {
     setAnalysisError(null);
     setRawJsonResponse(null);
     setProgress(5);
-    setProgressStage("Preparando análisis...");
+    setProgressStage("Preparando análisis en dos fases...");
 
     try {
+      // Aseguramos que esté activado el análisis en dos fases
+      setUseTwoPhasesAnalysis(true);
+      
       // Analizamos el mensaje con callback de progreso
       const results = await analyzeCustomerMessage(message, (progressValue) => {
         let stage = "";
         
         if (progressValue < 20) {
           stage = "Preparando análisis...";
-        } else if (progressValue < 50) {
+        } else if (progressValue < 40) {
           stage = "Cargando datos de contexto...";
+        } else if (progressValue < 60) {
+          stage = "Fase 1: Análisis general del mensaje...";
         } else if (progressValue < 80) {
-          stage = "Procesando con IA...";
+          stage = "Fase 2: Estructurando en formato JSON...";
         } else if (progressValue < 95) {
           stage = "Generando pedidos...";
         } else {

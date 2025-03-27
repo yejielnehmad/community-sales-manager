@@ -1,3 +1,4 @@
+
 import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +26,83 @@ export class GeminiError extends Error {
 }
 
 export { GeminiError as AIServiceError };
+
+// Primer paso: Prompt para análisis inicial de mensajes y separación por cliente
+export const STEP_ONE_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos por cliente. Cada línea o párrafo puede contener un pedido distinto de un cliente diferente.
+
+CONTEXTO (productos y clientes existentes en la base de datos):
+
+PRODUCTOS:
+{productsContext}
+
+CLIENTES:
+{clientsContext}
+
+INSTRUCCIONES IMPORTANTES:
+1. Analiza detalladamente el mensaje y separa los pedidos por cliente.
+2. Identifica qué cliente está haciendo cada pedido.
+3. Para cada cliente, identifica los productos que están pidiendo con sus cantidades.
+4. Si un nombre no coincide con ningún cliente conocido, considera si podría ser un nuevo cliente.
+5. Presta atención a mensajes informales, abreviaciones y mezclas de información.
+6. No te preocupes por el formato JSON en esta etapa, solo haz un análisis lógico de quién pide qué.
+
+MENSAJE A ANALIZAR:
+"{messageText}"
+
+Devuelve tu análisis de manera estructurada con una lista de clientes y lo que han pedido.`;
+
+// Segundo paso: Prompt para convertir el análisis a JSON estructurado
+export const STEP_TWO_PROMPT = `Ahora, convierte el siguiente análisis de pedidos en un formato JSON estructurado:
+
+ANÁLISIS PREVIO:
+{analysisText}
+
+CONTEXTO (productos y clientes existentes en la base de datos):
+
+PRODUCTOS:
+{productsContext}
+
+CLIENTES:
+{clientsContext}
+
+INSTRUCCIONES IMPORTANTES:
+1. Devuelve EXCLUSIVAMENTE un array JSON válido. No incluyas explicaciones, comentarios ni ningún texto adicional.
+2. La respuesta DEBE ser solo un array JSON que siga exactamente el esquema indicado más abajo.
+3. NO uses caracteres de markdown como \`\`\` ni ningún otro envoltorio alrededor del JSON.
+4. SIEMPRE genera tarjetas de pedidos para cada cliente identificado.
+5. Identifica el cliente de cada pedido. Si no hay coincidencia exacta, selecciona el más parecido.
+6. Detecta los productos solicitados junto con cantidades.
+7. Si hay duda o ambigüedad en el pedido, márcalo como status: "duda" y explica brevemente en "notes".
+8. Tu respuesta debe estar perfectamente formateada como JSON válido. NO puede tener errores de sintaxis, comas faltantes, llaves mal cerradas ni valores incompletos.
+
+Devuelve únicamente un array JSON con esta estructura:
+
+[
+  {
+    "client": {
+      "id": "ID del cliente o null",
+      "name": "Nombre del cliente",
+      "matchConfidence": "alto|medio|bajo|desconocido"
+    },
+    "items": [
+      {
+        "product": {
+          "id": "ID del producto o null",
+          "name": "Nombre del producto"
+        },
+        "quantity": número,
+        "variant": {
+          "id": "ID de la variante o null",
+          "name": "Nombre de la variante"
+        },
+        "status": "confirmado|duda",
+        "alternatives": [],
+        "notes": "Notas o dudas sobre este ítem"
+      }
+    ],
+    "unmatchedText": "Texto no asociado a cliente o producto"
+  }
+]`;
 
 export const DEFAULT_ANALYSIS_PROMPT = `Analiza este mensaje de uno o varios clientes y extrae los pedidos. Cada línea puede contener un pedido distinto. Múltiples mensajes deben ser tratados como pedidos separados.
 
@@ -84,6 +162,7 @@ Devuelve únicamente un array JSON con esta estructura:
 ]`;
 
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+let useNewTwoPhasesAnalysis = true; // Activamos por defecto el nuevo método de dos fases
 
 export const setCustomAnalysisPrompt = (prompt: string) => {
   if (!prompt || prompt.trim() === '') {
@@ -101,6 +180,14 @@ export const resetAnalysisPrompt = () => {
   currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 };
 
+export const setUseTwoPhasesAnalysis = (useIt: boolean) => {
+  useNewTwoPhasesAnalysis = useIt;
+};
+
+export const getUseTwoPhasesAnalysis = () => {
+  return useNewTwoPhasesAnalysis;
+};
+
 /**
  * Función para realizar peticiones a la API de Cohere
  */
@@ -114,7 +201,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     // Usar endpoint desde la configuración
     const endpoint = COHERE_ENDPOINT || "https://api.cohere.ai/v1/chat";
     
-    logDebug("API", `Enviando petición a Cohere API v1.0.24: ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Enviando petición a Cohere API v1.0.28: ${prompt.substring(0, 100)}...`);
     logDebug("API", `Usando endpoint: ${endpoint}`);
     
     // Solo mostramos la parte inicial de la API key si tiene suficiente longitud
@@ -267,6 +354,101 @@ export const fetchDatabaseContext = async () => {
   };
 };
 
+/**
+ * Analiza un mensaje en dos fases:
+ * 1. Primero hace un análisis general y separación por cliente
+ * 2. Luego convierte ese análisis a formato JSON estructurado
+ */
+export const analyzeTwoPhases = async (
+  message: string,
+  dbContext: any,
+  onProgress?: (progress: number) => void
+): Promise<MessageAnalysis[]> => {
+  try {
+    console.log("Analizando mensaje en dos fases...");
+    onProgress?.(10);
+    
+    // Preparamos los contextos para los prompts
+    const productsContext = dbContext.products.map(p => {
+      const variantsText = p.variants && p.variants.length 
+        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
+        : 'Sin variantes';
+      
+      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
+    }).join('\n');
+    
+    const clientsContext = dbContext.clients.map(c => 
+      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
+    ).join('\n');
+    
+    // FASE 1: Análisis inicial y separación por cliente
+    console.log("Fase 1: Iniciando análisis preliminar...");
+    onProgress?.(30);
+    
+    const phase1Prompt = STEP_ONE_PROMPT
+      .replace('{productsContext}', productsContext)
+      .replace('{clientsContext}', clientsContext)
+      .replace('{messageText}', message);
+    
+    const phase1Response = await callGeminiAPI(phase1Prompt);
+    console.log("Fase 1 completada, análisis inicial obtenido");
+    onProgress?.(60);
+    
+    // FASE 2: Convertir el análisis a JSON estructurado
+    console.log("Fase 2: Estructurando respuesta en formato JSON...");
+    
+    const phase2Prompt = STEP_TWO_PROMPT
+      .replace('{analysisText}', phase1Response)
+      .replace('{productsContext}', productsContext)
+      .replace('{clientsContext}', clientsContext);
+    
+    const phase2Response = await callGeminiAPI(phase2Prompt);
+    onProgress?.(90);
+    
+    // Extraer el JSON de la respuesta
+    let jsonText = extractJsonFromResponse(phase2Response);
+    
+    try {
+      const parsedResult = JSON.parse(jsonText) as MessageAnalysis[];
+      console.log("Análisis en dos fases completado. Pedidos identificados:", parsedResult.length);
+      
+      onProgress?.(100);
+      
+      if (!Array.isArray(parsedResult)) {
+        throw new Error("El formato de los datos analizados no es válido (no es un array)");
+      }
+      
+      const processedResult = parsedResult.filter(result => {
+        if (!result.client || typeof result.client !== 'object') {
+          return false;
+        }
+        
+        if (!Array.isArray(result.items)) {
+          result.items = [];
+        }
+        
+        return true;
+      });
+      
+      return processedResult;
+    } catch (parseError: any) {
+      console.error("Error al analizar JSON:", parseError);
+      console.error("Texto JSON recibido:", jsonText);
+      
+      throw new GeminiError(`Error al procesar la respuesta JSON: ${parseError.message}`, {
+        apiResponse: parseError,
+        rawJsonResponse: jsonText
+      });
+    }
+  } catch (error) {
+    console.error("Error en el análisis de dos fases:", error);
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    throw new GeminiError(`Error en el análisis de dos fases: ${(error as Error).message}`);
+  }
+};
+
 export const analyzeCustomerMessage = async (
   message: string, 
   onProgress?: (progress: number) => void
@@ -284,10 +466,17 @@ export const analyzeCustomerMessage = async (
     const dbContext = await fetchDatabaseContext();
     onProgress?.(20);
     
+    // Si está activado el análisis en dos fases, usamos ese método
+    if (useNewTwoPhasesAnalysis) {
+      console.log("Usando el nuevo método de análisis en dos fases");
+      return await analyzeTwoPhases(message, dbContext, onProgress);
+    }
+    
+    // Método original de un solo paso
     while (attempts < maxAttempts) {
       try {
         attempts++;
-        console.log(`Intento #${attempts} de analizar mensaje`);
+        console.log(`Intento #${attempts} de analizar mensaje (método original)`);
         
         onProgress?.(20 + attempts * 10);
         
