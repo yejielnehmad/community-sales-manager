@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -61,7 +60,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Página Mensaje Mágico
- * v1.0.40
+ * v1.0.43
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -221,6 +220,7 @@ const MagicOrder = () => {
     loadContextData();
   }, [toast, clients.length, products.length]);
 
+  // Función para actualizar el progreso del análisis
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
     if (stage) setProgressStage(stage);
@@ -253,6 +253,12 @@ const MagicOrder = () => {
     setProgress(5);
     setProgressStage("Preparando análisis...");
     
+    // Guardamos el mensaje para procesarlo
+    const messageToAnalyze = message;
+    
+    // Limpiamos el campo de mensaje para que el usuario pueda seguir trabajando
+    setMessage("");
+    
     // Disparamos un evento para actualizar la insignia AI
     const event = new CustomEvent('analysisStateChange', {
       detail: { 
@@ -263,7 +269,8 @@ const MagicOrder = () => {
     window.dispatchEvent(event);
 
     try {
-      const result = await analyzeCustomerMessage(message, updateProgress);
+      // Procesamos el mensaje en segundo plano
+      const result = await analyzeCustomerMessage(messageToAnalyze, updateProgress);
       
       if (result.phase1Response) {
         setPhase1Response(result.phase1Response);
@@ -321,15 +328,16 @@ const MagicOrder = () => {
         });
       } else {
         setOrders(prevOrders => [...prevOrders, ...newOrders]);
-        setMessage("");
         setShowOrderSummary(true);
         
-        // No mostramos automáticamente el diálogo de análisis, solo notificamos
-        toast({
-          title: "Análisis completado",
-          description: `Se ${newOrders.length === 1 ? 'ha' : 'han'} detectado ${newOrders.length} pedido${newOrders.length === 1 ? '' : 's'}`,
-          variant: "success"
+        // Notificamos mediante evento para que se muestre incluso si el usuario no está en esta página
+        const completionEvent = new CustomEvent('analysisStateChange', {
+          detail: { 
+            isAnalyzing: false,
+            ordersCount: newOrders.length
+          }
         });
+        window.dispatchEvent(completionEvent);
       }
       
     } catch (error) {

@@ -32,7 +32,7 @@ const AIStatusBadge = ({
   useEffect(() => {
     // Evento para escuchar análisis de mensajes en proceso
     const handleAnalysisStateChange = (event: CustomEvent) => {
-      const { isAnalyzing, stage } = event.detail;
+      const { isAnalyzing, stage, ordersCount } = event.detail;
       
       console.log("Evento de análisis detectado:", isAnalyzing ? "Analizando" : "Finalizado", stage || "");
       
@@ -41,9 +41,23 @@ const AIStatusBadge = ({
         setMessage("IA");
         setDetailedInfo(`Análisis en proceso: ${stage || "Procesando mensaje"}`);
       } else if (statusRef.current === "analyzing") {
-        setStatus("connected");
-        setMessage("IA");
-        setDetailedInfo("Conexión exitosa con Gemini API");
+        // Si hay órdenes detectadas, incluirlas en el mensaje
+        if (ordersCount > 0) {
+          setStatus("connected");
+          setMessage("IA");
+          setDetailedInfo(`¡Análisis completado! Se detectaron ${ordersCount} pedido(s)`);
+          
+          // Después de 5 segundos, volver al estado normal
+          setTimeout(() => {
+            setStatus("connected");
+            setMessage("IA");
+            setDetailedInfo("Conexión exitosa con Gemini API");
+          }, 5000);
+        } else {
+          setStatus("connected");
+          setMessage("IA");
+          setDetailedInfo("Conexión exitosa con Gemini API");
+        }
       }
     };
 
