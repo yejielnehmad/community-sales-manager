@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { COHERE_API_KEY, COHERE_ENDPOINT, API_CONFIG_UPDATED } from "@/lib/api-config";
@@ -8,7 +9,8 @@ import {
   Brain, 
   Info,
   X,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from "lucide-react";
 import {
   Dialog,
@@ -26,7 +28,7 @@ import { logDebug, logError } from "@/lib/debug-utils";
 const API_CHECK_STORAGE_KEY = "cohere_api_checked";
 
 export const AIStatusBadge = () => {
-  const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
+  const [status, setStatus] = useState<"checking" | "connected" | "error" | "analyzing">("checking");
   const [message, setMessage] = useState<string>("Verificando conexión...");
   const [detailedInfo, setDetailedInfo] = useState<string>("Iniciando verificación de conexión con Cohere");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -37,6 +39,29 @@ export const AIStatusBadge = () => {
 
   useEffect(() => {
     statusRef.current = status;
+  }, [status]);
+
+  // Escuchar eventos de análisis desde Mensaje Mágico
+  useEffect(() => {
+    const handleAnalysisStateChange = (event: CustomEvent) => {
+      const { isAnalyzing } = event.detail;
+      
+      if (isAnalyzing && status !== "error") {
+        setStatus("analyzing");
+        setMessage("Analizando mensaje...");
+        setDetailedInfo("El módulo de Mensaje Mágico está procesando un mensaje. La IA está analizando el contenido para detectar pedidos.");
+      } else if (status === "analyzing") {
+        setStatus("connected");
+        setMessage("Cohere conectado correctamente");
+        setDetailedInfo("Conexión exitosa con Cohere API\nModelo: command-r-plus");
+      }
+    };
+
+    window.addEventListener('analysisStateChange', handleAnalysisStateChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('analysisStateChange', handleAnalysisStateChange as EventListener);
+    };
   }, [status]);
 
   const checkConnection = async (forceCheck = false) => {
@@ -221,6 +246,7 @@ export const AIStatusBadge = () => {
         className={`
           ${status === "connected" ? "bg-green-100 text-green-800 border-green-300" : 
             status === "error" ? "bg-red-100 text-red-800 border-red-300" : 
+            status === "analyzing" ? "bg-blue-100 text-blue-800 border-blue-300" :
             "bg-yellow-100 text-yellow-800 border-yellow-300"} 
           flex items-center gap-1 cursor-pointer hover:opacity-80 transition-all hover:scale-105 duration-300
           active:bg-muted active:scale-95 touch-manipulation
@@ -230,6 +256,8 @@ export const AIStatusBadge = () => {
           <CheckCircle className="h-3 w-3 animate-pulse" />
         ) : status === "error" ? (
           <AlertTriangle className="h-3 w-3" />
+        ) : status === "analyzing" ? (
+          <Sparkles className="h-3 w-3 animate-spin" />
         ) : (
           <Loader2 className="h-3 w-3 animate-spin" />
         )}
@@ -241,45 +269,70 @@ export const AIStatusBadge = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-primary" />
-              Inteligencia Artificial en tu Aplicación
+              {status === "analyzing" ? "IA Analizando Mensaje" : "Inteligencia Artificial en tu Aplicación"}
             </DialogTitle>
             <DialogDescription>
-              Potencia tus ventas con tecnología de Cohere AI
+              {status === "analyzing" 
+                ? "La IA está procesando un mensaje en Mensaje Mágico" 
+                : "Potencia tus ventas con tecnología de Cohere AI"}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-5">
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-xl border border-purple-100">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="bg-primary/20 p-2 rounded-full">
-                  <Brain className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-medium text-lg">¿Qué puede hacer la IA por ti?</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <div className="bg-green-100 p-1 rounded-full mt-1">
-                    <CheckCircle className="h-3 w-3 text-green-600" />
+            {status === "analyzing" ? (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-blue-100 p-2 rounded-full">
+                    <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
                   </div>
-                  <p className="text-sm">Analizar mensajes de clientes para identificar productos y cantidades automáticamente</p>
+                  <h3 className="font-medium text-lg text-blue-800">Análisis en progreso</h3>
                 </div>
-                
-                <div className="flex items-start gap-2">
-                  <div className="bg-green-100 p-1 rounded-full mt-1">
-                    <CheckCircle className="h-3 w-3 text-green-600" />
-                  </div>
-                  <p className="text-sm">Reconocer datos de clientes y detalles de sus pedidos</p>
-                </div>
-                
-                <div className="flex items-start gap-2">
-                  <div className="bg-green-100 p-1 rounded-full mt-1">
-                    <CheckCircle className="h-3 w-3 text-green-600" />
-                  </div>
-                  <p className="text-sm">Generar ejemplos de mensajes para probar y entrenar la función de análisis</p>
+                <p className="text-sm text-blue-700">
+                  La IA está procesando un mensaje en el módulo de Mensaje Mágico. Este proceso puede tardar unos segundos dependiendo de la complejidad del mensaje.
+                </p>
+                <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <h4 className="text-sm font-medium text-blue-800 mb-1">¿Qué está haciendo la IA?</h4>
+                  <ul className="text-xs space-y-1 text-blue-700">
+                    <li>• Identificando al cliente en el mensaje</li>
+                    <li>• Detectando productos mencionados</li>
+                    <li>• Determinando cantidades solicitadas</li>
+                    <li>• Estructurando la información en un pedido</li>
+                  </ul>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-xl border border-purple-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-primary/20 p-2 rounded-full">
+                    <Brain className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-medium text-lg">¿Qué puede hacer la IA por ti?</h3>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <div className="bg-green-100 p-1 rounded-full mt-1">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                    </div>
+                    <p className="text-sm">Analizar mensajes de clientes para identificar productos y cantidades automáticamente</p>
+                  </div>
+                  
+                  <div className="flex items-start gap-2">
+                    <div className="bg-green-100 p-1 rounded-full mt-1">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                    </div>
+                    <p className="text-sm">Reconocer datos de clientes y detalles de sus pedidos</p>
+                  </div>
+                  
+                  <div className="flex items-start gap-2">
+                    <div className="bg-green-100 p-1 rounded-full mt-1">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                    </div>
+                    <p className="text-sm">Generar ejemplos de mensajes para probar y entrenar la función de análisis</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="border p-3 rounded-lg bg-muted/5">
               <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
