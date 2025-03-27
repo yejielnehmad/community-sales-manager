@@ -1,7 +1,9 @@
+
 import { COHERE_API_KEY, COHERE_ENDPOINT } from "@/lib/api-config";
 import { logDebug, logError } from "@/lib/debug-utils";
 import { MessageAnalysis } from "@/types";
 
+// Exportamos las constantes y funciones necesarias para resolver el error de importación
 export const DEFAULT_ANALYSIS_PROMPT = `
 Analiza este mensaje de un cliente y extrae la siguiente información en formato JSON:
 1. Información del cliente (nombre, teléfono si está disponible)
@@ -317,6 +319,7 @@ Responde SOLO con el array JSON corregido y validado (sin explicaciones).
   return data.text;
 };
 
+// Añadimos la función callGeminiAPI que falta y está siendo importada
 export const callGeminiAPI = async (prompt: string): Promise<string> => {
   if (!COHERE_API_KEY) {
     throw new Error("No se ha configurado la API key de Cohere");
@@ -360,6 +363,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
   }
 };
 
+// Añadimos la función chatWithAssistant que falta y está siendo importada
 export const chatWithAssistant = async (message: string, appContext: any): Promise<string> => {
   if (!message) {
     throw new Error("El mensaje está vacío");
