@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,13 +67,12 @@ const Settings = () => {
     if (setAiModelType(value)) {
       toast({
         title: "Modelo de IA cambiado",
-        description: `Se ha cambiado el modelo a ${value === AI_MODEL_TYPE.GEMINI ? 'Google Gemini' : 'Claude 3 Haiku (OpenRouter)'}`,
+        description: `Se ha cambiado el modelo a Claude 3 Haiku (OpenRouter)`,
       });
     } else {
       toast({
-        title: "Error al cambiar el modelo",
-        description: "No se pudo cambiar el modelo de IA.",
-        variant: "destructive",
+        title: "Información",
+        description: "Solo se permite usar Claude 3 Haiku (OpenRouter) en esta versión.",
       });
     }
   };
@@ -110,16 +108,19 @@ const Settings = () => {
                   Modelo de IA
                 </CardTitle>
                 <CardDescription>
-                  Selecciona el modelo de inteligencia artificial para el análisis de mensajes
+                  Modelo de inteligencia artificial para el análisis de mensajes
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <RadioGroup value={selectedModel} onValueChange={handleModelChange} className="space-y-3">
-                  <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
-                    <RadioGroupItem value={AI_MODEL_TYPE.GEMINI} id="gemini" />
-                    <Label htmlFor="gemini" className="flex-1 cursor-pointer font-medium">
+                  <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30 opacity-50">
+                    <RadioGroupItem value={AI_MODEL_TYPE.GEMINI} id="gemini" disabled />
+                    <Label htmlFor="gemini" className="flex-1 cursor-not-allowed font-medium text-muted-foreground">
                       Google Gemini
-                      <p className="text-sm font-normal text-muted-foreground">Modelo de Google Gemini 2.0 Flash</p>
+                      <p className="text-sm font-normal text-muted-foreground">Modelo de Google Gemini 2.0 Flash (Desactivado)</p>
+                      <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-50 text-yellow-700 border-yellow-200">
+                        No disponible
+                      </div>
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
@@ -128,7 +129,7 @@ const Settings = () => {
                       Claude 3 Haiku (OpenRouter)
                       <p className="text-sm font-normal text-muted-foreground">Anthropic Claude 3 Haiku vía OpenRouter</p>
                       <div className="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border-green-200">
-                        Recomendado
+                        Activo
                       </div>
                     </Label>
                   </div>
