@@ -122,8 +122,8 @@ const AIStatusBadge = ({
   };
 
   // Aplicamos las clases según el estado actual
-  const badgeClasses = "cursor-pointer rounded-full px-4 py-0.5 shadow-sm transition-all hover:shadow-md flex items-center gap-1.5" + 
-    (status === "analyzing" ? " bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white" : " bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black");
+  const badgeClasses = "cursor-pointer rounded-full px-4 shadow-sm transition-all hover:shadow-md flex items-center gap-1.5" + 
+    (status === "analyzing" ? " bg-blue-500 hover:bg-blue-600 text-white" : " bg-yellow-400 hover:bg-yellow-500 text-black");
 
   return (
     <Badge 
@@ -133,10 +133,7 @@ const AIStatusBadge = ({
       title={detailedInfo}
     >
       {status === "analyzing" ? (
-        <div className="relative h-3.5 w-3.5">
-          <Loader2 className="h-3.5 w-3.5 animate-spin absolute" />
-          <div className="h-3.5 w-3.5 rounded-full bg-white/20 animate-pulse"></div>
-        </div>
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
         <Sparkles className="h-3.5 w-3.5" />
       )}

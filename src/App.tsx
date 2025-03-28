@@ -16,7 +16,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
-import GlobalProgressBar from "./components/GlobalProgressBar";
 
 const App = () => {
   const { toast } = useToast();
@@ -104,12 +103,6 @@ const App = () => {
       <TooltipProvider>
         <SidebarProvider>
           <BrowserRouter>
-            {/* Barra de progreso global cuando se está procesando un mensaje */}
-            <GlobalProgressBar 
-              isAnalyzingGlobally={isAnalyzingGlobally} 
-              analysisStage={analysisStage} 
-            />
-            
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/clients" element={<Clients />} />
