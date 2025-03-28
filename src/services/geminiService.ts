@@ -1,3 +1,4 @@
+
 import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT, GOOGLE_API_KEY, GOOGLE_GEMINI_ENDPOINT, GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -5,6 +6,9 @@ import { logDebug, logError } from "@/lib/debug-utils";
 
 export type ApiProvider = "cohere" | "google-gemini";
 let currentApiProvider: ApiProvider = "cohere"; // Por defecto usamos Cohere
+
+// Definición de la variable faltante
+let currentGeminiModel: string = GOOGLE_GEMINI_MODELS.GEMINI_PRO; // Por defecto usamos gemini-pro
 
 export const setApiProvider = (provider: ApiProvider) => {
   currentApiProvider = provider;
