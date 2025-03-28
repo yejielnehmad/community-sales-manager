@@ -1,8 +1,10 @@
+
 import { supabase } from "@/lib/supabase";
 import { 
   GOOGLE_GEMINI_MODELS,
   GOOGLE_GEMINI_ENDPOINT,
-  GOOGLE_API_KEY 
+  GOOGLE_API_KEY,
+  GEMINI_MAX_OUTPUT_TOKENS
 } from "@/lib/api-config";
 import { setApiProvider, setGeminiModel } from "@/services/geminiService";
 
@@ -183,7 +185,7 @@ export const generateMultipleExamples = async (orderCount: number = 30, precisio
         contents: messages,
         generationConfig: {
           temperature: 0.8,
-          maxOutputTokens: 8000,
+          maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
         },
       }),
     });

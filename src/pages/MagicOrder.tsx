@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaWithHighlight } from "@/components/TextareaWithHighlight";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -78,7 +79,7 @@ import {
 
 /**
  * Página Mensaje Mágico
- * v1.0.51
+ * v1.0.54
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -882,13 +883,15 @@ const MagicOrder = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Textarea
+            <TextareaWithHighlight
               placeholder="Por ejemplo: 'Hola, soy María López y quiero 2 paquetes de pañales talla 1 y 1.5 kg de queso fresco'"
               className="min-h-32"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               clearable={true}
               onClear={handleClearMessage}
+              clients={clients}
+              products={products}
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
