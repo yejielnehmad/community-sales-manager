@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -948,8 +949,304 @@ const MagicOrder = () => {
           </Card>
         )}
 
-        {/* Resto del contenido */}
-        {/* ... keep existing code (resto del componente MagicOrder) */}
+        {/* Sección de entrada del mensaje */}
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MessageSquareText className="h-5 w-5 text-primary" />
+              Mensaje del cliente
+            </CardTitle>
+            <CardDescription>
+              Ingresa el mensaje del cliente para analizarlo
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {/* Textarea para el mensaje */}
+            <div className="mb-4">
+              <TextareaWithHighlight
+                placeholder="Pega o escribe aquí el mensaje del cliente..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                clients={clients}
+                products={products}
+                className="min-h-[150px] font-medium"
+                clearable={true}
+                onClear={handleClearMessage}
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={handleAnalyzeMessage}
+                  disabled={isAnalyzing || !message.trim()}
+                  className="flex items-center gap-2"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analizando...
+                    </>
+                  ) : (
+                    <>
+                      <Wand className="h-4 w-4" />
+                      Analizar mensaje
+                    </>
+                  )}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={handlePaste}
+                  disabled={isAnalyzing}
+                  className="flex items-center gap-1"
+                >
+                  <Clipboard className="h-4 w-4" />
+                  Pegar
+                </Button>
+              </div>
+              
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowGenerator(!showGenerator)}
+                  className="text-xs"
+                >
+                  {showGenerator ? "Ocultar ejemplos" : "Ver ejemplos"}
+                </Button>
+              </div>
+            </div>
+            
+            {isAnalyzing && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-muted-foreground">
+                    {progressStage || "Procesando..."}
+                  </span>
+                  <span className="text-sm font-medium">{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        {/* Generador de ejemplos */}
+        {showGenerator && (
+          <MessageExampleGenerator onSelectExample={handleSelectExample} />
+        )}
+        
+        {/* Resultados del análisis y pedidos detectados */}
+        {orders.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  Pedidos detectados
+                </CardTitle>
+                <CardDescription>
+                  Se {orders.length === 1 ? 'ha' : 'han'} detectado {orders.length} {orders.length === 1 ? 'pedido' : 'pedidos'}
+                </CardDescription>
+              </div>
+              
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => setShowOrderSummary(!showOrderSummary)}
+                className="flex items-center gap-1"
+              >
+                {showOrderSummary ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    Ocultar
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    Mostrar
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+            
+            {showOrderSummary && (
+              <CardContent className="py-0">
+                <div className="mb-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-sm font-medium">
+                      Pedidos con dudas: {incompleteOrders.length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Requieren revisión
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      Pedidos listos: {completeOrders.length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Listos para guardar
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Botón para guardar todos los pedidos */}
+                {orders.length > 0 && (
+                  <div className="mt-4 mb-6">
+                    <Button 
+                      className="w-full flex items-center justify-center gap-2"
+                      disabled={!allOrdersComplete || isSavingAllOrders}
+                      onClick={handleSaveAllOrders}
+                    >
+                      {isSavingAllOrders ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Guardando pedidos...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Guardar todos los pedidos
+                        </>
+                      )}
+                    </Button>
+                    
+                    {!allOrdersComplete && (
+                      <p className="text-xs text-center mt-1 text-muted-foreground">
+                        Hay pedidos con dudas. Resuelve todas las dudas para habilitar el guardado.
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Mostrar los pedidos agrupados por cliente */}
+                <div className="space-y-6">
+                  {Object.entries(ordersByClient).map(([clientId, { clientName, orders: clientOrders, indices }]) => (
+                    <div key={clientId} className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted px-4 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{clientName}</span>
+                          
+                          {clientOrders.some(o => !o.client.id || o.client.matchConfidence !== 'alto') && (
+                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-600 border-yellow-200">
+                              Cliente con dudas
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {clientOrders.length} {clientOrders.length === 1 ? 'pedido' : 'pedidos'}
+                        </span>
+                      </div>
+                      
+                      <div className="divide-y">
+                        {indices.map(index => (
+                          <div key={index} className="p-4">
+                            <SimpleOrderCardNew 
+                              order={orders[index]}
+                              clients={clients}
+                              products={products}
+                              onUpdateOrder={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
+                              onDelete={() => handleDeleteOrder(index)}
+                              onSave={() => handleSaveOrder(index, orders[index])}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
+        
+        {/* Diálogo para ver el análisis en detalle */}
+        <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Análisis en detalle</DialogTitle>
+              <DialogDescription>
+                Revisa cómo se procesó el mensaje del cliente
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Tabs defaultValue={analysisDialogTab} onValueChange={setAnalysisDialogTab}>
+              <TabsList className="grid grid-cols-3">
+                <TabsTrigger value="phase1">Fase 1: Preprocesamiento</TabsTrigger>
+                <TabsTrigger value="phase2">Fase 2: Análisis de intenciones</TabsTrigger>
+                <TabsTrigger value="phase3">Fase 3: Estructuración</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="phase1" className="space-y-4 mt-4">
+                <div className="border rounded-md p-4 text-sm font-mono whitespace-pre-wrap text-muted-foreground">
+                  {phase1Response || "No hay datos disponibles para esta fase."}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="phase2" className="space-y-4 mt-4">
+                <div className="border rounded-md p-4 text-sm font-mono whitespace-pre-wrap text-muted-foreground">
+                  {phase2Response || "No hay datos disponibles para esta fase."}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="phase3" className="space-y-4 mt-4">
+                <div className="border rounded-md p-4 text-sm font-mono whitespace-pre-wrap text-muted-foreground">
+                  {phase3Response || "No hay datos disponibles para esta fase."}
+                </div>
+                {rawJsonResponse && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium mb-2">Respuesta JSON cruda:</h3>
+                    <pre className="border rounded-md p-4 text-xs overflow-auto max-h-64">
+                      {rawJsonResponse}
+                    </pre>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Diálogo de alerta para mensajes */}
+        <AlertDialog 
+          open={alertMessage !== null}
+          onOpenChange={(open) => !open && setAlertMessage(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {alertMessage?.message}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction>Aceptar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* Diálogo de confirmación para eliminar pedido */}
+        <AlertDialog 
+          open={orderToDelete !== null}
+          onOpenChange={(open) => !open && setOrderToDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Estás seguro de que deseas eliminar el pedido de {orderToDelete?.name}?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={handleConfirmDeleteOrder}>
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
