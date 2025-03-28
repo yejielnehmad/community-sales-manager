@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 // Configuración del cliente de Supabase para Edge Function
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY") || "";
+const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY") || "AIzaSyC7sqxUAfCig8IuAxdNxALbAXZVGHAriik";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +39,7 @@ serve(async (req) => {
       .single();
 
     if (messageError || !messageData) {
+      console.error("Error al buscar el mensaje:", messageError);
       return new Response(
         JSON.stringify({ error: "Mensaje no encontrado", details: messageError }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -46,52 +47,80 @@ serve(async (req) => {
     }
 
     // Actualizar estado a 'processing'
-    await supabase
+    const { error: updateStatusError } = await supabase
       .from("magic_orders")
       .update({ status: "processing" })
       .eq("id", messageId);
+      
+    if (updateStatusError) {
+      console.error("Error al actualizar estado a 'processing':", updateStatusError);
+    }
 
-    // Analizar mensaje usando la API de Google Gemini
-    const startTime = Date.now();
-    const analysisResult = await analyzeMessage(messageData.message);
-    const endTime = Date.now();
-    const analysisTime = endTime - startTime;
+    try {
+      // Analizar mensaje usando la API de Google Gemini
+      console.log(`Iniciando análisis para mensaje ID: ${messageId}`);
+      const startTime = Date.now();
+      const analysisResult = await analyzeMessage(messageData.message);
+      const endTime = Date.now();
+      const analysisTime = endTime - startTime;
+      console.log(`Análisis completado en ${analysisTime}ms`);
 
-    // Guardar resultado del análisis
-    const { error: updateError } = await supabase
-      .from("magic_orders")
-      .update({
-        status: "done",
-        result: analysisResult.result,
-        phase1_response: analysisResult.phase1Response || null,
-        phase2_response: analysisResult.phase2Response || null,
-        phase3_response: analysisResult.phase3Response || null,
-        analysis_time: analysisTime,
-        api_provider: "google-gemini",
-        model: "gemini-2.0-flash"
-      })
-      .eq("id", messageId);
+      // Guardar resultado del análisis
+      const { error: updateError } = await supabase
+        .from("magic_orders")
+        .update({
+          status: "done",
+          result: analysisResult.result,
+          phase1_response: analysisResult.phase1Response || null,
+          phase2_response: analysisResult.phase2Response || null,
+          phase3_response: analysisResult.phase3Response || null,
+          analysis_time: analysisTime,
+          api_provider: "google-gemini",
+          model: "gemini-2.0-flash"
+        })
+        .eq("id", messageId);
 
-    if (updateError) {
-      console.error("Error al actualizar resultado:", updateError);
+      if (updateError) {
+        console.error("Error al actualizar resultado:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Error al guardar resultado", details: updateError }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ error: "Error al guardar resultado", details: updateError }),
+        JSON.stringify({ 
+          message: "Análisis completado con éxito", 
+          ordersCount: analysisResult.result.length,
+          analysisTime 
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (analysisError) {
+      console.error("Error durante el análisis:", analysisError);
+      
+      // Actualizar el estado a error y guardar detalles del error
+      await supabase
+        .from("magic_orders")
+        .update({
+          status: "error",
+          error_details: analysisError.message || "Error desconocido durante el análisis"
+        })
+        .eq("id", messageId);
+        
+      return new Response(
+        JSON.stringify({ 
+          error: "Error durante el análisis", 
+          details: analysisError.message,
+          stack: analysisError.stack
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    return new Response(
-      JSON.stringify({ 
-        message: "Análisis completado con éxito", 
-        ordersCount: analysisResult.result.length,
-        analysisTime 
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (error) {
-    console.error("Error en el análisis:", error);
+    console.error("Error general en el procesamiento:", error);
     return new Response(
-      JSON.stringify({ error: "Error durante el procesamiento", details: error.message }),
+      JSON.stringify({ error: "Error durante el procesamiento", details: error.message, stack: error.stack }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -117,9 +146,29 @@ async function analyzeMessage(message: string) {
     let result;
     try {
       result = JSON.parse(phase2Response);
+      console.log(`JSON parseado con éxito. Cantidad de resultados: ${result.length}`);
     } catch (parseError) {
       console.error("Error al parsear JSON:", parseError);
-      throw new Error("Formato de respuesta inválido: " + parseError.message);
+      console.error("Texto JSON recibido:", phase2Response);
+      
+      // Intento de recuperación - Fase 3
+      console.log("Iniciando Fase 3: Corrección de formato JSON");
+      const phase3Response = await executePhase3(phase2Response, GEMINI_ENDPOINT);
+      
+      try {
+        result = JSON.parse(phase3Response);
+        console.log("JSON corregido y parseado con éxito en Fase 3");
+        
+        return {
+          result,
+          phase1Response,
+          phase2Response,
+          phase3Response
+        };
+      } catch (phase3Error) {
+        console.error("Error persistente al parsear JSON después de Fase 3:", phase3Error);
+        throw new Error(`Formato de respuesta inválido después de corrección: ${phase3Error.message}`);
+      }
     }
 
     return {
@@ -136,6 +185,8 @@ async function analyzeMessage(message: string) {
 // Fase 1: Análisis detallado del mensaje
 async function executePhase1(message: string, endpoint: string) {
   try {
+    console.log("Ejecutando Fase 1 con mensaje:", message.substring(0, 100) + "...");
+    
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -164,13 +215,21 @@ Si hay ambigüedades o datos no reconocidos, indícalos explícitamente.` }]
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error en respuesta de API (Fase 1): ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Error en la API (Fase 1): ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    console.log("Fase 1 completada. Longitud de respuesta:", resultText.length);
+    
+    return resultText;
   } catch (error) {
-    console.error("Error en executePhase1:", error);
+    console.error("Error detallado en executePhase1:", error);
+    if (error.message.includes("403")) {
+      throw new Error("Error de autenticación con la API de Google Gemini. Revise la API key y los permisos.");
+    }
     throw error;
   }
 }
@@ -178,6 +237,8 @@ Si hay ambigüedades o datos no reconocidos, indícalos explícitamente.` }]
 // Fase 2: Estructuración JSON del resultado
 async function executePhase2(message: string, phase1Analysis: string, endpoint: string) {
   try {
+    console.log("Ejecutando Fase 2 con análisis previo de longitud:", phase1Analysis.length);
+    
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -232,13 +293,120 @@ Convierte este análisis a JSON estructurado:` }]
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error en respuesta de API (Fase 2): ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Error en la API (Fase 2): ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    
+    // Limpiar el resultado para asegurar que es un JSON válido
+    const cleanedJson = cleanJsonResponse(resultText);
+    console.log("Fase 2 completada. JSON limpiado y listo para parsing.");
+    
+    return cleanedJson;
   } catch (error) {
-    console.error("Error en executePhase2:", error);
+    console.error("Error detallado en executePhase2:", error);
+    if (error.message.includes("403")) {
+      throw new Error("Error de autenticación con la API de Google Gemini. Revise la API key y los permisos.");
+    }
     throw error;
   }
+}
+
+// Fase 3: Corrección de formato JSON (nueva)
+async function executePhase3(invalidJson: string, endpoint: string) {
+  try {
+    console.log("Ejecutando Fase 3: Corrección de formato JSON");
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "system",
+            parts: [{ text: `Eres un asistente especializado en corregir y validar JSON.
+Tu tarea es tomar un texto que debería ser JSON pero puede tener errores de formato,
+y convertirlo en un JSON válido. Elimina cualquier texto adicional que no sea parte del JSON.
+
+Responde ÚNICAMENTE con el JSON corregido, sin explicaciones ni comentarios.` }]
+          },
+          {
+            role: "user", 
+            parts: [{ text: `Corrige este JSON para que sea válido:
+${invalidJson}
+
+Reglas:
+1. El resultado debe ser un array de objetos
+2. Elimina cualquier texto o markdown que no sea parte del JSON
+3. Asegúrate de que todas las comillas estén correctas
+4. Arregla cualquier error de sintaxis JSON` }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 4000,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error en respuesta de API (Fase 3): ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error en la API (Fase 3): ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    
+    // Limpiar el resultado para asegurar que es un JSON válido
+    const cleanedJson = cleanJsonResponse(resultText);
+    console.log("Fase 3 completada. JSON corregido y limpiado.");
+    
+    return cleanedJson;
+  } catch (error) {
+    console.error("Error detallado en executePhase3:", error);
+    throw error;
+  }
+}
+
+// Función para limpiar respuestas JSON
+function cleanJsonResponse(jsonText: string): string {
+  // Eliminar marcas de markdown si existen
+  let cleaned = jsonText.trim();
+  
+  // Eliminar bloques de código markdown
+  if (cleaned.includes("```")) {
+    const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match && match[1]) {
+      cleaned = match[1].trim();
+    } else {
+      cleaned = cleaned.replace(/```(?:json)?|```/g, "").trim();
+    }
+  }
+  
+  // Normalizar comillas especiales
+  cleaned = cleaned
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\n+/g, ' ')
+    .trim();
+  
+  // Asegurarse de que el texto comienza con [ y termina con ]
+  if (!cleaned.startsWith('[') || !cleaned.endsWith(']')) {
+    const arrayMatch = cleaned.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (arrayMatch) {
+      cleaned = arrayMatch[0];
+    } else if (!cleaned.startsWith('[')) {
+      cleaned = '[' + cleaned;
+    }
+    
+    if (!cleaned.endsWith(']')) {
+      cleaned = cleaned + ']';
+    }
+  }
+  
+  return cleaned;
 }
