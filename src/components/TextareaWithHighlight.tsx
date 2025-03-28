@@ -15,6 +15,7 @@ interface TextareaWithHighlightProps extends Omit<TextareaProps, 'ref'> {
   products: any[];
   clearable?: boolean;
   onClear?: () => void;
+  highlightUnknownWords?: boolean; // Nuevo prop para controlar si se resaltan palabras en tiempo real
 }
 
 export const TextareaWithHighlight = ({
@@ -25,6 +26,7 @@ export const TextareaWithHighlight = ({
   clearable = false,
   onClear,
   className,
+  highlightUnknownWords = false, // Por defecto, no resaltar en tiempo real
   ...props
 }: TextareaWithHighlightProps) => {
   const [unknownWords, setUnknownWords] = useState<HighlightedWord[]>([]);
@@ -48,7 +50,8 @@ export const TextareaWithHighlight = ({
   }, [products]);
   
   useEffect(() => {
-    if (!stringValue || !clients.length || !products.length) {
+    // Solo ejecutar la detección de palabras desconocidas si highlightUnknownWords es true
+    if (!highlightUnknownWords || !stringValue || !clients.length || !products.length) {
       setUnknownWords([]);
       return;
     }
@@ -107,7 +110,7 @@ export const TextareaWithHighlight = ({
     });
     
     setUnknownWords(unknownWordsFound);
-  }, [stringValue, clients, products, clientNames, productNames]);
+  }, [stringValue, clients, products, clientNames, productNames, highlightUnknownWords]);
   
   // Función para resaltar palabras desconocidas
   const highlightText = () => {

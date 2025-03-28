@@ -892,6 +892,7 @@ const MagicOrder = () => {
               onClear={handleClearMessage}
               clients={clients}
               products={products}
+              highlightUnknownWords={false}
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-3">

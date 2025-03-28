@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, Copy, Check, Timer, Clock } from "lucide-react";
+import { Loader2, Sparkles, Copy, Check, Timer, Clock, AlertCircle } from "lucide-react";
 import { generateMultipleExamples } from "@/services/aiLabsService";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const [generationStage, setGenerationStage] = useState<string>("");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   
   // Referencia para el intervalo del cronómetro
   const timerIntervalRef = useRef<number | null>(null);
@@ -94,6 +95,10 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
         setGenerationStage(stage);
       }
       
+      if (error) {
+        setLastError(error);
+      }
+      
       if (!isGenerating && progress === 100) {
         // Completado exitosamente
         stopTimer();
@@ -119,7 +124,10 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     setIsGenerating(true);
     setGenerationProgress(5);
     setGenerationStage("Iniciando generación...");
-    setExample("");
+    setLastError(null);
+    
+    // Mantenemos el ejemplo anterior hasta que se genere uno nuevo
+    // Así si hay un error, el usuario aún puede ver el ejemplo anterior
     
     // Iniciamos el cronómetro
     startTimer();
@@ -132,10 +140,18 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       // La actualización de progreso ahora se maneja a través de eventos
       // que emite la función generateMultipleExamples
       
-      setExample(generatedExample);
+      // Verificamos si la respuesta contiene un mensaje de error
+      if (generatedExample.startsWith("Error")) {
+        console.error("Error devuelto por generateMultipleExamples:", generatedExample);
+        setAlertMessage(generatedExample);
+        // No limpiamos el ejemplo anterior si hay un error
+      } else {
+        setExample(generatedExample);
+      }
     } catch (error) {
       console.error("Error al generar ejemplo:", error);
       setAlertMessage("No se pudo generar el ejemplo. Por favor, intenta nuevamente.");
+      // No limpiamos el ejemplo anterior si hay un error
       setIsGenerating(false);
       setGenerationProgress(0);
       stopTimer();
@@ -238,7 +254,20 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           </div>
         )}
         
-        {!example && !isGenerating && (
+        {lastError && !isGenerating && (
+          <div className="text-center p-4 border border-red-200 bg-red-50 rounded-md text-red-800 flex flex-col items-center gap-2">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+            <div>
+              <p className="font-medium">Error al generar ejemplo</p>
+              <p className="text-sm mt-1">{lastError}</p>
+            </div>
+            <p className="text-xs text-red-600 mt-2">
+              Se mantiene el ejemplo anterior (si existe). Puedes intentar nuevamente o utilizar el ejemplo existente.
+            </p>
+          </div>
+        )}
+        
+        {!example && !isGenerating && !lastError && (
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm text-muted-foreground">

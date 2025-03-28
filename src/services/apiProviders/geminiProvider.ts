@@ -1,7 +1,6 @@
-
 /**
  * Proveedor de API para Google Gemini
- * v1.0.0
+ * v1.0.1
  */
 import { GOOGLE_API_KEY, GOOGLE_GEMINI_ENDPOINT, GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
 import { BaseAPIProvider, BaseAPIError } from "./baseAPIProvider";
@@ -46,6 +45,7 @@ export class GeminiProvider extends BaseAPIProvider {
         this.debug("API Key presente pero es demasiado corta para mostrar");
       }
       
+      // Utilizamos la opción de keepalive: false para prevenir problemas de conexión en navegadores
       const response = await fetch(
         endpoint,
         {
@@ -68,6 +68,9 @@ export class GeminiProvider extends BaseAPIProvider {
               maxOutputTokens: 4096
             }
           }),
+          // Agregar opciones para evitar problemas de conexión
+          keepalive: false,
+          cache: "no-store"
         }
       );
 
@@ -75,11 +78,36 @@ export class GeminiProvider extends BaseAPIProvider {
       this.debug(`Respuesta raw de Google Gemini: ${responseText.substring(0, 200)}...`);
       
       if (!response.ok) {
-        this.logError(`Error en respuesta HTTP: ${response.status} ${response.statusText}`, responseText);
-        throw new BaseAPIError(`Error HTTP: ${response.status} ${response.statusText}`, {
+        // Analizar la respuesta para obtener detalles del error
+        let errorMessage = `Error HTTP: ${response.status} ${response.statusText}`;
+        let errorDetails = {};
+        
+        try {
+          const errorJson = JSON.parse(responseText);
+          if (errorJson.error) {
+            errorMessage = `Error de la API de Google Gemini: ${errorJson.error.message || "Error desconocido"}`;
+            errorDetails = errorJson.error;
+            
+            // Añadir detalles específicos basados en los códigos de error comunes
+            if (response.status === 400) {
+              errorMessage += ". Posibles causas: formato de solicitud incorrecto o prompt demasiado largo.";
+            } else if (response.status === 401 || response.status === 403) {
+              errorMessage += ". Revisa que la API key sea válida y tenga los permisos necesarios.";
+            } else if (response.status === 429) {
+              errorMessage += ". Has alcanzado el límite de solicitudes. Espera un momento e intenta de nuevo.";
+            } else if (response.status >= 500) {
+              errorMessage += ". Error del servidor de Google Gemini. Intenta más tarde.";
+            }
+          }
+        } catch (parseErr) {
+          // Si no es JSON válido, usamos el mensaje HTTP genérico
+        }
+        
+        this.logError(`Error en respuesta HTTP: ${errorMessage}`, responseText);
+        throw new BaseAPIError(errorMessage, {
           status: response.status,
           statusText: response.statusText,
-          apiResponse: responseText,
+          apiResponse: errorDetails,
           rawJsonResponse: responseText
         });
       }
@@ -121,8 +149,14 @@ export class GeminiProvider extends BaseAPIProvider {
       if (error instanceof BaseAPIError) {
         throw error;
       }
+      // Mejorar el mensaje de error para problemas de conexión a la red
+      let errorMessage = (error as Error).message || "Error desconocido";
+      if (errorMessage.includes("Failed to fetch")) {
+        errorMessage = "No se pudo conectar con la API de Google Gemini. Verifica tu conexión a internet o si hay un problema con el servicio.";
+      }
+      
       this.logError(`Error inesperado al llamar a Google Gemini API:`, error);
-      throw new BaseAPIError(`Error al conectar con Google Gemini API: ${(error as Error).message}`);
+      throw new BaseAPIError(`Error al conectar con Google Gemini API: ${errorMessage}`);
     }
   }
 }

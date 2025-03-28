@@ -158,7 +158,7 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
     const startEvent = new CustomEvent('exampleGenerationStateChange', {
       detail: { 
         isGenerating: true,
-        stage: "Generando ejemplos...",
+        stage: "Preparando generación...",
         progress: 10
       }
     });
@@ -201,140 +201,191 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
     });
     window.dispatchEvent(processingEvent);
     
-    // Hacemos la llamada a la API utilizando tokens máximos
-    const response = await fetch(`${GOOGLE_GEMINI_ENDPOINT}/${geminiModel}:generateContent?key=${GOOGLE_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: messages,
-        generationConfig: {
-          temperature: 0.65, // Reducimos la temperatura para más consistencia
-          maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS, // Utilizamos el máximo de tokens disponible
-          topP: 0.9,
-          topK: 40,
+    try {
+      // Hacemos la llamada a la API utilizando tokens máximos
+      const response = await fetch(`${GOOGLE_GEMINI_ENDPOINT}/${geminiModel}:generateContent?key=${GOOGLE_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
-    
-    // Notificamos que estamos procesando la respuesta
-    const processingResponseEvent = new CustomEvent('exampleGenerationStateChange', {
-      detail: { 
-        isGenerating: true,
-        stage: "Procesando respuesta...",
-        progress: 70
+        body: JSON.stringify({
+          contents: messages,
+          generationConfig: {
+            temperature: 0.6, // Temperatura ajustada para este caso específico
+            maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS, // Utilizamos el máximo de tokens disponible
+            topP: 0.9,
+            topK: 40,
+          },
+        }),
+        // Opciones adicionales para evitar problemas de conexión
+        keepalive: false,
+        cache: "no-store"
+      });
+      
+      // Notificamos que estamos procesando la respuesta
+      const processingResponseEvent = new CustomEvent('exampleGenerationStateChange', {
+        detail: { 
+          isGenerating: true,
+          stage: "Procesando respuesta...",
+          progress: 70
+        }
+      });
+      window.dispatchEvent(processingResponseEvent);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error de API:", errorText);
+        
+        // Extraer detalles del error para mensajes más específicos
+        let errorMessage = `Error ${response.status}: ${response.statusText}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error && errorJson.error.message) {
+            errorMessage = errorJson.error.message;
+          }
+        } catch (e) {
+          // Si no es JSON, usar el texto del error como está
+        }
+        
+        // Personalizar mensajes basados en códigos comunes
+        if (response.status === 400) {
+          errorMessage = `Error 400: Solicitud incorrecta. Posible problema con el formato o longitud del mensaje.`;
+        } else if (response.status === 401 || response.status === 403) {
+          errorMessage = `Error ${response.status}: Problema de autenticación. Verifica la API key.`;
+        } else if (response.status === 429) {
+          errorMessage = `Error 429: Has alcanzado el límite de solicitudes. Intenta más tarde.`;
+        } else if (response.status >= 500) {
+          errorMessage = `Error ${response.status}: Problema en los servidores de Gemini. Intenta más tarde.`;
+        }
+        
+        // Notificamos el error
+        const errorEvent = new CustomEvent('exampleGenerationStateChange', {
+          detail: { 
+            isGenerating: false,
+            stage: "Error al generar ejemplos",
+            progress: 0,
+            error: errorMessage
+          }
+        });
+        window.dispatchEvent(errorEvent);
+        
+        throw new Error(errorMessage);
       }
-    });
-    window.dispatchEvent(processingResponseEvent);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error de API:", errorText);
       
-      // Notificamos el error
-      const errorEvent = new CustomEvent('exampleGenerationStateChange', {
-        detail: { 
-          isGenerating: false,
-          stage: "Error al generar ejemplos",
-          progress: 0,
-          error: `Error ${response.status}: ${response.statusText}`
-        }
-      });
-      window.dispatchEvent(errorEvent);
+      const result = await response.json();
+      console.log("Respuesta completa de la API:", JSON.stringify(result, null, 2));
       
-      throw new Error(`Error al generar ejemplos: ${response.status} ${response.statusText}`);
-    }
-    
-    const result = await response.json();
-    console.log("Respuesta completa de la API:", JSON.stringify(result, null, 2));
-    
-    if (!result.candidates || result.candidates.length === 0) {
-      console.error("No se recibieron candidatos de respuesta:", result);
+      if (!result.candidates || result.candidates.length === 0) {
+        console.error("No se recibieron candidatos de respuesta:", result);
+        
+        // Notificamos el error
+        const errorEvent = new CustomEvent('exampleGenerationStateChange', {
+          detail: { 
+            isGenerating: false,
+            stage: "Error: sin respuesta válida",
+            progress: 0,
+            error: "No se recibieron candidatos de respuesta"
+          }
+        });
+        window.dispatchEvent(errorEvent);
+        
+        throw new Error("No se recibieron candidatos de respuesta");
+      }
       
-      // Notificamos el error
-      const errorEvent = new CustomEvent('exampleGenerationStateChange', {
-        detail: { 
-          isGenerating: false,
-          stage: "Error: sin respuesta válida",
-          progress: 0,
-          error: "No se recibieron candidatos de respuesta"
-        }
-      });
-      window.dispatchEvent(errorEvent);
+      const generatedText = result.candidates[0]?.content?.parts?.[0]?.text;
       
-      throw new Error("No se recibieron candidatos de respuesta");
-    }
-    
-    const generatedText = result.candidates[0]?.content?.parts?.[0]?.text;
-    
-    if (!generatedText) {
-      console.error("Respuesta sin texto:", result);
-      
-      // Intentamos extraer cualquier texto disponible en la respuesta
-      let alternativeText = "";
-      try {
-        if (result.candidates && result.candidates[0] && result.candidates[0].content) {
-          const parts = result.candidates[0].content.parts;
-          if (parts && Array.isArray(parts)) {
-            for (const part of parts) {
-              if (part && typeof part === 'object' && part.text) {
-                alternativeText += part.text + " ";
+      if (!generatedText) {
+        console.error("Respuesta sin texto:", result);
+        
+        // Intentamos extraer cualquier texto disponible en la respuesta
+        let alternativeText = "";
+        try {
+          if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+            const parts = result.candidates[0].content.parts;
+            if (parts && Array.isArray(parts)) {
+              for (const part of parts) {
+                if (part && typeof part === 'object' && part.text) {
+                  alternativeText += part.text + " ";
+                }
               }
             }
           }
+        } catch (e) {
+          console.error("Error al extraer texto alternativo:", e);
         }
-      } catch (e) {
-        console.error("Error al extraer texto alternativo:", e);
-      }
-      
-      if (alternativeText.trim()) {
-        console.log("Se encontró texto alternativo:", alternativeText);
         
-        // Notificamos que hemos completado la generación con texto alternativo
-        const completedEvent = new CustomEvent('exampleGenerationStateChange', {
+        if (alternativeText.trim()) {
+          console.log("Se encontró texto alternativo:", alternativeText);
+          
+          // Notificamos que hemos completado la generación con texto alternativo
+          const completedEvent = new CustomEvent('exampleGenerationStateChange', {
+            detail: { 
+              isGenerating: false,
+              stage: "¡Ejemplos generados (formato alternativo)!",
+              progress: 100,
+              exampleCount: orderCount
+            }
+          });
+          window.dispatchEvent(completedEvent);
+          
+          return alternativeText.trim();
+        }
+        
+        // Notificamos el error
+        const errorEvent = new CustomEvent('exampleGenerationStateChange', {
           detail: { 
             isGenerating: false,
-            stage: "¡Ejemplos generados (formato alternativo)!",
-            progress: 100,
-            exampleCount: orderCount
+            stage: "Error: respuesta vacía",
+            progress: 0,
+            error: "No se pudo generar el ejemplo"
           }
         });
-        window.dispatchEvent(completedEvent);
+        window.dispatchEvent(errorEvent);
         
-        return alternativeText.trim();
+        throw new Error("No se pudo generar el ejemplo");
       }
       
-      // Notificamos el error
+      console.log("Ejemplo generado con éxito, longitud:", generatedText.length);
+      
+      // Notificamos que hemos completado la generación
+      const completedEvent = new CustomEvent('exampleGenerationStateChange', {
+        detail: { 
+          isGenerating: false,
+          stage: "¡Ejemplos generados!",
+          progress: 100,
+          exampleCount: orderCount
+        }
+      });
+      window.dispatchEvent(completedEvent);
+      
+      return generatedText;
+    } catch (error) {
+      // Manejo específico para errores de conexión
+      let errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      
+      if (errorMessage.includes("Failed to fetch")) {
+        errorMessage = "Error de conexión: No se pudo conectar con Google Gemini. Verifica tu conexión a internet.";
+        console.error("Error de conexión al generar ejemplos:", error);
+      } else {
+        console.error("Error al llamar a la API de Gemini:", error);
+      }
+      
+      // Notificamos el error específico
       const errorEvent = new CustomEvent('exampleGenerationStateChange', {
         detail: { 
           isGenerating: false,
-          stage: "Error: respuesta vacía",
+          stage: "Error al conectar con la API",
           progress: 0,
-          error: "No se pudo generar el ejemplo"
+          error: errorMessage
         }
       });
       window.dispatchEvent(errorEvent);
       
-      throw new Error("No se pudo generar el ejemplo");
+      // Devolvemos un mensaje explicativo en lugar de lanzar una excepción
+      return `Error al generar ejemplos: ${errorMessage}. Por favor, intenta nuevamente.`;
     }
-    
-    console.log("Ejemplo generado con éxito, longitud:", generatedText.length);
-    
-    // Notificamos que hemos completado la generación
-    const completedEvent = new CustomEvent('exampleGenerationStateChange', {
-      detail: { 
-        isGenerating: false,
-        stage: "¡Ejemplos generados!",
-        progress: 100,
-        exampleCount: orderCount
-      }
-    });
-    window.dispatchEvent(completedEvent);
-    
-    return generatedText;
-  } catch (error) {
-    console.error("Error al generar ejemplos:", error);
+  } catch (outerError) {
+    console.error("Error general al generar ejemplos:", outerError);
     
     // Si aún no hemos notificado el error, lo hacemos ahora
     const errorEvent = new CustomEvent('exampleGenerationStateChange', {
@@ -342,7 +393,7 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
         isGenerating: false,
         stage: "Error inesperado",
         progress: 0,
-        error: error instanceof Error ? error.message : "Error desconocido"
+        error: outerError instanceof Error ? outerError.message : "Error desconocido"
       }
     });
     window.dispatchEvent(errorEvent);
