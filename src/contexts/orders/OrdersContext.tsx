@@ -51,14 +51,20 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     fetchOrders
   );
   
-  // Limpiar todos los datos de análisis al montar el componente
+  // Limpiar todos los datos de análisis al montar y desmontar el componente
   useEffect(() => {
-    // Limpiar al montar para asegurar un estado limpio
-    purgeAllAnalysisData();
+    // Garantizar que no queden datos residuales de análisis anteriores
+    const { localStorageKeysRemoved, sessionStorageKeysRemoved } = purgeAllAnalysisData();
     
+    logDebug('OrdersContext', 'Inicialización con limpieza de datos residuales', {
+      localStorageKeysRemoved,
+      sessionStorageKeysRemoved
+    });
+    
+    // También limpiar al desmontar
     return () => {
-      // Limpiar al desmontar también para evitar contaminación
       purgeAllAnalysisData();
+      logDebug('OrdersContext', 'Limpieza al desmontar componente');
     };
   }, []);
   
@@ -73,13 +79,15 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       });
       
       try {
+        // Guardar datos para uso interno del componente solamente
         const ordersData = {
           orders: state.orders,
           clientMap: state.clientMap,
           timestamp: new Date().toISOString()
         };
         
-        sessionStorage.setItem('magicOrder_ordersData', JSON.stringify(ordersData));
+        // Usar un nombre de clave único para este contexto, evitando conflictos con MagicOrder
+        sessionStorage.setItem('orders_context_data', JSON.stringify(ordersData));
         logDebug('State', 'Datos de pedidos guardados en sessionStorage', { 
           ordersCount: state.orders.length 
         });

@@ -1,10 +1,11 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Order, OrdersState } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { fetchOrdersData, mapApiItemsToOrderItems } from '../services/ordersService';
 import { clearAnalysisCache } from '@/services/messageAnalysisService';
 import { purgeAllAnalysisData } from '@/services/geminiService';
+import { logDebug } from '@/lib/debug-utils';
 
 export const useOrdersState = () => {
   const { toast } = useToast();
@@ -18,6 +19,27 @@ export const useOrdersState = () => {
     searchTerm: ''
   });
   
+  // Efecto para limpiar datos de análisis cuando el componente se monte
+  useEffect(() => {
+    // Asegurarse de que no haya datos residuales de análisis al cargar este componente
+    purgeAllAnalysisData();
+    
+    // Escuchar eventos de reinicio para mantener consistencia en toda la aplicación
+    const handleAnalysisReset = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      logDebug("OrdersState", "Evento analysisStateReset recibido", {
+        source: customEvent.detail?.source,
+        timestamp: customEvent.detail?.timestamp
+      });
+    };
+    
+    window.addEventListener('analysisStateReset', handleAnalysisReset);
+    
+    return () => {
+      window.removeEventListener('analysisStateReset', handleAnalysisReset);
+    };
+  }, []);
+  
   const resetOrdersState = useCallback(() => {
     setState(prev => ({ 
       ...prev, 
@@ -28,7 +50,7 @@ export const useOrdersState = () => {
     // Usar la función centralizada para purgar todos los datos
     const { localStorageKeysRemoved, sessionStorageKeysRemoved } = purgeAllAnalysisData();
     
-    console.log("Estado de órdenes y análisis completamente reiniciado", {
+    logDebug("OrdersState", "Estado de órdenes y análisis completamente reiniciado", {
       localStorageKeysRemoved,
       sessionStorageKeysRemoved
     });
@@ -86,7 +108,7 @@ export const useOrdersState = () => {
         };
       });
       
-      console.log("Mapas de productos y variantes creados:", {
+      logDebug("OrdersState", "Mapas de productos y variantes creados:", {
         productMap: Object.keys(productMap).length,
         variantMap: Object.keys(variantMap).length
       });
@@ -121,7 +143,7 @@ export const useOrdersState = () => {
           balance: order.balance
         }));
         
-        console.log(`Transformados ${transformedOrders.length} pedidos con sus items`);
+        logDebug("OrdersState", `Transformados ${transformedOrders.length} pedidos con sus items`);
         
         setState(prev => ({
           ...prev,

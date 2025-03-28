@@ -1,7 +1,7 @@
 
 /**
  * Servicios de integración con AI para análisis de mensajes
- * v1.0.8
+ * v1.0.9
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -22,6 +22,7 @@ import {
   clearAnalysisCache
 } from "./messageAnalysisService";
 import { chatWithAssistant } from "./chatService";
+import { logDebug } from '@/lib/debug-utils';
 
 // Re-exportamos interfaces y tipos
 export type ApiProvider = InternalApiProvider;
@@ -66,7 +67,7 @@ export const callGeminiAPI = callAPI;
 
 // Función para limpiar completamente todo el estado y caché relacionados con análisis
 export const purgeAllAnalysisData = () => {
-  console.log("Purgando completamente todos los datos de análisis");
+  logDebug("GeminiService", "Purgando completamente todos los datos de análisis y pedidos");
   
   // Limpiar el caché de análisis
   clearAnalysisCache();
@@ -82,7 +83,8 @@ export const purgeAllAnalysisData = () => {
       key.includes('phase') ||
       key.includes('orders') ||
       key.includes('magic_orders') ||
-      key.includes('lastMessage')
+      key.includes('lastMessage') ||
+      key.includes('currentAnalysis')
     )) {
       localStorageKeysToRemove.push(key);
     }
@@ -98,7 +100,8 @@ export const purgeAllAnalysisData = () => {
       key.includes('orders') ||
       key.includes('magic_orders') ||
       key.includes('lastMessage') ||
-      key.includes('phase')
+      key.includes('phase') ||
+      key.includes('currentAnalysis')
     )) {
       sessionStorageKeysToRemove.push(key);
     }
@@ -106,20 +109,23 @@ export const purgeAllAnalysisData = () => {
   
   // Eliminar todas las claves identificadas
   localStorageKeysToRemove.forEach(key => {
-    console.log(`Eliminando de localStorage: ${key}`);
+    logDebug("GeminiService", `Eliminando de localStorage: ${key}`);
     localStorage.removeItem(key);
   });
   
   sessionStorageKeysToRemove.forEach(key => {
-    console.log(`Eliminando de sessionStorage: ${key}`);
+    logDebug("GeminiService", `Eliminando de sessionStorage: ${key}`);
     sessionStorage.removeItem(key);
   });
   
-  console.log(`Purga completa. Eliminadas ${localStorageKeysToRemove.length} claves de localStorage y ${sessionStorageKeysToRemove.length} de sessionStorage`);
+  logDebug("GeminiService", `Purga completa. Eliminadas ${localStorageKeysToRemove.length} claves de localStorage y ${sessionStorageKeysToRemove.length} de sessionStorage`);
   
   // Comunicar a toda la aplicación que se ha reiniciado el estado
   window.dispatchEvent(new CustomEvent('analysisStateReset', {
-    detail: { timestamp: new Date().toISOString() }
+    detail: { 
+      timestamp: new Date().toISOString(),
+      source: 'purgeAllAnalysisData'
+    }
   }));
   
   return {
@@ -168,7 +174,7 @@ export const analyzeCustomerMessage = async (
       sessionStorage.setItem('magicOrder_currentAnalysisTimestamp', new Date().toISOString());
       sessionStorage.setItem('magicOrder_currentAnalysisResultCount', String(analysisResult.result.length));
     } catch (e) {
-      console.warn("Error al guardar metadatos de análisis en sessionStorage", e);
+      logDebug("GeminiService", "Error al guardar metadatos de análisis en sessionStorage", e);
     }
     
     onProgress?.(98, "Completando análisis...");
@@ -210,3 +216,4 @@ export {
   resetAnalysisPrompt,
   clearAnalysisCache
 };
+
