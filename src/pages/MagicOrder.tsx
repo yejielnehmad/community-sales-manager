@@ -1,51 +1,16 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { TextareaWithHighlight } from "@/components/TextareaWithHighlight";
-import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Loader2, 
-  MessageSquareText, 
-  Wand, 
-  Sparkles, 
-  ChevronDown,
-  ChevronUp,
-  Clipboard,
-  Trash2,
-  X,
-  Check,
-  AlertCircle,
-  RefreshCcw,
-  User,
-  Package,
-  HelpCircle,
-  InfoIcon,
-  FileText,
-  Code,
-  Timer,
-  Clock
-} from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { FileText, RefreshCcw, AlertCircle, Wand } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { 
-  analyzeCustomerMessage, 
-  GeminiError,
   setApiProvider,
-  getCurrentApiProvider,
   setGeminiModel,
-  getCurrentGeminiModel,
   ApiProvider
 } from "@/services/geminiService";
-import { OrderCard } from "@/components/OrderCard";
-import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
-import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
-import { 
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { OrderCard as OrderCardType } from "@/types";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -57,30 +22,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { SimpleOrderCardNew } from "@/components/SimpleOrderCardNew";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
 import { APP_VERSION } from "@/lib/app-config";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
+import { AnalysisConfigCard } from "@/components/magic-order/AnalysisConfigCard";
+import { MessageInputCard } from "@/components/magic-order/MessageInputCard";
+import { OrdersSummaryCard } from "@/components/magic-order/OrdersSummaryCard";
+import { AnalysisDetailsDialog } from "@/components/magic-order/AnalysisDetailsDialog";
 
 /**
  * Página Mensaje Mágico
- * v1.0.56
+ * v1.0.58
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -274,45 +226,63 @@ const MagicOrder = () => {
     loadContextData();
   }, [toast, clients.length, products.length]);
 
-  // Verificar análisis pendientes al cargar la página
+  // Manejo para la persistencia de la sesión entre pestañas
   useEffect(() => {
-    const checkPendingAnalysis = async () => {
-      if (currentAnalysisId) {
-        setIsAnalyzing(true);
-        updateProgress(30, "Recuperando análisis pendiente...");
-        
-        try {
-          const { data, error } = await supabase
-            .from('magic_orders')
-            .select('*')
-            .eq('id', currentAnalysisId)
-            .single();
-            
-          if (error) throw error;
-            
-          if (data) {
-            if (data.status === 'done') {
-              // El análisis se completó mientras el usuario estaba ausente
-              setIsAnalyzing(false);
-              processCompletedAnalysis(data);
-              setCurrentAnalysisId(null);
-            } else if (data.status === 'processing' || data.status === 'pending') {
-              // El análisis sigue en curso, configurar encuesta periódica
-              setProgressStage(data.status === 'processing' ? "Procesando mensaje..." : "Esperando inicio del procesamiento...");
-              pollAnalysisStatus(data.id);
-            }
-          }
-        } catch (error) {
-          console.error("Error al verificar análisis pendiente:", error);
-          setIsAnalyzing(false);
-          setCurrentAnalysisId(null);
-          updateProgress(0);
-        }
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentAnalysisId) {
+        // Al volver a la pestaña, verificar si hay un análisis pendiente
+        checkPendingAnalysis(currentAnalysisId);
       }
     };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    checkPendingAnalysis();
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [currentAnalysisId]);
+
+  // Verificar análisis pendientes al cargar la página
+  useEffect(() => {
+    if (currentAnalysisId) {
+      checkPendingAnalysis(currentAnalysisId);
+    }
+  }, []);
+
+  const checkPendingAnalysis = async (analysisId: string) => {
+    if (!analysisId) return;
+    
+    setIsAnalyzing(true);
+    updateProgress(30, "Recuperando análisis pendiente...");
+    
+    try {
+      const { data, error } = await supabase
+        .from('magic_orders')
+        .select('*')
+        .eq('id', analysisId)
+        .single();
+        
+      if (error) throw error;
+        
+      if (data) {
+        if (data.status === 'done') {
+          // El análisis se completó mientras el usuario estaba ausente
+          setIsAnalyzing(false);
+          processCompletedAnalysis(data);
+          setCurrentAnalysisId(null);
+        } else if (data.status === 'processing' || data.status === 'pending') {
+          // El análisis sigue en curso, configurar encuesta periódica
+          setProgressStage(data.status === 'processing' ? "Procesando mensaje..." : "Esperando inicio del procesamiento...");
+          pollAnalysisStatus(data.id);
+        }
+      }
+    } catch (error) {
+      console.error("Error al verificar análisis pendiente:", error);
+      setIsAnalyzing(false);
+      setCurrentAnalysisId(null);
+      updateProgress(0);
+    }
+  };
 
   // Configurar suscripción a cambios en tiempo real para la tabla magic_orders
   useEffect(() => {
@@ -469,6 +439,40 @@ const MagicOrder = () => {
       }
     });
     window.dispatchEvent(event);
+  };
+
+  // Función para detener el análisis en curso
+  const handleStopAnalysis = async () => {
+    if (!currentAnalysisId) return;
+    
+    try {
+      // Cancelar el análisis en la base de datos
+      const { error } = await supabase
+        .from('magic_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', currentAnalysisId);
+        
+      if (error) throw error;
+      
+      // Limpiar los estados
+      setIsAnalyzing(false);
+      setCurrentAnalysisId(null);
+      updateProgress(0);
+      
+      toast({
+        title: "Análisis detenido",
+        description: "Se ha detenido el análisis del mensaje",
+        variant: "default"
+      });
+      
+    } catch (error) {
+      console.error("Error al detener el análisis:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo detener el análisis",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAnalyzeMessage = async () => {
@@ -813,52 +817,6 @@ const MagicOrder = () => {
     });
   };
 
-  const incompleteOrders = orders.filter(order => 
-    !order.client.id || 
-    order.client.matchConfidence !== 'alto' || 
-    order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
-  );
-  
-  const completeOrders = orders.filter(order => 
-    order.client.id && 
-    order.client.matchConfidence === 'alto' && 
-    !order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
-  );
-  
-  const allOrdersComplete = orders.length > 0 && 
-    orders.every(order => 
-      order.client.id && 
-      order.client.matchConfidence === 'alto' && 
-      !order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
-    );
-
-  const ordersByClient = useMemo(() => {
-    return orders.reduce((acc, order, index) => {
-      const clientId = order.client.id || `unknown-${index}`;
-      const clientName = order.client.name;
-      
-      if (!acc[clientId]) {
-        acc[clientId] = {
-          clientName,
-          orders: [],
-          indices: []
-        };
-      }
-      
-      acc[clientId].orders.push(order);
-      acc[clientId].indices.push(index);
-      
-      return acc;
-    }, {} as Record<string, { clientName: string, orders: OrderCardType[], indices: number[] }>);
-  }, [orders]);
-
-  // Función para formatear el tiempo en una manera legible
-  const formatAnalysisTime = (timeInMs: number | null): string => {
-    if (timeInMs === null) return "N/A";
-    if (timeInMs < 1000) return `${Math.round(timeInMs)}ms`;
-    return `${(timeInMs / 1000).toFixed(2)}s`;
-  };
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -898,315 +856,69 @@ const MagicOrder = () => {
           </div>
         </div>
 
-        {/* Información del tiempo de análisis - ahora siempre visible */}
-        <Card className="rounded-xl shadow-sm overflow-hidden">
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">Configuración de la IA</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 pt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Proveedor de IA</label>
-                <div className="rounded px-3 py-2 border bg-muted/50">
-                  Google Gemini 
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium mb-1 block">Modelo</label>
-                <div className="rounded px-3 py-2 border bg-muted/50 flex items-center gap-2">
-                  <Sparkles size={14} className="text-amber-500" />
-                  Gemini 2.0 Flash
-                </div>
-              </div>
-            </div>
-            
-            {/* Tiempo de análisis - siempre visible */}
-            <div className="mt-3 text-sm flex items-center gap-1 text-muted-foreground">
-              <Clock size={14} className="mr-1" />
-              <span>Tiempo de análisis: <span className="font-medium">{formatAnalysisTime(analysisTime || 0)}</span></span>
-            </div>
-            
-            {/* Versión de la aplicación */}
-            <div className="mt-1 text-xs text-muted-foreground/70">
-              Versión: {APP_VERSION} • Procesamiento en segundo plano activado
-            </div>
-          </CardContent>
-        </Card>
+        {/* Información de configuración de la IA */}
+        <AnalysisConfigCard analysisTime={analysisTime} />
 
         {analyzeError && (
           <Card className="bg-red-50 border-red-200">
-            <CardHeader className="py-3">
-              <CardTitle className="text-red-800 text-base flex items-center gap-2">
+            <CardContent className="py-4">
+              <div className="text-red-800 text-base flex items-center gap-2 mb-2">
                 <AlertCircle className="h-4 w-4" />
                 Error en el análisis
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="py-2">
+              </div>
               <p className="text-red-700 text-sm">{analyzeError}</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Sección de entrada del mensaje */}
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquareText className="h-5 w-5 text-primary" />
-              Mensaje del cliente
-            </CardTitle>
-            <CardDescription>
-              Ingresa el mensaje del cliente para analizarlo
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {/* Textarea para el mensaje */}
-            <div className="mb-4">
-              <TextareaWithHighlight
-                placeholder="Pega o escribe aquí el mensaje del cliente..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                clients={clients}
-                products={products}
-                className="min-h-[150px] font-medium"
-                clearable={true}
-                onClear={handleClearMessage}
-              />
-            </div>
-            
-            <div className="flex items-center gap-2 justify-between">
-              <div className="flex items-center gap-2">
-                <Button 
-                  onClick={handleAnalyzeMessage}
-                  disabled={isAnalyzing || !message.trim()}
-                  className="flex items-center gap-2"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analizando...
-                    </>
-                  ) : (
-                    <>
-                      <Wand className="h-4 w-4" />
-                      Analizar mensaje
-                    </>
-                  )}
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={handlePaste}
-                  disabled={isAnalyzing}
-                  className="flex items-center gap-1"
-                >
-                  <Clipboard className="h-4 w-4" />
-                  Pegar
-                </Button>
-              </div>
-              
-              <div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowGenerator(!showGenerator)}
-                  className="text-xs"
-                >
-                  {showGenerator ? "Ocultar ejemplos" : "Ver ejemplos"}
-                </Button>
-              </div>
-            </div>
-            
-            {isAnalyzing && (
-              <div className="mt-6">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-muted-foreground">
-                    {progressStage || "Procesando..."}
-                  </span>
-                  <span className="text-sm font-medium">{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Entrada del mensaje con componente refactorizado */}
+        <MessageInputCard 
+          message={message}
+          onMessageChange={setMessage}
+          onClearMessage={handleClearMessage}
+          isAnalyzing={isAnalyzing}
+          progress={progress}
+          progressStage={progressStage}
+          onPaste={handlePaste}
+          onAnalyze={handleAnalyzeMessage}
+          onStopAnalysis={handleStopAnalysis}
+          onToggleGenerator={() => setShowGenerator(!showGenerator)}
+          showGenerator={showGenerator}
+          clients={clients}
+          products={products}
+        />
         
         {/* Generador de ejemplos */}
         {showGenerator && (
           <MessageExampleGenerator onSelectExample={handleSelectExample} />
         )}
         
-        {/* Resultados del análisis y pedidos detectados */}
+        {/* Tarjeta de resumen de pedidos */}
         {orders.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Package className="h-5 w-5 text-primary" />
-                  Pedidos detectados
-                </CardTitle>
-                <CardDescription>
-                  Se {orders.length === 1 ? 'ha' : 'han'} detectado {orders.length} {orders.length === 1 ? 'pedido' : 'pedidos'}
-                </CardDescription>
-              </div>
-              
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={() => setShowOrderSummary(!showOrderSummary)}
-                className="flex items-center gap-1"
-              >
-                {showOrderSummary ? (
-                  <>
-                    <ChevronUp className="h-4 w-4" />
-                    Ocultar
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    Mostrar
-                  </>
-                )}
-              </Button>
-            </CardHeader>
-            
-            {showOrderSummary && (
-              <CardContent className="py-0">
-                <div className="mb-2 grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-sm font-medium">
-                      Pedidos con dudas: {incompleteOrders.length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Requieren revisión
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">
-                      Pedidos listos: {completeOrders.length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Listos para guardar
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Botón para guardar todos los pedidos */}
-                {orders.length > 0 && (
-                  <div className="mt-4 mb-6">
-                    <Button 
-                      className="w-full flex items-center justify-center gap-2"
-                      disabled={!allOrdersComplete || isSavingAllOrders}
-                      onClick={handleSaveAllOrders}
-                    >
-                      {isSavingAllOrders ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Guardando pedidos...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4" />
-                          Guardar todos los pedidos
-                        </>
-                      )}
-                    </Button>
-                    
-                    {!allOrdersComplete && (
-                      <p className="text-xs text-center mt-1 text-muted-foreground">
-                        Hay pedidos con dudas. Resuelve todas las dudas para habilitar el guardado.
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {/* Mostrar los pedidos agrupados por cliente */}
-                <div className="space-y-6">
-                  {Object.entries(ordersByClient).map(([clientId, { clientName, orders: clientOrders, indices }]) => (
-                    <div key={clientId} className="border rounded-lg overflow-hidden">
-                      <div className="bg-muted px-4 py-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-primary" />
-                          <span className="font-medium">{clientName}</span>
-                          
-                          {clientOrders.some(o => !o.client.id || o.client.matchConfidence !== 'alto') && (
-                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-600 border-yellow-200">
-                              Cliente con dudas
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          {clientOrders.length} {clientOrders.length === 1 ? 'pedido' : 'pedidos'}
-                        </span>
-                      </div>
-                      
-                      <div className="divide-y">
-                        {indices.map(index => (
-                          <div key={index} className="p-4">
-                            <SimpleOrderCardNew 
-                              order={orders[index]}
-                              clients={clients}
-                              products={products}
-                              onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
-                              onDelete={() => handleDeleteOrder(index)}
-                              index={index}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            )}
-          </Card>
+          <OrdersSummaryCard 
+            orders={orders}
+            showOrderSummary={showOrderSummary}
+            onToggleOrderSummary={() => setShowOrderSummary(!showOrderSummary)}
+            onUpdateOrder={handleUpdateOrder}
+            onDeleteOrder={handleDeleteOrder}
+            isSavingAllOrders={isSavingAllOrders}
+            onSaveAllOrders={handleSaveAllOrders}
+            clients={clients}
+            products={products}
+          />
         )}
         
         {/* Diálogo para ver el análisis en detalle */}
-        <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-            <DialogHeader>
-              <DialogTitle>Análisis en detalle</DialogTitle>
-              <DialogDescription>
-                Revisa cómo se procesó el mensaje del cliente
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Tabs defaultValue={analysisDialogTab} onValueChange={setAnalysisDialogTab}>
-              <TabsList className="grid grid-cols-3">
-                <TabsTrigger value="phase1">Fase 1: Preprocesamiento</TabsTrigger>
-                <TabsTrigger value="phase2">Fase 2: Análisis de intenciones</TabsTrigger>
-                <TabsTrigger value="phase3">Fase 3: Estructuración</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="phase1" className="space-y-4 mt-4">
-                <div className="border rounded-md p-4 text-sm font-mono whitespace-pre-wrap text-muted-foreground">
-                  {phase1Response || "No hay datos disponibles para esta fase."}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="phase2" className="space-y-4 mt-4">
-                <div className="border rounded-md p-4 text-sm font-mono whitespace-pre-wrap text-muted-foreground">
-                  {phase2Response || "No hay datos disponibles para esta fase."}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="phase3" className="space-y-4 mt-4">
-                <div className="border rounded-md p-4 text-sm font-mono whitespace-pre-wrap text-muted-foreground">
-                  {phase3Response || "No hay datos disponibles para esta fase."}
-                </div>
-                {rawJsonResponse && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-medium mb-2">Respuesta JSON cruda:</h3>
-                    <pre className="border rounded-md p-4 text-xs overflow-auto max-h-64">
-                      {rawJsonResponse}
-                    </pre>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
+        <AnalysisDetailsDialog 
+          open={showAnalysisDialog} 
+          onOpenChange={setShowAnalysisDialog}
+          phase1Response={phase1Response}
+          phase2Response={phase2Response}
+          phase3Response={phase3Response}
+          rawJsonResponse={rawJsonResponse}
+          activeTab={analysisDialogTab}
+          onTabChange={setAnalysisDialogTab}
+        />
         
         {/* Diálogo de alerta para mensajes */}
         <AlertDialog 
