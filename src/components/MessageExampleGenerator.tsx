@@ -2,10 +2,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, Copy, Check, Timer, Clock, AlertCircle } from "lucide-react";
+import { Loader2, Sparkles, Copy, Check, Timer, Clock, AlertCircle, Database } from "lucide-react";
 import { generateMultipleExamples } from "@/services/aiLabsService";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ const STORAGE_KEY_GENERATION_STATE = 'magicOrder_generationState';
 const STORAGE_KEY_LAST_ERROR = 'magicOrder_lastGenerationError';
 const STORAGE_KEY_ELAPSED_TIME = 'magicOrder_generationElapsedTime';
 const STORAGE_KEY_REMAINING_TIME = 'magicOrder_generationRemainingTime';
+const STORAGE_KEY_USE_REAL_DATA = 'magicOrder_useRealData';
 
 // Identificador único para el seguimiento de la generación actual
 const GENERATION_ID = `gen_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -61,6 +63,11 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const [lastError, setLastError] = useState<string | null>(() => {
     const savedError = localStorage.getItem(STORAGE_KEY_LAST_ERROR);
     return savedError || null;
+  });
+  
+  const [useRealData, setUseRealData] = useState<boolean>(() => {
+    const savedSetting = localStorage.getItem(STORAGE_KEY_USE_REAL_DATA);
+    return savedSetting ? JSON.parse(savedSetting) : true; // Por defecto, usamos datos reales
   });
   
   // Referencia para el intervalo del cronómetro
@@ -109,6 +116,10 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       localStorage.removeItem(STORAGE_KEY_REMAINING_TIME);
     }
   }, [estimatedTimeRemaining]);
+  
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_USE_REAL_DATA, JSON.stringify(useRealData));
+  }, [useRealData]);
   
   // Iniciar el temporizador cuando el componente se monte si estaba generando
   useEffect(() => {
@@ -218,15 +229,22 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     // Así si hay un error, el usuario aún puede ver el ejemplo anterior
     
     // Registrar inicio de generación
-    logCardGeneration(GENERATION_ID, 'started', { timestamp: new Date().toISOString() });
+    logCardGeneration(GENERATION_ID, 'started', { 
+      timestamp: new Date().toISOString(),
+      useRealData
+    });
     
     // Iniciamos el cronómetro
     startTimer();
     
     try {
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
-      // Ahora configurado para generar 15 pedidos con 85% precisión
-      const generatedExample = await generateMultipleExamples(15, 0.85);
+      // Ahora configurado para generar 7 pedidos si usamos datos reales, o 5 si no
+      const generatedExample = await generateMultipleExamples(
+        useRealData ? 7 : 5,  // 7 pedidos con datos reales, 5 con datos ficticios
+        0.85,                 // 85% de precisión
+        useRealData           // Indicamos si usamos datos reales
+      );
       
       // La actualización de progreso ahora se maneja a través de eventos
       // que emite la función generateMultipleExamples
@@ -262,16 +280,44 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     
     setAlertMessage("El ejemplo ha sido cargado en el campo de mensaje");
   };
+  
+  const handleToggleDataSource = () => {
+    setUseRealData(!useRealData);
+  };
 
   return (
     <Card className="w-full mb-4">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-500" />
-          Ejemplo de mensaje (15 pedidos)
+          Ejemplo de mensaje ({useRealData ? '7 pedidos reales' : '5 pedidos'})
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="use-real-data"
+              checked={useRealData}
+              onCheckedChange={handleToggleDataSource}
+              disabled={isGenerating}
+            />
+            <label
+              htmlFor="use-real-data"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center"
+            >
+              <Database className="h-4 w-4 mr-1 text-primary" />
+              Usar datos reales
+            </label>
+            
+            {useRealData && (
+              <Badge variant="outline" className="ml-2 text-xs">
+                Clientes y productos de la base de datos
+              </Badge>
+            )}
+          </div>
+        </div>
+      
         <div className="flex justify-between">
           <Button 
             onClick={handleGenerateExamples}
@@ -287,7 +333,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                Generar con IA
+                Generar {useRealData ? 'con datos reales' : 'con IA'}
               </>
             )}
           </Button>
@@ -320,7 +366,8 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
                   {generationStage || (
-                    generationProgress < 50 ? "Preparando ejemplos (15 pedidos)..." : 
+                    generationProgress < 50 ? 
+                      useRealData ? "Preparando ejemplos con datos reales..." : "Preparando ejemplos..." : 
                     generationProgress < 75 ? "Procesando datos..." : 
                     generationProgress < 95 ? "Finalizando..." : 
                     "¡Completado!"
@@ -362,7 +409,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm text-muted-foreground">
-              Haz clic en "Generar con IA" para crear un ejemplo de mensaje con 15 pedidos de clientes (85% de precisión, 15% confuso).
+              Haz clic en "Generar {useRealData ? 'con datos reales' : 'con IA'}" para crear un ejemplo de mensaje con {useRealData ? '7 pedidos de clientes reales' : '5 pedidos de clientes'} (85% de precisión, 15% confuso).
             </p>
           </div>
         )}
@@ -371,7 +418,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md animate-pulse">
             <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary/50 animate-spin" />
             <p className="text-sm text-muted-foreground">
-              Generando mensaje de ejemplo con 15 pedidos...
+              Generando mensaje de ejemplo con {useRealData ? '7 pedidos de clientes reales' : '5 pedidos de clientes'}...
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               Tiempo transcurrido: {formatTime(elapsedTime)}
@@ -389,7 +436,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
                 <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">
                   1
                 </span>
-                Ejemplo (15 pedidos - 85% precisión) 
+                Ejemplo ({useRealData ? '7 pedidos reales' : '5 pedidos'} - 85% precisión) 
               </span>
               <Button
                 size="sm"

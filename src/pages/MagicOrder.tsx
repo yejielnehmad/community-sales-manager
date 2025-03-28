@@ -259,6 +259,38 @@ const MagicOrder = () => {
     loadContextData();
   }, [toast, clients.length, products.length]);
 
+  // Limpieza completa de estado cuando se inicia un nuevo mensaje
+  useEffect(() => {
+    if (message.trim().length > 0) {
+      // Cuando el usuario empieza a escribir un nuevo mensaje, limpiamos todo el estado previo
+      // para asegurar que no queden residuos de análisis anteriores
+      if (orders.length > 0 || rawJsonResponse !== null || phase1Response !== null || phase2Response !== null || phase3Response !== null) {
+        // Limpiar órdenes y estados relacionados con el análisis
+        setOrders([]);
+        setRawJsonResponse(null);
+        setPhase1Response(null);
+        setPhase2Response(null);
+        setPhase3Response(null);
+        setShowOrderSummary(false);
+        setAnalysisError(null);
+        setIsAnalyzing(false);
+        setProgress(0);
+        setProgressStage("");
+        setAnalysisTime(null);
+        
+        // Limpiar localStorage para asegurar que no hay datos antiguos
+        localStorage.removeItem('magicOrder_orders');
+        localStorage.removeItem('magicOrder_analysisError');
+        localStorage.removeItem('magicOrder_rawJsonResponse');
+        localStorage.removeItem('magicOrder_phase1Response');
+        localStorage.removeItem('magicOrder_phase2Response');
+        localStorage.removeItem('magicOrder_phase3Response');
+        
+        console.log("Estado limpiado completamente al iniciar un nuevo mensaje");
+      }
+    }
+  }, [message]);
+
   // Función para actualizar el progreso del análisis
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
@@ -283,16 +315,17 @@ const MagicOrder = () => {
       return;
     }
 
-    // Limpiar pedidos anteriores
+    // Limpiar pedidos anteriores y todo el estado relacionado
     setOrders([]);
     localStorage.removeItem('magicOrder_orders');
-    
-    setIsAnalyzing(true);
-    setAnalysisError(null);
     setRawJsonResponse(null);
     setPhase1Response(null);
     setPhase2Response(null);
     setPhase3Response(null);
+    setShowOrderSummary(false);
+    setAnalysisError(null);
+    
+    setIsAnalyzing(true);
     setProgress(5);
     setProgressStage("Preparando análisis...");
     setAnalysisTime(null);
@@ -378,6 +411,9 @@ const MagicOrder = () => {
         setOrders(newOrders);
         setShowOrderSummary(true);
         
+        // Guardamos los pedidos para persistencia
+        localStorage.setItem('magicOrder_orders', JSON.stringify(newOrders));
+        
         // Notificamos mediante evento para que se muestre incluso si el usuario no está en esta página
         const completionEvent = new CustomEvent('analysisStateChange', {
           detail: { 
@@ -416,21 +452,23 @@ const MagicOrder = () => {
       }
       
       setAnalysisError(errorMessage);
+      localStorage.setItem('magicOrder_analysisError', errorMessage);
+      
       setAlertMessage({
         title: errorTitle,
         message: errorMessage
       });
     } finally {
-      // Notificamos que el análisis ha terminado
-      window.dispatchEvent(new CustomEvent('analysisStateChange', {
-        detail: { isAnalyzing: false }
-      }));
+      setIsAnalyzing(false);
       
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        setProgress(0);
-        setProgressStage("");
-      }, 1000);
+      // Notificamos que el análisis ha terminado
+      const completionEvent = new CustomEvent('analysisStateChange', {
+        detail: { 
+          isAnalyzing: false,
+          error: analysisError
+        }
+      });
+      window.dispatchEvent(completionEvent);
     }
   };
 
