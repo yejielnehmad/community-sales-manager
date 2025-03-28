@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,26 +32,19 @@ export const MessageExampleGenerator = ({ onSelectExample, products, clients }: 
     setGenerationProgress(0);
     
     try {
-      // Configuramos un intervalo menos agresivo para la simulación del progreso
-      // que permite espacio para actualizar cuando la respuesta real llegue
       const interval = setInterval(() => {
         setGenerationProgress(prev => {
           if (prev >= 75) {
-            // Aumentamos hasta 75% para evitar que se quede en 60%
             return 75;
           }
-          return prev + 5; // Incrementos más rápidos
+          return prev + 5;
         });
       }, 150);
       
-      // Generamos un mensaje de ejemplo basado en los clientes y productos reales
-      // Ahora configurado para generar 30 pedidos con 85% precisión
       const generatedExample = await generateMultipleExamples(30, 0.85);
       
-      // Completamos el progreso de forma más natural
       clearInterval(interval);
       
-      // Simulamos la finalización del progreso
       setGenerationProgress(85);
       setTimeout(() => setGenerationProgress(95), 100);
       setTimeout(() => {
@@ -192,7 +184,6 @@ export const MessageExampleGenerator = ({ onSelectExample, products, clients }: 
         )}
       </CardContent>
 
-      {/* Diálogo para mensajes de alerta */}
       <AlertDialog 
         open={alertMessage !== null}
         onOpenChange={(open) => !open && setAlertMessage(null)}
@@ -212,4 +203,3 @@ export const MessageExampleGenerator = ({ onSelectExample, products, clients }: 
     </Card>
   );
 };
-

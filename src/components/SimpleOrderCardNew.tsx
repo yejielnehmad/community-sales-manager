@@ -1,3 +1,4 @@
+
 import { HelpCircle, Check, AlertCircle, ChevronDown, User, Edit, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +28,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.46
+ * v1.0.59
  */
 export const SimpleOrderCardNew = ({ 
   order, 
