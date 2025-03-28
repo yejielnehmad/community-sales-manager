@@ -1,7 +1,7 @@
 
 /**
  * Servicios de integración con AI para análisis de mensajes
- * v1.0.6
+ * v1.0.7
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -75,8 +75,36 @@ export const analyzeCustomerMessage = async (
   try {
     onProgress?.(10, "Iniciando análisis...");
     
-    // Limpiar completamente el caché de análisis antes de comenzar
+    // Limpiar completamente todos los datos anteriores
     clearAnalysisCache();
+    
+    // Eliminar cualquier dato persistente en localStorage relacionado con análisis
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_phase') || 
+        key.includes('analysis') || 
+        key.includes('rawJson') || 
+        key === 'magicOrder_orders'
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // También limpiar sessionStorage
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('analysis') || 
+        key.includes('order')
+      )) {
+        sessionStorage.removeItem(key);
+      }
+    }
     
     if (signal?.aborted) {
       throw new Error("Análisis cancelado por el usuario");

@@ -61,7 +61,7 @@ import { logDebug } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.84
+ * v1.0.86
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -241,11 +241,59 @@ const MagicOrder = () => {
     loadContextData();
   }, [toast, clients.length, products.length]);
 
+  // Efecto para limpiar el estado cuando se carga la página
+  useEffect(() => {
+    // Limpiar completamente cualquier estado anterior al montar el componente
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('analysis') || 
+        key.includes('rawJson') ||
+        key.includes('phase')
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // También limpiar sessionStorage
+    const sessionKeysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('analysis') || 
+        key.includes('order')
+      )) {
+        sessionKeysToRemove.push(key);
+      }
+    }
+    
+    sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+    
+    // Limpiar el estado interno del componente
+    setOrders([]);
+    setPhase1Response(null);
+    setPhase2Response(null);
+    setPhase3Response(null);
+    setRawJsonResponse(null);
+    setAnalysisError(null);
+    setAnalysisTime(null);
+    setShowOrderSummary(false);
+    
+    console.log("Estado completamente reiniciado al montar MagicOrder", {
+      localStorageKeysRemoved: keysToRemove.length,
+      sessionStorageKeysRemoved: sessionKeysToRemove.length
+    });
+  }, []);
+
   // Limpieza completa de estado cuando se inicia un nuevo mensaje
   useEffect(() => {
     if (message.trim().length > 0) {
       // Cuando el usuario empieza a escribir un nuevo mensaje, limpiamos todo el estado previo
-      // para asegurar que no queden residuos de análisis anteriores
       if (orders.length > 0 || rawJsonResponse !== null || phase1Response !== null || phase2Response !== null || phase3Response !== null) {
         // Limpiar órdenes y estados relacionados con el análisis
         setOrders([]);
@@ -261,17 +309,43 @@ const MagicOrder = () => {
         setAnalysisTime(null);
         
         // Limpiar localStorage para asegurar que no hay datos antiguos
-        localStorage.removeItem('magicOrder_orders');
-        localStorage.removeItem('magicOrder_analysisError');
-        localStorage.removeItem('magicOrder_rawJsonResponse');
-        localStorage.removeItem('magicOrder_phase1Response');
-        localStorage.removeItem('magicOrder_phase2Response');
-        localStorage.removeItem('magicOrder_phase3Response');
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (
+            key.startsWith('magicOrder_') || 
+            key.includes('analysis') || 
+            key.includes('rawJson') ||
+            key.includes('phase')
+          )) {
+            keysToRemove.push(key);
+          }
+        }
         
-        console.log("Estado limpiado completamente al iniciar un nuevo mensaje");
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // También limpiar sessionStorage
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && (
+            key.startsWith('magicOrder_') || 
+            key.includes('analysis') || 
+            key.includes('order')
+          )) {
+            sessionKeysToRemove.push(key);
+          }
+        }
+        
+        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+        
+        console.log("Estado limpiado completamente al iniciar un nuevo mensaje", {
+          localStorageKeysRemoved: keysToRemove.length,
+          sessionStorageKeysRemoved: sessionKeysToRemove.length
+        });
       }
     }
-  }, [message]);
+  }, [message, orders.length]);
 
   // Referencia para controlar la cancelación del análisis
   const analyzeAbortControllerRef = useRef<AbortController | null>(null);
@@ -329,16 +403,51 @@ const MagicOrder = () => {
       setIsPaused(false);
     }
 
-    // Limpiar pedidos anteriores
+    // Limpiar pedidos anteriores y todo el estado previo
     setOrders([]);
-    localStorage.removeItem('magicOrder_orders');
-    
-    setIsAnalyzing(true);
-    setAnalysisError(null);
     setRawJsonResponse(null);
     setPhase1Response(null);
     setPhase2Response(null);
     setPhase3Response(null);
+    setAnalysisError(null);
+    
+    // Limpiar localStorage y sessionStorage
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('analysis') || 
+        key.includes('rawJson') ||
+        key.includes('phase')
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // También limpiar sessionStorage
+    const sessionKeysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('analysis') || 
+        key.includes('order')
+      )) {
+        sessionKeysToRemove.push(key);
+      }
+    }
+    
+    sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+    
+    console.log("Estado completamente reiniciado antes del análisis", {
+      localStorageKeysRemoved: keysToRemove.length,
+      sessionStorageKeysRemoved: sessionKeysToRemove.length
+    });
+    
+    setIsAnalyzing(true);
     setProgress(5);
     setProgressStage("Preparando análisis...");
     setAnalysisTime(null);
@@ -430,6 +539,10 @@ const MagicOrder = () => {
         });
       } else {
         logDebug('MagicOrder', `Se generaron ${newOrders.length} pedidos nuevos`);
+        
+        // Guardar los nuevos pedidos en un almacenamiento aislado para este análisis específico
+        localStorage.setItem('magicOrder_currentAnalysisOrders', JSON.stringify(newOrders));
+        
         setOrders(newOrders);
         setShowOrderSummary(true);
         
@@ -627,26 +740,64 @@ const MagicOrder = () => {
         variant: "success"
       });
       
-      // Limpiar el estado relacionado con este pedido guardado
+      // Limpiar completamente el estado después de guardar
       setTimeout(() => {
         const remainingOrders = updatedOrders.filter((o, idx) => idx !== orderIndex);
+        
+        // Limpiar localStorage y sessionStorage
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (
+            key.startsWith('magicOrder_') || 
+            key.includes('analysis') || 
+            key.includes('rawJson') ||
+            key.includes('phase')
+          )) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // También limpiar sessionStorage
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && (
+            key.startsWith('magicOrder_') || 
+            key.includes('analysis') || 
+            key.includes('order')
+          )) {
+            sessionKeysToRemove.push(key);
+          }
+        }
+        
+        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+        
         if (remainingOrders.length === 0) {
           // Si no quedan más pedidos, limpiamos completamente el estado
           setOrders([]);
           setPhase1Response(null);
           setPhase2Response(null);
           setPhase3Response(null);
+          setRawJsonResponse(null);
+          setAnalysisError(null);
+          setAnalysisTime(null);
           
-          // Limpiar localStorage para asegurar que no hay datos antiguos
-          localStorage.removeItem('magicOrder_orders');
-          localStorage.removeItem('magicOrder_phase1Response');
-          localStorage.removeItem('magicOrder_phase2Response');
-          localStorage.removeItem('magicOrder_phase3Response');
-          
-          console.log("Estado limpiado completamente después de guardar el último pedido");
+          console.log("Estado limpiado completamente después de guardar el último pedido", {
+            localStorageKeysRemoved: keysToRemove.length,
+            sessionStorageKeysRemoved: sessionKeysToRemove.length
+          });
         } else {
           // Si quedan otros pedidos, actualizamos solo el array de pedidos
+          // pero guardamos este estado actualizado específicamente para este análisis
           setOrders(remainingOrders);
+          localStorage.setItem('magicOrder_currentAnalysisOrders', JSON.stringify(remainingOrders));
+          
+          console.log("Estado parcialmente actualizado después de guardar un pedido", {
+            remainingOrders: remainingOrders.length
+          });
         }
       }, 1000); // Pequeño delay para que el usuario vea la confirmación antes de que desaparezca
       

@@ -24,22 +24,49 @@ export const useOrdersState = () => {
       error: null
     }));
     
-    // Limpiar cualquier dato en sessionStorage relacionado con órdenes
-    sessionStorage.removeItem('magicOrder_ordersData');
+    // Limpiar completamente todo lo relacionado con órdenes y análisis
+    const storageKeys = {
+      localStorage: [],
+      sessionStorage: []
+    };
     
-    // Limpiar también datos de análisis para asegurar operaciones limpias
-    clearAnalysisCache();
-    
-    // Limpiar cualquier otro almacenamiento temporal de pedidos
-    const keysToRemove = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && (key.startsWith('magicOrder_') || key.includes('order') || key.includes('analysis'))) {
-        keysToRemove.push(key);
+    // Recopilar claves de localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('order') || 
+        key.includes('analysis') ||
+        key.includes('phase')
+      )) {
+        storageKeys.localStorage.push(key);
       }
     }
     
-    keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    // Recopilar claves de sessionStorage
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_') || 
+        key.includes('order') || 
+        key.includes('analysis') ||
+        key.includes('phase')
+      )) {
+        storageKeys.sessionStorage.push(key);
+      }
+    }
+    
+    // Eliminar todos los datos almacenados
+    storageKeys.localStorage.forEach(key => localStorage.removeItem(key));
+    storageKeys.sessionStorage.forEach(key => sessionStorage.removeItem(key));
+    
+    // Limpiar también caché de análisis
+    clearAnalysisCache();
+    
+    console.log("Estado de órdenes y análisis completamente reiniciado", {
+      localStorageKeysRemoved: storageKeys.localStorage.length,
+      sessionStorageKeysRemoved: storageKeys.sessionStorage.length
+    });
   }, []);
   
   const setSearchTerm = (term: string) => {
