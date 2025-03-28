@@ -1,7 +1,7 @@
 
 /**
  * Servicios de integración con AI para análisis de mensajes
- * v1.0.2
+ * v1.0.3
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -59,7 +59,8 @@ export const analyzeCustomerMessage = async (
     }
     
     // Realizar análisis directo sin considerar pedidos anteriores
-    const analysisResult = await analyzeMessage(message, onProgress, signal);
+    // Ajustamos la llamada para que coincida con la definición de la función
+    const analysisResult = await analyzeMessage(message, onProgress);
     
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;
