@@ -65,8 +65,7 @@ export const OrdersList = () => {
     completeClientSwipeAnimation,
     closeAllSwipes,
     registerProductRef,
-    registerClientRef,
-    handleAddAllOrders
+    registerClientRef
   } = actions;
   
   // Registrar el estado de los pedidos cuando cambie y guardar en sessionStorage
@@ -132,9 +131,9 @@ export const OrdersList = () => {
   // Verificar si hay pedidos válidos para agregar
   const hasValidOrders = useMemo(() => {
     return orders.length > 0 && orders.some(order => 
-      order.status !== 'saved' && 
+      order.status !== 'pending' && 
       order.clientId && 
-      !order.items.some(item => !item.productId)
+      !order.items.some(item => !item.product_id)
     );
   }, [orders]);
   
@@ -157,7 +156,7 @@ export const OrdersList = () => {
             
             {hasValidOrders && (
               <Button 
-                onClick={handleAddAllOrders}
+                onClick={() => console.log("Esta función aún no está implementada")}
                 disabled={isSaving}
                 size="sm"
                 className="flex items-center gap-1"
