@@ -172,6 +172,6 @@ export interface OrdersContextProps {
     closeAllSwipes: (exceptKey?: string) => void;
     registerProductRef: (key: string, ref: HTMLDivElement | null) => void;
     registerClientRef: (key: string, ref: HTMLDivElement | null) => void;
-    handleAddAllOrders?: () => Promise<void>;
+    handleAddAllOrders: () => Promise<void>;
   };
 }

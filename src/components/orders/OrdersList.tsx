@@ -1,4 +1,3 @@
-
 import { useMemo, useEffect } from 'react';
 import { useOrders } from '@/contexts/OrdersContext';
 import { ClientOrderCardNew } from './ClientOrderCardNew';
@@ -65,22 +64,19 @@ export const OrdersList = () => {
     completeClientSwipeAnimation,
     closeAllSwipes,
     registerProductRef,
-    registerClientRef
+    registerClientRef,
+    handleAddAllOrders
   } = actions;
   
-  // Registrar el estado de los pedidos cuando cambie y guardar en sessionStorage
   useEffect(() => {
     if (orders.length > 0) {
-      // Log para debug
       logDebug('OrdersList', `Se han detectado ${orders.length} pedidos para mostrar`);
       
-      // Registro para propósitos de depuración
       logStateOperation('load', 'ordersContext', true, { 
         ordersCount: orders.length, 
         clientsCount: Object.keys(clientMap).length 
       });
       
-      // Guardar en sessionStorage para persistencia entre navegaciones
       try {
         const ordersData = {
           orders,
@@ -98,12 +94,9 @@ export const OrdersList = () => {
     }
   }, [orders.length, orders, clientMap]);
   
-  // Ordenar y agrupar pedidos por cliente
   const ordersByClient = useMemo(() => {
-    // Log para debug
     logDebug('OrdersList', `Procesando ${orders.length} pedidos para visualización`);
     
-    // Filtrar pedidos por término de búsqueda
     const filteredOrders = searchTerm
       ? orders.filter(order => {
           const clientNameMatch = order.clientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -115,7 +108,6 @@ export const OrdersList = () => {
         })
       : orders;
     
-    // Agrupar por cliente
     return filteredOrders.reduce((acc, order) => {
       if (!acc[order.clientId]) {
         acc[order.clientId] = {
@@ -128,7 +120,6 @@ export const OrdersList = () => {
     }, {} as {[key: string]: {clientName: string, orders: typeof orders}});
   }, [orders, searchTerm]);
   
-  // Verificar si hay pedidos válidos para agregar
   const hasValidOrders = useMemo(() => {
     return orders.length > 0 && orders.some(order => 
       order.status !== 'pending' && 
@@ -156,7 +147,7 @@ export const OrdersList = () => {
             
             {hasValidOrders && (
               <Button 
-                onClick={() => console.log("Esta función aún no está implementada")}
+                onClick={handleAddAllOrders}
                 disabled={isSaving}
                 size="sm"
                 className="flex items-center gap-1"
@@ -199,7 +190,6 @@ export const OrdersList = () => {
         </div>
       )}
       
-      {/* Modal de confirmación para eliminar pedido */}
       <AlertDialog open={!!orderToDelete} onOpenChange={() => !isDeleting && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -221,7 +211,6 @@ export const OrdersList = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Modal de confirmación para eliminar cliente */}
       <AlertDialog open={!!clientToDelete} onOpenChange={() => !isDeleting && setClientToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -15,7 +15,8 @@ import {
   RefreshCcw,
   FileText,
   Clock,
-  Pause
+  Pause,
+  PlusCircle
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { 
@@ -60,7 +61,7 @@ import { logDebug } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.72
+ * v1.0.78
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -687,16 +688,19 @@ const MagicOrder = () => {
           message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
         });
         
-        setOrders([]);
-        
-        setPhase1Response(null);
-        setPhase2Response(null);
-        setPhase3Response(null);
-        
-        localStorage.removeItem('magicOrder_orders');
-        localStorage.removeItem('magicOrder_phase1Response');
-        localStorage.removeItem('magicOrder_phase2Response');
-        localStorage.removeItem('magicOrder_phase3Response');
+        // Limpiamos el estado después de guardar los pedidos
+        if (successCount === orders.length) {
+          setOrders([]);
+          
+          setPhase1Response(null);
+          setPhase2Response(null);
+          setPhase3Response(null);
+          
+          localStorage.removeItem('magicOrder_orders');
+          localStorage.removeItem('magicOrder_phase1Response');
+          localStorage.removeItem('magicOrder_phase2Response');
+          localStorage.removeItem('magicOrder_phase3Response');
+        }
       } else if (errorCount > 0) {
         setAlertMessage({
           title: "Error al guardar pedidos",
@@ -1020,7 +1024,28 @@ const MagicOrder = () => {
         {/* Resultados del análisis */}
         {orders.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Pedidos detectados</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Pedidos detectados</h2>
+              
+              {orders.filter(order => order.status !== 'saved').length > 0 && (
+                <Button 
+                  onClick={handleSaveAllOrders}
+                  disabled={isSavingAllOrders || orders.length === 0}
+                  size="sm"
+                  className="flex items-center gap-1"
+                >
+                  {isSavingAllOrders ? (
+                    <>Guardando pedidos...</>
+                  ) : (
+                    <>
+                      <PlusCircle className="h-4 w-4" />
+                      Guardar todos los pedidos
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            
             {orders.map((order, index) => (
               <SimpleOrderCardNew
                 key={index}
