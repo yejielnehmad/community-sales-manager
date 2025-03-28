@@ -1,4 +1,4 @@
-import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
+import { COHERE_API_KEY, COHERE_ENDPOINT, GROK_API_KEY, GROK_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { logDebug, logError } from "@/lib/debug-utils";
@@ -195,6 +195,7 @@ IMPORTANTE:
 
 let currentAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
 let useNewTwoPhasesAnalysis = true; // Activamos por defecto el análisis en dos fases
+let useGrokAPI = true; // Activamos el uso de la API de Grok por defecto
 
 export const setCustomAnalysisPrompt = (prompt: string) => {
   if (!prompt || prompt.trim() === '') {
@@ -220,10 +221,128 @@ export const getUseTwoPhasesAnalysis = () => {
   return useNewTwoPhasesAnalysis;
 };
 
+export const setUseGrokAPI = (useIt: boolean) => {
+  useGrokAPI = useIt;
+};
+
+export const getUseGrokAPI = () => {
+  return useGrokAPI;
+};
+
+/**
+ * Función para realizar peticiones a la API de Grok (X.ai)
+ */
+export const callGrokAPI = async (prompt: string): Promise<string> => {
+  if (!GROK_API_KEY) {
+    logError("API", "API Key de Grok no configurada");
+    throw new GeminiError("API Key de Grok no configurada");
+  }
+
+  try {
+    // Usar endpoint desde la configuración
+    const endpoint = GROK_ENDPOINT || "https://api.x.ai/v1/chat/completions";
+    
+    logDebug("API", `Enviando petición a Grok API: ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Usando endpoint: ${endpoint}`);
+    
+    // Solo mostramos la parte inicial de la API key si tiene suficiente longitud
+    if (GROK_API_KEY && GROK_API_KEY.length > 10) {
+      logDebug("API", `API Key (primeros 10 caracteres): ${GROK_API_KEY.substring(0, 10)}...`);
+    } else {
+      logDebug("API", "API Key presente pero es demasiado corta para mostrar");
+    }
+    
+    const response = await fetch(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${GROK_API_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: "Eres un asistente experto en analizar pedidos de productos y clientes."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          model: "grok-2-latest",
+          stream: false,
+          temperature: 0.2
+        }),
+      }
+    );
+
+    const responseText = await response.text();
+    logDebug("API", `Respuesta raw de Grok: ${responseText.substring(0, 200)}...`);
+    
+    if (!response.ok) {
+      logError("API", `Error en respuesta HTTP: ${response.status} ${response.statusText}`, responseText);
+      throw new GeminiError(`Error HTTP: ${response.status} ${response.statusText}`, {
+        status: response.status,
+        statusText: response.statusText,
+        apiResponse: responseText,
+        rawJsonResponse: responseText
+      });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      logError("API", `Error al parsear respuesta de Grok:`, parseError);
+      throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
+        apiResponse: parseError,
+        rawJsonResponse: responseText
+      });
+    }
+
+    logDebug("API", `Respuesta de Grok (resumida): ${JSON.stringify(data).substring(0, 200)}...`);
+
+    if (data.error) {
+      logError("API", `Error devuelto por la API de Grok:`, data.error);
+      throw new GeminiError(`Error de la API de Grok: ${data.error.message || "Error desconocido"}`, {
+        apiResponse: data.error,
+        rawJsonResponse: responseText
+      });
+    }
+
+    // Formato de respuesta específico de Grok
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      logError("API", `Respuesta completa con formato incorrecto:`, data);
+      throw new GeminiError("Formato de respuesta inesperado de la API de Grok", {
+        apiResponse: data,
+        rawJsonResponse: responseText
+      });
+    }
+
+    const resultText = data.choices[0].message.content;
+    logDebug("API", `Texto de respuesta: ${resultText.substring(0, 200)}...`);
+    
+    return resultText;
+  } catch (error) {
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    logError("API", `Error inesperado al llamar a Grok API:`, error);
+    throw new GeminiError(`Error al conectar con Grok API: ${(error as Error).message}`);
+  }
+};
+
 /**
  * Función para realizar peticiones a la API de Cohere
  */
 export const callGeminiAPI = async (prompt: string): Promise<string> => {
+  // Si está activado el uso de Grok, usar esa API en su lugar
+  if (useGrokAPI && GROK_API_KEY) {
+    return callGrokAPI(prompt);
+  }
+
   if (!COHERE_API_KEY) {
     logError("API", "API Key de Cohere no configurada");
     throw new GeminiError("API Key de Cohere no configurada");
