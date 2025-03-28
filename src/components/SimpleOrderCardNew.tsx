@@ -1,4 +1,5 @@
-import { HelpCircle, Check, AlertCircle, ChevronDown, User, Edit } from 'lucide-react';
+
+import { HelpCircle, Check, AlertCircle, ChevronDown, User, Edit, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OrderCard as OrderCardType, MessageItem } from '@/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { APP_VERSION } from '@/lib/app-config';
@@ -27,7 +28,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.42
+ * v1.0.45
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -40,6 +41,7 @@ export const SimpleOrderCardNew = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [customQuantity, setCustomQuantity] = useState<number | null>(null);
+  const [isLoadingVariants, setIsLoadingVariants] = useState<{[key: number]: boolean}>({});
   
   // Verificamos si hay información faltante
   const hasMissingInfo = !order.client.id || order.items.some(item => !item.product.id || item.status === 'duda' || !item.quantity);
@@ -91,45 +93,22 @@ export const SimpleOrderCardNew = ({
     if (selectedProduct) {
       const hasVariants = selectedProduct.variants && selectedProduct.variants.length > 0;
       
-      const updatedItems = [...order.items];
-      updatedItems[itemIndex] = {
-        ...updatedItems[itemIndex],
-        product: {
-          id: selectedProduct.id,
-          name: selectedProduct.name,
-          price: selectedProduct.price
-        },
-        status: hasVariants ? 'duda' as const : 'confirmado' as const,
-        notes: hasVariants ? 
-          `¿Qué variante de ${selectedProduct.name}?` : 
-          updatedItems[itemIndex].notes
-      };
+      // Simular carga de variantes
+      setIsLoadingVariants(prev => ({ ...prev, [itemIndex]: true }));
       
-      const updatedOrder = {
-        ...order,
-        items: updatedItems
-      };
-      onUpdate(updatedOrder);
-    }
-  };
-  
-  // Handler para actualizar variante
-  const handleVariantUpdate = (itemIndex: number, variantId: string) => {
-    const item = order.items[itemIndex];
-    const itemProduct = item.product.id ? products.find(p => p.id === item.product.id) : null;
-    
-    if (itemProduct && itemProduct.variants) {
-      const selectedVariant = itemProduct.variants.find(v => v.id === variantId);
-      if (selectedVariant) {
+      setTimeout(() => {
         const updatedItems = [...order.items];
         updatedItems[itemIndex] = {
           ...updatedItems[itemIndex],
-          variant: {
-            id: selectedVariant.id,
-            name: selectedVariant.name,
-            price: selectedVariant.price
+          product: {
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            price: selectedProduct.price
           },
-          status: 'confirmado' as const
+          status: hasVariants ? 'duda' as const : 'confirmado' as const,
+          notes: hasVariants ? 
+            `¿Qué variante de ${selectedProduct.name}?` : 
+            updatedItems[itemIndex].notes
         };
         
         const updatedOrder = {
@@ -137,40 +116,75 @@ export const SimpleOrderCardNew = ({
           items: updatedItems
         };
         onUpdate(updatedOrder);
-      }
-    } else {
-      // Búsqueda de la variante en todos los productos
-      for (const product of products) {
-        if (product.variants) {
-          const variant = product.variants.find(v => v.id === variantId);
-          if (variant) {
-            // Asignar automáticamente el producto basado en la variante
-            const updatedItems = [...order.items];
-            updatedItems[itemIndex] = {
-              ...updatedItems[itemIndex],
-              product: {
-                id: product.id,
-                name: product.name,
-                price: product.price
-              },
-              variant: {
-                id: variant.id,
-                name: variant.name,
-                price: variant.price
-              },
-              status: 'confirmado' as const
-            };
-            
-            const updatedOrder = {
-              ...order,
-              items: updatedItems
-            };
-            onUpdate(updatedOrder);
-            break;
+        setIsLoadingVariants(prev => ({ ...prev, [itemIndex]: false }));
+      }, 300); // Simulamos una pequeña carga
+    }
+  };
+  
+  // Handler para actualizar variante
+  const handleVariantUpdate = (itemIndex: number, variantId: string) => {
+    setIsLoadingVariants(prev => ({ ...prev, [itemIndex]: true }));
+    
+    setTimeout(() => {
+      const item = order.items[itemIndex];
+      const itemProduct = item.product.id ? products.find(p => p.id === item.product.id) : null;
+      
+      if (itemProduct && itemProduct.variants) {
+        const selectedVariant = itemProduct.variants.find(v => v.id === variantId);
+        if (selectedVariant) {
+          const updatedItems = [...order.items];
+          updatedItems[itemIndex] = {
+            ...updatedItems[itemIndex],
+            variant: {
+              id: selectedVariant.id,
+              name: selectedVariant.name,
+              price: selectedVariant.price
+            },
+            status: 'confirmado' as const
+          };
+          
+          const updatedOrder = {
+            ...order,
+            items: updatedItems
+          };
+          onUpdate(updatedOrder);
+        }
+      } else {
+        // Búsqueda de la variante en todos los productos
+        for (const product of products) {
+          if (product.variants) {
+            const variant = product.variants.find(v => v.id === variantId);
+            if (variant) {
+              // Asignar automáticamente el producto basado en la variante
+              const updatedItems = [...order.items];
+              updatedItems[itemIndex] = {
+                ...updatedItems[itemIndex],
+                product: {
+                  id: product.id,
+                  name: product.name,
+                  price: product.price
+                },
+                variant: {
+                  id: variant.id,
+                  name: variant.name,
+                  price: variant.price
+                },
+                status: 'confirmado' as const
+              };
+              
+              const updatedOrder = {
+                ...order,
+                items: updatedItems
+              };
+              onUpdate(updatedOrder);
+              break;
+            }
           }
         }
       }
-    }
+      
+      setIsLoadingVariants(prev => ({ ...prev, [itemIndex]: false }));
+    }, 300);
   };
   
   // Handler para actualizar cantidad
@@ -201,6 +215,15 @@ export const SimpleOrderCardNew = ({
   const handleResolveIssue = (itemIndex: number) => {
     const updatedItems = [...order.items];
     const item = updatedItems[itemIndex];
+    
+    // Verificar primero si el producto tiene variantes y no se ha seleccionado una
+    const productInfo = item.product.id ? products.find(p => p.id === item.product.id) : null;
+    const requiresVariant = productInfo && productInfo.variants && productInfo.variants.length > 0 && !item.variant?.id;
+    
+    // Si requiere variante, no permitir marcar como correcto
+    if (requiresVariant) {
+      return;
+    }
     
     // Si estamos editando la cantidad, aplicar ese valor
     if (customQuantity !== null && editingItemIndex === itemIndex) {
@@ -238,11 +261,10 @@ export const SimpleOrderCardNew = ({
       item.notes?.toLowerCase().includes('cuántos') ||
       item.notes?.toLowerCase().includes('cuántas');
 
-    // No mostrar botón de confirmar cuando se requiere seleccionar variante
-    const needsVariantSelection = item.product.id && (() => {
-      const productInfo = products.find(p => p.id === item.product.id);
-      return productInfo && productInfo.variants && productInfo.variants.length > 0 && !item.variant?.id;
-    })();
+    // Verificar si el producto requiere variante y si tiene una seleccionada
+    const productInfo = item.product.id ? products.find(p => p.id === item.product.id) : null;
+    const hasVariants = productInfo?.variants && productInfo.variants.length > 0;
+    const needsVariantSelection = hasVariants && !item.variant?.id;
 
     if (isQuantityIssue || !item.quantity) {
       return (
@@ -277,7 +299,6 @@ export const SimpleOrderCardNew = ({
     }
 
     // Para dudas genéricas sin opciones específicas
-    // No mostrar el botón de "Marcar como correcto" cuando se necesita seleccionar variante
     return (
       <div className="mt-2">
         <div className="text-xs font-medium mb-1 text-amber-700">
@@ -290,6 +311,7 @@ export const SimpleOrderCardNew = ({
               variant="outline" 
               className="h-8 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
               onClick={() => handleResolveIssue(itemIndex)}
+              disabled={needsVariantSelection}
             >
               <Check className="h-3 w-3 mr-1" />
               Marcar como correcto
@@ -369,6 +391,7 @@ export const SimpleOrderCardNew = ({
               const hasVariants = itemProduct?.variants && itemProduct.variants.length > 0;
               const hasVariantIssue = hasVariants && !item.variant?.id;
               const hasQuantityIssue = !item.quantity;
+              const isLoading = isLoadingVariants[itemIndex];
               
               return (
                 <div key={itemIndex} className={cn(
@@ -449,7 +472,12 @@ export const SimpleOrderCardNew = ({
                             : "bg-green-50 text-green-700 border-green-200"
                         )}
                       >
-                        {hasVariantIssue || hasQuantityIssue ? (
+                        {isLoading ? (
+                          <>
+                            <Loader2 size={12} className="mr-1 animate-spin" />
+                            Cargando...
+                          </>
+                        ) : hasVariantIssue || hasQuantityIssue ? (
                           <>
                             <AlertCircle size={12} className="mr-1" />
                             {hasVariantIssue ? "Falta variante" : "Falta cantidad"}
@@ -465,13 +493,13 @@ export const SimpleOrderCardNew = ({
                   </div>
                   
                   {/* Selección de variante */}
-                  {hasVariantIssue && (
+                  {hasVariantIssue && itemProduct?.variants && itemProduct.variants.length > 0 && (
                     <div className="mt-2">
                       <div className="text-xs font-medium mb-1 text-amber-700">
                         Selecciona una variante:
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {itemProduct?.variants.map((variant) => (
+                        {itemProduct.variants.map((variant) => (
                           <Badge 
                             key={variant.id} 
                             variant="outline"
