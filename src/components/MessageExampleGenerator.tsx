@@ -15,21 +15,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { logCardGeneration, logStateOperation } from "@/lib/debug-utils";
 
 interface MessageExampleGeneratorProps {
   onSelectExample: (text: string) => void;
 }
 
+// Clave para almacenar ejemplos en localStorage
+const STORAGE_KEY_EXAMPLE = 'magicOrder_generatedExample';
+const STORAGE_KEY_GENERATION_STATE = 'magicOrder_generationState';
+const STORAGE_KEY_LAST_ERROR = 'magicOrder_lastGenerationError';
+const STORAGE_KEY_ELAPSED_TIME = 'magicOrder_generationElapsedTime';
+const STORAGE_KEY_REMAINING_TIME = 'magicOrder_generationRemainingTime';
+
+// Identificador único para el seguimiento de la generación actual
+const GENERATION_ID = `gen_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
 export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGeneratorProps) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [example, setExample] = useState<string>("");
+  // Cargar el estado desde localStorage al iniciar
+  const [isGenerating, setIsGenerating] = useState<boolean>(() => {
+    const savedState = localStorage.getItem(STORAGE_KEY_GENERATION_STATE);
+    return savedState ? JSON.parse(savedState) : false;
+  });
+  
+  const [example, setExample] = useState<string>(() => {
+    const savedExample = localStorage.getItem(STORAGE_KEY_EXAMPLE);
+    return savedExample || "";
+  });
+  
   const [isCopied, setIsCopied] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState<string>("");
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
-  const [lastError, setLastError] = useState<string | null>(null);
+  
+  const [elapsedTime, setElapsedTime] = useState<number>(() => {
+    const savedTime = localStorage.getItem(STORAGE_KEY_ELAPSED_TIME);
+    return savedTime ? parseInt(savedTime) : 0;
+  });
+  
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(() => {
+    const savedTime = localStorage.getItem(STORAGE_KEY_REMAINING_TIME);
+    return savedTime ? parseInt(savedTime) : null;
+  });
+  
+  const [lastError, setLastError] = useState<string | null>(() => {
+    const savedError = localStorage.getItem(STORAGE_KEY_LAST_ERROR);
+    return savedError || null;
+  });
   
   // Referencia para el intervalo del cronómetro
   const timerIntervalRef = useRef<number | null>(null);
@@ -43,19 +75,65 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
   
+  // Guardar el estado en localStorage cuando cambie
+  useEffect(() => {
+    if (example) {
+      localStorage.setItem(STORAGE_KEY_EXAMPLE, example);
+      logStateOperation('save', STORAGE_KEY_EXAMPLE, true, { length: example.length });
+    }
+  }, [example]);
+  
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_GENERATION_STATE, JSON.stringify(isGenerating));
+    logStateOperation('save', STORAGE_KEY_GENERATION_STATE, true, { isGenerating });
+  }, [isGenerating]);
+  
+  useEffect(() => {
+    if (lastError) {
+      localStorage.setItem(STORAGE_KEY_LAST_ERROR, lastError);
+      logStateOperation('save', STORAGE_KEY_LAST_ERROR, true, { hasError: true });
+    } else if (localStorage.getItem(STORAGE_KEY_LAST_ERROR)) {
+      localStorage.removeItem(STORAGE_KEY_LAST_ERROR);
+      logStateOperation('save', STORAGE_KEY_LAST_ERROR, true, { hasError: false });
+    }
+  }, [lastError]);
+  
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ELAPSED_TIME, elapsedTime.toString());
+  }, [elapsedTime]);
+  
+  useEffect(() => {
+    if (estimatedTimeRemaining !== null) {
+      localStorage.setItem(STORAGE_KEY_REMAINING_TIME, estimatedTimeRemaining.toString());
+    } else if (localStorage.getItem(STORAGE_KEY_REMAINING_TIME)) {
+      localStorage.removeItem(STORAGE_KEY_REMAINING_TIME);
+    }
+  }, [estimatedTimeRemaining]);
+  
+  // Iniciar el temporizador cuando el componente se monte si estaba generando
+  useEffect(() => {
+    if (isGenerating) {
+      startTimer();
+    }
+    
+    return () => {
+      stopTimer();
+    };
+  }, []);
+  
   // Iniciamos el cronómetro
   const startTimer = () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
     
-    setElapsedTime(0);
-    startTimeRef.current = Date.now();
+    // Si ya tenemos un tiempo guardado, lo usamos como base
+    const startTime = Date.now() - (elapsedTime * 1000);
+    startTimeRef.current = startTime;
     
     timerIntervalRef.current = window.setInterval(() => {
       const now = Date.now();
-      const startTime = startTimeRef.current || now;
-      const elapsed = Math.floor((now - startTime) / 1000);
+      const elapsed = Math.floor((now - (startTimeRef.current || now)) / 1000);
       setElapsedTime(elapsed);
       
       // Calculamos el tiempo estimado restante basándonos en el progreso
@@ -83,9 +161,9 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   // Escuchamos el evento de generación para actualizar el estado
   useEffect(() => {
     const handleExampleGenerationEvent = (event: CustomEvent) => {
-      const { isGenerating, stage, progress, error } = event.detail;
+      const { isGenerating: isGen, stage, progress, error } = event.detail;
       
-      console.log(`Evento de generación recibido: ${isGenerating ? 'Generando' : 'Completado'}, Etapa: ${stage}, Progreso: ${progress}`);
+      console.log(`Evento de generación recibido: ${isGen ? 'Generando' : 'Completado'}, Etapa: ${stage}, Progreso: ${progress}`);
       
       if (progress !== undefined) {
         setGenerationProgress(progress);
@@ -97,13 +175,22 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       
       if (error) {
         setLastError(error);
+        logCardGeneration(GENERATION_ID, 'error', { error, elapsedTime });
       }
       
-      if (!isGenerating && progress === 100) {
+      if (!isGen && progress === 100) {
         // Completado exitosamente
         stopTimer();
-        setTimeout(() => setIsGenerating(false), 500);
-      } else if (!isGenerating && error) {
+        setTimeout(() => {
+          setIsGenerating(false);
+          // Registrar la finalización exitosa
+          logCardGeneration(GENERATION_ID, 'completed', { 
+            processingTime: elapsedTime,
+            elapsedTime,
+            estimatedTimeRemaining
+          });
+        }, 500);
+      } else if (!isGen && error) {
         // Error en la generación
         stopTimer();
         setAlertMessage(`Error: ${error}`);
@@ -116,9 +203,10 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     
     return () => {
       window.removeEventListener('exampleGenerationStateChange', handleExampleGenerationEvent as EventListener);
-      stopTimer();
+      // No detenemos el temporizador aquí, ya que queremos que siga funcionando
+      // incluso si el usuario navega fuera de la página
     };
-  }, []);
+  }, [elapsedTime]);
 
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
@@ -128,6 +216,9 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     
     // Mantenemos el ejemplo anterior hasta que se genere uno nuevo
     // Así si hay un error, el usuario aún puede ver el ejemplo anterior
+    
+    // Registrar inicio de generación
+    logCardGeneration(GENERATION_ID, 'started', { timestamp: new Date().toISOString() });
     
     // Iniciamos el cronómetro
     startTimer();

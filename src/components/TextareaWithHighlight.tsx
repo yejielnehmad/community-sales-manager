@@ -15,7 +15,7 @@ interface TextareaWithHighlightProps extends Omit<TextareaProps, 'ref'> {
   products: any[];
   clearable?: boolean;
   onClear?: () => void;
-  highlightUnknownWords?: boolean; // Nuevo prop para controlar si se resaltan palabras en tiempo real
+  highlightUnknownWords?: boolean; // Prop para controlar si se resaltan palabras en tiempo real
 }
 
 export const TextareaWithHighlight = ({
@@ -26,7 +26,7 @@ export const TextareaWithHighlight = ({
   clearable = false,
   onClear,
   className,
-  highlightUnknownWords = false, // Por defecto, no resaltar en tiempo real
+  highlightUnknownWords = false, // Por defecto, desactivado (no resaltar en tiempo real)
   ...props
 }: TextareaWithHighlightProps) => {
   const [unknownWords, setUnknownWords] = useState<HighlightedWord[]>([]);

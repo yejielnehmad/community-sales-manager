@@ -1,5 +1,5 @@
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useOrders } from '@/contexts/OrdersContext';
 import { ClientOrderCardNew } from './ClientOrderCardNew';
 import { 
@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { logStateOperation } from '@/lib/debug-utils';
 
 export const OrdersList = () => {
   const { state, itemState, actions } = useOrders();
@@ -64,6 +65,16 @@ export const OrdersList = () => {
     registerProductRef,
     registerClientRef
   } = actions;
+  
+  // Registrar el estado de los pedidos cuando cambie para propósitos de depuración
+  useEffect(() => {
+    if (orders.length > 0) {
+      logStateOperation('load', 'ordersContext', true, { 
+        ordersCount: orders.length, 
+        clientsCount: Object.keys(clientMap).length 
+      });
+    }
+  }, [orders.length, clientMap]);
   
   // Ordenar y agrupar pedidos por cliente
   const ordersByClient = useMemo(() => {

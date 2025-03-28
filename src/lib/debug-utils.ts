@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para depuración y registro de actividad
- * v1.0.1
+ * v1.0.2
  */
 
 // Configurar si los logs están habilitados (para poder desactivarlos en producción)
@@ -74,4 +74,32 @@ export const logPerformance = (operation: string, timeElapsed: number): void => 
   if (!DEBUG_ENABLED) return;
   
   console.log(`⏱️ RENDIMIENTO [${operation}]: ${timeElapsed.toFixed(2)}ms`);
+};
+
+/**
+ * Registra eventos de generación de tarjetas o mensajes
+ */
+export const logCardGeneration = (cardId: string, status: 'started' | 'completed' | 'error', details?: any): void => {
+  if (!DEBUG_ENABLED) return;
+  
+  const timestamp = new Date().toISOString();
+  const icons = {
+    started: '🔄',
+    completed: '✅', 
+    error: '❌'
+  };
+  
+  const processingTime = details?.processingTime ? `(${details.processingTime.toFixed(2)}s)` : '';
+  
+  console.log(`${icons[status]} GENERACIÓN TARJETA [${timestamp}] ID:${cardId} - ${status.toUpperCase()} ${processingTime}`, details ? details : '');
+};
+
+/**
+ * Registra eventos de almacenamiento y recuperación de estado
+ */
+export const logStateOperation = (operation: 'save' | 'load', storageKey: string, success: boolean, details?: any): void => {
+  if (!DEBUG_ENABLED) return;
+  
+  const icon = success ? '💾' : '⚠️';
+  console.log(`${icon} ESTADO [${operation.toUpperCase()}] ${storageKey}: ${success ? 'ÉXITO' : 'FALLIDO'}`, details ? details : '');
 };
