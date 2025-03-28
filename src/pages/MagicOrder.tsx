@@ -951,3 +951,15 @@ const MagicOrder = () => {
             <div className="mt-3 text-sm flex items-center gap-1 text-muted-foreground">
               <Clock size={14} className="mr-1" />
               <span>Tiempo de análisis: <span className="font-medium">{formatAnalysisTime(analysisTime || 0)}</span></span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Resto del código del componente */}
+        {/* ... keep existing code (JSX content) */}
+      </div>
+    </AppLayout>
+  );
+};
+
+export default MagicOrder;
