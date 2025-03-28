@@ -1,12 +1,10 @@
-
 import { supabase } from "@/lib/supabase";
 import { 
-  setApiProvider, 
-  setGeminiModel,
   GOOGLE_GEMINI_MODELS,
   GOOGLE_GEMINI_ENDPOINT,
   GOOGLE_API_KEY 
 } from "@/lib/api-config";
+import { setApiProvider, setGeminiModel } from "@/services/geminiService";
 
 // Función para generar ejemplos basados en la base de datos
 export const generateMessageExample = async (): Promise<string> => {
