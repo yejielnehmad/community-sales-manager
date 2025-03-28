@@ -144,7 +144,7 @@ export const generateMessageExample = async (): Promise<string> => {
 };
 
 // Función para generar múltiples mensajes de ejemplo con diferentes clientes y productos
-export const generateMultipleExamples = async (orderCount: number = 30, precisionRate: number = 0.85): Promise<string> => {
+export const generateMultipleExamples = async (orderCount: number = 20, precisionRate: number = 0.85): Promise<string> => {
   // Generar ejemplos de mensajes con IA usando el servicio gemini
   try {
     // Configuramos el proveedor y modelo antes de usar el servicio
@@ -175,7 +175,7 @@ export const generateMultipleExamples = async (orderCount: number = 30, precisio
       }
     ];
     
-    // Hacemos la llamada a la API
+    // Hacemos la llamada a la API utilizando tokens máximos
     const response = await fetch(`${GOOGLE_GEMINI_ENDPOINT}/${geminiModel}:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
@@ -184,24 +184,33 @@ export const generateMultipleExamples = async (orderCount: number = 30, precisio
       body: JSON.stringify({
         contents: messages,
         generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+          temperature: 0.7, // Reducimos un poco la temperatura para más precisión
+          maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS, // Utilizamos el máximo de tokens disponible
         },
       }),
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error de API:", errorText);
       throw new Error(`Error al generar ejemplos: ${response.status} ${response.statusText}`);
     }
     
     const result = await response.json();
     
-    const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!result.candidates || result.candidates.length === 0) {
+      console.error("No se recibieron candidatos de respuesta:", result);
+      throw new Error("No se recibieron candidatos de respuesta");
+    }
+    
+    const generatedText = result.candidates[0]?.content?.parts?.[0]?.text;
     
     if (!generatedText) {
+      console.error("Respuesta sin texto:", result);
       throw new Error("No se pudo generar el ejemplo");
     }
     
+    console.log("Ejemplo generado con éxito, longitud:", generatedText.length);
     return generatedText;
   } catch (error) {
     console.error("Error al generar ejemplos:", error);

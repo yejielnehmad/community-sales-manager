@@ -16,9 +16,9 @@ export const GOOGLE_GEMINI_MODELS = {
   GEMINI_FLASH_2: "gemini-2.0-flash"
 };
 
-// Configuración de tokens
+// Configuración de tokens - Aumentada al máximo permitido
 export const GEMINI_MAX_INPUT_TOKENS: number = 32000;
-export const GEMINI_MAX_OUTPUT_TOKENS: number = 8000;
+export const GEMINI_MAX_OUTPUT_TOKENS: number = 8192; // Aumentado al máximo permitido por Gemini 2.0 Flash
 
 // Fecha de la última actualización de la API
 export const API_CONFIG_UPDATED: string = "2025-04-05";
