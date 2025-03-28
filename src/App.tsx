@@ -24,39 +24,7 @@ const App = () => {
   
   // Escuchar cambios en el estado del análisis en cualquier parte de la aplicación
   useEffect(() => {
-    // Función para manejar el cambio de estado del análisis
-    const handleAnalysisStateChange = (event: CustomEvent) => {
-      const { isAnalyzing, stage, ordersCount } = event.detail;
-      console.log("App: Evento de análisis recibido", { isAnalyzing, stage, ordersCount });
-      
-      // Actualizamos el estado global
-      setIsAnalyzingGlobally(isAnalyzing);
-      if (stage) setAnalysisStage(stage);
-      
-      // Cuando el análisis termina y hay órdenes detectadas
-      if (!isAnalyzing && typeof ordersCount === 'number' && ordersCount > 0) {
-        // Mostrar un toast para notificar que se han detectado órdenes
-        toast({
-          title: "Análisis completado",
-          description: `Se ${ordersCount === 1 ? 'ha' : 'han'} detectado ${ordersCount} pedido${ordersCount === 1 ? '' : 's'}`,
-          variant: "success",
-        });
-      }
-    };
-    
-    // Para conservar el estado entre navegaciones
-    const handleBeforeUnload = () => {
-      // Guardamos el estado actual en sessionStorage
-      if (isAnalyzingGlobally) {
-        sessionStorage.setItem('magicOrder_isAnalyzing', 'true');
-        sessionStorage.setItem('magicOrder_analysisStage', analysisStage);
-      } else {
-        sessionStorage.removeItem('magicOrder_isAnalyzing');
-        sessionStorage.removeItem('magicOrder_analysisStage');
-      }
-    };
-    
-    // Comprobamos si había un análisis en curso
+    // Primero, intentamos restaurar el estado desde sessionStorage
     const savedIsAnalyzing = sessionStorage.getItem('magicOrder_isAnalyzing');
     const savedAnalysisStage = sessionStorage.getItem('magicOrder_analysisStage');
     
@@ -74,15 +42,61 @@ const App = () => {
       window.dispatchEvent(event);
     }
     
+    // Función para manejar el cambio de estado del análisis
+    const handleAnalysisStateChange = (event: CustomEvent) => {
+      const { isAnalyzing, stage, ordersCount } = event.detail;
+      console.log("App: Evento de análisis recibido", { isAnalyzing, stage, ordersCount });
+      
+      // Actualizamos el estado global
+      setIsAnalyzingGlobally(isAnalyzing);
+      if (stage) setAnalysisStage(stage);
+      
+      // Guardamos el estado actual en sessionStorage para mantenerlo entre navegaciones
+      if (isAnalyzing) {
+        sessionStorage.setItem('magicOrder_isAnalyzing', 'true');
+        if (stage) sessionStorage.setItem('magicOrder_analysisStage', stage);
+      } else {
+        sessionStorage.removeItem('magicOrder_isAnalyzing');
+        sessionStorage.removeItem('magicOrder_analysisStage');
+      }
+      
+      // Cuando el análisis termina y hay órdenes detectadas
+      if (!isAnalyzing && typeof ordersCount === 'number' && ordersCount > 0) {
+        // Mostrar un toast para notificar que se han detectado órdenes
+        toast({
+          title: "Análisis completado",
+          description: `Se ${ordersCount === 1 ? 'ha' : 'han'} detectado ${ordersCount} pedido${ordersCount === 1 ? '' : 's'}`,
+          variant: "success",
+        });
+      }
+    };
+    
     // Añadir listener para el evento de análisis
     window.addEventListener('analysisStateChange', handleAnalysisStateChange as EventListener);
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Añadir listener para visibilidad de página
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        // Al volver a la página, verificamos si hay análisis en curso desde sessionStorage
+        const storedIsAnalyzing = sessionStorage.getItem('magicOrder_isAnalyzing');
+        if (storedIsAnalyzing === 'true' && !isAnalyzingGlobally) {
+          const storedStage = sessionStorage.getItem('magicOrder_analysisStage');
+          // Re-emitir el evento con los datos almacenados
+          const event = new CustomEvent('analysisStateChange', {
+            detail: { 
+              isAnalyzing: true,
+              stage: storedStage || "Procesando mensaje" 
+            }
+          });
+          window.dispatchEvent(event);
+        }
+      }
+    });
     
     return () => {
       window.removeEventListener('analysisStateChange', handleAnalysisStateChange as EventListener);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [toast, isAnalyzingGlobally, analysisStage]);
+  }, [toast, isAnalyzingGlobally]);
   
   return (
     <ThemeProvider defaultTheme="light" storageKey="app-theme">

@@ -28,7 +28,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.45
+ * v1.0.46
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -43,8 +43,31 @@ export const SimpleOrderCardNew = ({
   const [customQuantity, setCustomQuantity] = useState<number | null>(null);
   const [isLoadingVariants, setIsLoadingVariants] = useState<{[key: number]: boolean}>({});
   
-  // Verificamos si hay información faltante
-  const hasMissingInfo = !order.client.id || order.items.some(item => !item.product.id || item.status === 'duda' || !item.quantity);
+  // Verificamos si hay información faltante - MODIFICADO para corregir la validación
+  // Un pedido está incompleto si: no tiene cliente, la confianza del cliente no es alta,
+  // o hay algún ítem que no tiene producto, cantidad, o está marcado como 'duda' y no tiene variante cuando requiere una
+  const hasMissingInfo = !order.client.id || 
+    order.client.matchConfidence !== 'alto' || 
+    order.items.some(item => {
+      // Si no tiene producto o cantidad, está incompleto
+      if (!item.product.id || !item.quantity) return true;
+      
+      // Si está en estado de duda, verificamos si es por falta de variante
+      if (item.status === 'duda') {
+        // Verificar si el producto requiere variante
+        const productInfo = products.find(p => p.id === item.product.id);
+        const requiresVariant = productInfo?.variants && productInfo.variants.length > 0;
+        
+        // Si requiere variante y no tiene una seleccionada, está incompleto
+        if (requiresVariant && !item.variant?.id) return true;
+        
+        // Si no requiere variante pero sigue en 'duda', hay otro problema
+        return true;
+      }
+      
+      return false;
+    });
+  
   const hasClientProblem = !order.client.id || order.client.matchConfidence !== 'alto';
   
   // Preparamos el mensaje de duda principal
@@ -386,17 +409,22 @@ export const SimpleOrderCardNew = ({
         <CollapsibleContent>
           <div className="p-3 space-y-3">
             {order.items.map((item, itemIndex) => {
-              const hasProductIssue = !item.product.id || item.status === 'duda';
-              const itemProduct = item.product.id ? products.find(p => p.id === item.product.id) : null;
-              const hasVariants = itemProduct?.variants && itemProduct.variants.length > 0;
+              // Lógica para determinar el estado del ítem
+              const productInfo = item.product.id ? products.find(p => p.id === item.product.id) : null;
+              const hasVariants = productInfo?.variants && productInfo.variants.length > 0;
               const hasVariantIssue = hasVariants && !item.variant?.id;
               const hasQuantityIssue = !item.quantity;
+              const hasProductIssue = !item.product.id;
+              
+              // Un ítem necesita atención si no tiene producto, variante (cuando la requiere) o cantidad
+              const needsAttention = hasProductIssue || hasVariantIssue || hasQuantityIssue || item.status === 'duda';
+              
               const isLoading = isLoadingVariants[itemIndex];
               
               return (
                 <div key={itemIndex} className={cn(
                   "p-2 rounded-md text-sm",
-                  hasProductIssue || hasVariantIssue || hasQuantityIssue ? "bg-amber-50" : "bg-green-50"
+                  needsAttention ? "bg-amber-50" : "bg-green-50"
                 )}>
                   <div className="flex justify-between items-center">
                     {/* Selección de producto */}
@@ -465,9 +493,9 @@ export const SimpleOrderCardNew = ({
                     
                     {/* Estado */}
                     {item.product.id && (
-                      <Badge variant={hasVariantIssue || hasQuantityIssue ? "outline" : "secondary"} 
+                      <Badge variant={needsAttention ? "outline" : "secondary"} 
                         className={cn(
-                          hasVariantIssue || hasQuantityIssue 
+                          needsAttention 
                             ? "bg-amber-50 text-amber-700 border-amber-200" 
                             : "bg-green-50 text-green-700 border-green-200"
                         )}
@@ -477,10 +505,10 @@ export const SimpleOrderCardNew = ({
                             <Loader2 size={12} className="mr-1 animate-spin" />
                             Cargando...
                           </>
-                        ) : hasVariantIssue || hasQuantityIssue ? (
+                        ) : needsAttention ? (
                           <>
                             <AlertCircle size={12} className="mr-1" />
-                            {hasVariantIssue ? "Falta variante" : "Falta cantidad"}
+                            {hasVariantIssue ? "Falta variante" : hasQuantityIssue ? "Falta cantidad" : "Requiere confirmar"}
                           </>
                         ) : (
                           <>
@@ -492,14 +520,14 @@ export const SimpleOrderCardNew = ({
                     )}
                   </div>
                   
-                  {/* Selección de variante */}
-                  {hasVariantIssue && itemProduct?.variants && itemProduct.variants.length > 0 && (
+                  {/* IMPORTANTE: Aquí mostramos las variantes disponibles si el producto las tiene y no hay una seleccionada */}
+                  {hasVariantIssue && productInfo?.variants && productInfo.variants.length > 0 && (
                     <div className="mt-2">
                       <div className="text-xs font-medium mb-1 text-amber-700">
                         Selecciona una variante:
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {itemProduct.variants.map((variant) => (
+                        {productInfo.variants.map((variant) => (
                           <Badge 
                             key={variant.id} 
                             variant="outline"
