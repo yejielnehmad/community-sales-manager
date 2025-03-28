@@ -648,10 +648,13 @@ export const saveAnalysisResult = async (
     // Extraer los IDs de los clientes para facilitar la búsqueda
     const clientIds = result.map(r => r.client.id).filter(id => id) as string[];
     
+    // Usamos toSafeJson para convertir MessageAnalysis[] a un formato JSON seguro
+    const safeResult = JSON.parse(JSON.stringify(result));
+    
     const { error } = await supabase
       .from('magic_orders')
       .update({
-        result: result,
+        result: safeResult,
         phase1_response: phase1Response,
         phase2_response: phase2Response,
         phase3_response: phase3Response,

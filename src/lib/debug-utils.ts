@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para depuración y registro de actividad
- * v1.0.1
+ * v1.0.2
  */
 
 // Configurar si los logs están habilitados (para poder desactivarlos en producción)
@@ -100,4 +100,12 @@ export const getBrowserSessionId = (): string => {
   }
   
   return browserId;
+};
+
+/**
+ * Convierte un objeto a formato JSON seguro para Supabase
+ * Esto nos ayuda a convertir tipos complejos a formato serializable
+ */
+export const toSafeJson = (data: any): any => {
+  return JSON.parse(JSON.stringify(data));
 };

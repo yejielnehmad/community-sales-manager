@@ -62,6 +62,76 @@ const AIStatusBadge = ({
     }
   }, [status, message, detailedInfo, tokenId]);
 
+  // Función para suscribirse a los cambios de estado del análisis en la base de datos
+  const subscribeToAnalysis = (analysisTokenId: string) => {
+    if (activeSubscription) {
+      return; // Evitar múltiples suscripciones
+    }
+    
+    logDebug("AIStatusBadge", `Suscribiéndose a actualizaciones del análisis con token: ${analysisTokenId}`);
+    
+    const channel = supabase
+      .channel(`analysis-status-${analysisTokenId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'analysis_status',
+          filter: `token_id=eq.${analysisTokenId}`,
+        },
+        (payload) => {
+          const { new: newData } = payload;
+          logDebug("AIStatusBadge", `Actualización recibida para análisis: ${newData.status}, progreso: ${newData.progress}%, etapa: ${newData.stage || "N/A"}`);
+          
+          if (newData.status === "analyzing") {
+            setStatus("analyzing");
+            setMessage("IA");
+            setDetailedInfo(`Análisis en proceso: ${newData.stage || "Procesando"} (${newData.progress}%)`);
+          } else if (newData.status === "completed") {
+            setStatus("completed");
+            setMessage("IA");
+            setDetailedInfo(`¡Análisis completado!`);
+            
+            // Notificar al usuario
+            toast({
+              title: "Análisis completado",
+              description: "El análisis de mensaje mágico ha finalizado. Haz clic para ver los resultados.",
+              variant: "success",
+              onClick: () => navigate("/magic-order")
+            });
+            
+            // Cancelar la suscripción después de completado
+            supabase.removeChannel(channel);
+            setActiveSubscription(false);
+          } else if (newData.status === "error") {
+            setStatus("error");
+            setMessage("Error");
+            setDetailedInfo(newData.error_message || "Error en el análisis");
+            
+            // Notificar al usuario
+            toast({
+              title: "Error en el análisis",
+              description: newData.error_message || "Ocurrió un error durante el análisis del mensaje",
+              variant: "destructive"
+            });
+            
+            // Cancelar la suscripción después de error
+            supabase.removeChannel(channel);
+            setActiveSubscription(false);
+          }
+        }
+      )
+      .subscribe();
+    
+    setActiveSubscription(true);
+    
+    return () => {
+      supabase.removeChannel(channel);
+      setActiveSubscription(false);
+    };
+  };
+
   // Suscribirse a cambios en el estado del análisis en la base de datos
   useEffect(() => {
     // Restaurar el estado desde sessionStorage si existe
@@ -133,76 +203,6 @@ const AIStatusBadge = ({
           setDetailedInfo("Conexión exitosa con Gemini API");
         }
       }
-    };
-
-    // Suscribirse a los cambios de estado del análisis en la base de datos
-    const subscribeToAnalysis = (analysisTokenId: string) => {
-      if (activeSubscription) {
-        return; // Evitar múltiples suscripciones
-      }
-      
-      logDebug("AIStatusBadge", `Suscribiéndose a actualizaciones del análisis con token: ${analysisTokenId}`);
-      
-      const channel = supabase
-        .channel(`analysis-status-${analysisTokenId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'analysis_status',
-            filter: `token_id=eq.${analysisTokenId}`,
-          },
-          (payload) => {
-            const { new: newData } = payload;
-            logDebug("AIStatusBadge", `Actualización recibida para análisis: ${newData.status}, progreso: ${newData.progress}%, etapa: ${newData.stage || "N/A"}`);
-            
-            if (newData.status === "analyzing") {
-              setStatus("analyzing");
-              setMessage("IA");
-              setDetailedInfo(`Análisis en proceso: ${newData.stage || "Procesando"} (${newData.progress}%)`);
-            } else if (newData.status === "completed") {
-              setStatus("completed");
-              setMessage("IA");
-              setDetailedInfo(`¡Análisis completado!`);
-              
-              // Notificar al usuario
-              toast({
-                title: "Análisis completado",
-                description: "El análisis de mensaje mágico ha finalizado. Haz clic para ver los resultados.",
-                variant: "success",
-                onClick: () => navigate("/magic-order")
-              });
-              
-              // Cancelar la suscripción después de completado
-              supabase.removeChannel(channel);
-              setActiveSubscription(false);
-            } else if (newData.status === "error") {
-              setStatus("error");
-              setMessage("Error");
-              setDetailedInfo(newData.error_message || "Error en el análisis");
-              
-              // Notificar al usuario
-              toast({
-                title: "Error en el análisis",
-                description: newData.error_message || "Ocurrió un error durante el análisis del mensaje",
-                variant: "destructive"
-              });
-              
-              // Cancelar la suscripción después de error
-              supabase.removeChannel(channel);
-              setActiveSubscription(false);
-            }
-          }
-        )
-        .subscribe();
-      
-      setActiveSubscription(true);
-      
-      return () => {
-        supabase.removeChannel(channel);
-        setActiveSubscription(false);
-      };
     };
 
     // Añadir el listener para el evento personalizado
