@@ -13,6 +13,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { logStateOperation, logDebug } from '@/lib/debug-utils';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
 
 export const OrdersList = () => {
   const { state, itemState, actions } = useOrders();
@@ -63,7 +65,8 @@ export const OrdersList = () => {
     completeClientSwipeAnimation,
     closeAllSwipes,
     registerProductRef,
-    registerClientRef
+    registerClientRef,
+    handleAddAllOrders
   } = actions;
   
   // Registrar el estado de los pedidos cuando cambie y guardar en sessionStorage
@@ -126,6 +129,15 @@ export const OrdersList = () => {
     }, {} as {[key: string]: {clientName: string, orders: typeof orders}});
   }, [orders, searchTerm]);
   
+  // Verificar si hay pedidos válidos para agregar
+  const hasValidOrders = useMemo(() => {
+    return orders.length > 0 && orders.some(order => 
+      order.status !== 'saved' && 
+      order.clientId && 
+      !order.items.some(item => !item.productId)
+    );
+  }, [orders]);
+  
   return (
     <div>
       {Object.keys(ordersByClient).length === 0 ? (
@@ -138,8 +150,22 @@ export const OrdersList = () => {
         </div>
       ) : (
         <div className="mb-4">
-          <div className="text-sm text-muted-foreground mb-2">
-            {Object.keys(ordersByClient).length} {Object.keys(ordersByClient).length === 1 ? 'cliente' : 'clientes'} con pedidos
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-sm text-muted-foreground">
+              {Object.keys(ordersByClient).length} {Object.keys(ordersByClient).length === 1 ? 'cliente' : 'clientes'} con pedidos
+            </div>
+            
+            {hasValidOrders && (
+              <Button 
+                onClick={handleAddAllOrders}
+                disabled={isSaving}
+                size="sm"
+                className="flex items-center gap-1"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Agregar todos los pedidos
+              </Button>
+            )}
           </div>
           
           {Object.entries(ordersByClient).map(([clientId, { clientName, orders }]) => (
