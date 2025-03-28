@@ -106,8 +106,6 @@ export const useOrdersState = () => {
           orders: transformedOrders,
           clientMap
         }));
-        
-        return { transformedOrders, clientMap };
       }
     } catch (error: any) {
       console.error("Error al cargar pedidos:", error);
