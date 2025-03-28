@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { Order, OrdersContextProps, OrdersState, OrderItemState, OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -473,7 +472,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
           order.id === orderId 
             ? { ...order, amountPaid: newAmountPaid, balance: newBalance } 
             : order
-        )
+        ))
       }));
       
       toast({
@@ -1167,6 +1166,109 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     setItemState(prev => ({ ...prev, clientToDelete: clientId }));
   };
   
+  const handleAddAllOrders = async () => {
+    try {
+      toast({
+        title: "Procesando pedidos",
+        description: "Guardando todos los pedidos válidos...",
+        variant: "default"
+      });
+      
+      // Obtener pedidos válidos (los que no tienen problemas de identificación)
+      const validOrders = state.orders.filter(order => 
+        order.status === 'pending' && 
+        order.clientId && 
+        !order.items.some(item => !item.product_id)
+      );
+      
+      if (validOrders.length === 0) {
+        toast({
+          title: "No hay pedidos válidos",
+          description: "No se encontraron pedidos que se puedan guardar automáticamente",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      let successCount = 0;
+      
+      for (const order of validOrders) {
+        // Calcular el total basado en los precios y cantidades
+        let total = 0;
+        for (const item of order.items) {
+          total += item.price * item.quantity;
+        }
+        
+        // Guardar el pedido en la base de datos
+        const { data: newOrder, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            client_id: order.clientId,
+            date: new Date().toISOString().split('T')[0],
+            status: 'pending',
+            total: total,
+            amount_paid: 0, // Por defecto, el pedido no está pagado
+            balance: total
+          })
+          .select('id')
+          .single();
+          
+        if (orderError || !newOrder) {
+          console.error("Error al guardar el pedido:", orderError);
+          continue;
+        }
+        
+        // Crear los items del pedido
+        const orderItems = order.items.map(item => ({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id || null,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+          is_paid: false
+        }));
+        
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(orderItems);
+          
+        if (itemsError) {
+          console.error("Error al guardar los items del pedido:", itemsError);
+          // Si hay error en los items, eliminar el pedido creado
+          await supabase.from('orders').delete().eq('id', newOrder.id);
+          continue;
+        }
+        
+        successCount++;
+      }
+      
+      if (successCount > 0) {
+        toast({
+          title: "Pedidos guardados",
+          description: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente`,
+          variant: "success"
+        });
+        
+        // Actualizar la lista de pedidos
+        fetchOrders(true);
+      } else {
+        toast({
+          title: "Error al guardar",
+          description: "No se pudo guardar ningún pedido",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      console.error("Error al guardar todos los pedidos:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al guardar los pedidos",
+        variant: "destructive"
+      });
+    }
+  };
+  
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
@@ -1200,7 +1302,8 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
       completeClientSwipeAnimation,
       closeAllSwipes,
       registerProductRef,
-      registerClientRef
+      registerClientRef,
+      handleAddAllOrders
     }
   };
   
