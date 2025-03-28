@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analysis_status: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          magic_order_id: string | null
+          progress: number | null
+          stage: string | null
+          started_at: string | null
+          status: string
+          token_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          magic_order_id?: string | null
+          progress?: number | null
+          stage?: string | null
+          started_at?: string | null
+          status: string
+          token_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          magic_order_id?: string | null
+          progress?: number | null
+          stage?: string | null
+          started_at?: string | null
+          status?: string
+          token_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_status_magic_order_id_fkey"
+            columns: ["magic_order_id"]
+            isOneToOne: false
+            referencedRelation: "magic_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string | null
@@ -30,6 +77,63 @@ export type Database = {
           name?: string
           phone?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      magic_orders: {
+        Row: {
+          analysis_time: number | null
+          api_provider: string | null
+          browser_id: string | null
+          client_ids: Json | null
+          created_at: string
+          device_id: string | null
+          id: string
+          message: string
+          model: string | null
+          phase1_response: string | null
+          phase2_response: string | null
+          phase3_response: string | null
+          result: Json | null
+          status: string
+          token_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          analysis_time?: number | null
+          api_provider?: string | null
+          browser_id?: string | null
+          client_ids?: Json | null
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          message: string
+          model?: string | null
+          phase1_response?: string | null
+          phase2_response?: string | null
+          phase3_response?: string | null
+          result?: Json | null
+          status?: string
+          token_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analysis_time?: number | null
+          api_provider?: string | null
+          browser_id?: string | null
+          client_ids?: Json | null
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          message?: string
+          model?: string | null
+          phase1_response?: string | null
+          phase2_response?: string | null
+          phase3_response?: string | null
+          result?: Json | null
+          status?: string
+          token_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

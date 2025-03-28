@@ -18,6 +18,10 @@ const badgeVariants = cva(
         outline: "text-foreground",
         analyzing: 
           "border-transparent bg-blue-500 text-white hover:bg-blue-600",
+        completed:
+          "border-transparent bg-green-500 text-white hover:bg-green-600",
+        error:
+          "border-transparent bg-red-500 text-white hover:bg-red-600",
         custom:
           "border-transparent", // Usamos una variante custom para poder aplicar clases personalizadas
       },

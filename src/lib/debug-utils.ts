@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para depuración y registro de actividad
- * v1.0.0
+ * v1.0.1
  */
 
 // Configurar si los logs están habilitados (para poder desactivarlos en producción)
@@ -65,4 +65,39 @@ export const formatErrorMessage = (error: any): string => {
   if (error?.error) return formatErrorMessage(error.error);
   
   return 'Ha ocurrido un error inesperado';
+};
+
+/**
+ * Obtiene un ID único para rasteo de operaciones
+ */
+export const generateTraceId = (): string => {
+  return `trace-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+};
+
+/**
+ * Genera un ID único para el dispositivo actual 
+ */
+export const getDeviceId = (): string => {
+  let deviceId = localStorage.getItem('device_id');
+  
+  if (!deviceId) {
+    deviceId = `device-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem('device_id', deviceId);
+  }
+  
+  return deviceId;
+};
+
+/**
+ * Genera un ID único para la sesión actual del navegador
+ */
+export const getBrowserSessionId = (): string => {
+  let browserId = sessionStorage.getItem('browser_id');
+  
+  if (!browserId) {
+    browserId = `browser-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    sessionStorage.setItem('browser_id', browserId);
+  }
+  
+  return browserId;
 };

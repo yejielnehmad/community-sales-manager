@@ -6,7 +6,6 @@ import { logDebug, logError } from "@/lib/debug-utils";
 export type ApiProvider = "cohere" | "google-gemini";
 let currentApiProvider: ApiProvider = "cohere"; // Por defecto usamos Cohere
 
-// Definición de la variable faltante
 let currentGeminiModel: string = GOOGLE_GEMINI_MODELS.GEMINI_FLASH_2; // Por defecto usamos gemini-2.0-flash
 
 export const setApiProvider = (provider: ApiProvider) => {
@@ -39,6 +38,8 @@ export class GeminiError extends Error {
   phase1Response?: string;
   phase2Response?: string;
   phase3Response?: string;
+  analysisId?: string;
+  tokenId?: string;
   
   constructor(message: string, details?: { 
     status?: number, 
@@ -47,7 +48,9 @@ export class GeminiError extends Error {
     rawJsonResponse?: string,
     phase1Response?: string,
     phase2Response?: string,
-    phase3Response?: string
+    phase3Response?: string,
+    analysisId?: string,
+    tokenId?: string
   }) {
     super(message);
     this.name = "GeminiError";
@@ -58,6 +61,8 @@ export class GeminiError extends Error {
     this.phase1Response = details?.phase1Response;
     this.phase2Response = details?.phase2Response;
     this.phase3Response = details?.phase3Response;
+    this.analysisId = details?.analysisId;
+    this.tokenId = details?.tokenId;
   }
 }
 
@@ -531,6 +536,238 @@ export const fetchDatabaseContext = async () => {
 };
 
 /**
+ * Crea un nuevo registro de análisis en la base de datos
+ */
+export const createMagicOrderAnalysis = async (message: string): Promise<{id: string, tokenId: string}> => {
+  const tokenId = crypto.randomUUID();
+  
+  try {
+    // Intentar obtener un identificador único para el dispositivo/navegador
+    let deviceId = localStorage.getItem('device_id');
+    let browserId = sessionStorage.getItem('browser_id');
+    
+    if (!deviceId) {
+      deviceId = `device-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem('device_id', deviceId);
+    }
+    
+    if (!browserId) {
+      browserId = `browser-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      sessionStorage.setItem('browser_id', browserId);
+    }
+    
+    // Crear el registro de análisis
+    const { data, error } = await supabase
+      .from('magic_orders')
+      .insert({
+        message: message,
+        api_provider: getCurrentApiProvider(),
+        model: getCurrentGeminiModel(),
+        token_id: tokenId,
+        status: 'pending',
+        device_id: deviceId,
+        browser_id: browserId
+      })
+      .select('id, token_id')
+      .single();
+    
+    if (error) throw error;
+    
+    // Crear el registro de estado del análisis
+    const { error: statusError } = await supabase
+      .from('analysis_status')
+      .insert({
+        magic_order_id: data.id,
+        token_id: tokenId,
+        status: 'queued',
+        progress: 0,
+        stage: 'Iniciando análisis'
+      });
+    
+    if (statusError) throw statusError;
+    
+    logDebug("API", `Análisis creado con ID: ${data.id} y Token: ${tokenId}`);
+    
+    return {id: data.id, tokenId};
+  } catch (error) {
+    logError("API", `Error al crear registro de análisis: ${(error as Error).message}`, error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza el estado de un análisis en la base de datos
+ */
+export const updateAnalysisStatus = async (
+  tokenId: string, 
+  status: 'queued' | 'analyzing' | 'completed' | 'error',
+  data: {
+    progress?: number,
+    stage?: string,
+    error_message?: string,
+    completed_at?: string
+  }
+) => {
+  try {
+    const updateData: any = {
+      status,
+      ...data
+    };
+    
+    if (status === 'completed' && !data.completed_at) {
+      updateData.completed_at = new Date().toISOString();
+    }
+    
+    const { error } = await supabase
+      .from('analysis_status')
+      .update(updateData)
+      .eq('token_id', tokenId);
+    
+    if (error) throw error;
+    
+    logDebug("API", `Estado del análisis actualizado: ${status}, progreso: ${data.progress || 0}%, etapa: ${data.stage || "N/A"}`);
+  } catch (error) {
+    logError("API", `Error al actualizar estado del análisis: ${(error as Error).message}`, error);
+    // No lanzamos el error para evitar interrumpir el flujo principal
+  }
+};
+
+/**
+ * Guardar el resultado del análisis en la base de datos
+ */
+export const saveAnalysisResult = async (
+  id: string, 
+  tokenId: string,
+  result: MessageAnalysis[],
+  phase1Response: string,
+  phase2Response: string,
+  phase3Response?: string,
+  analysisTime?: number
+) => {
+  try {
+    // Extraer los IDs de los clientes para facilitar la búsqueda
+    const clientIds = result.map(r => r.client.id).filter(id => id) as string[];
+    
+    const { error } = await supabase
+      .from('magic_orders')
+      .update({
+        result: result,
+        phase1_response: phase1Response,
+        phase2_response: phase2Response,
+        phase3_response: phase3Response,
+        analysis_time: analysisTime,
+        status: 'completed',
+        client_ids: clientIds.length > 0 ? clientIds : null
+      })
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    // Actualizar el estado del análisis
+    await updateAnalysisStatus(tokenId, 'completed', {
+      progress: 100,
+      stage: 'Análisis completado',
+      completed_at: new Date().toISOString()
+    });
+    
+    logDebug("API", `Resultado del análisis guardado para ID: ${id}`);
+  } catch (error) {
+    logError("API", `Error al guardar resultado del análisis: ${(error as Error).message}`, error);
+    throw error;
+  }
+};
+
+/**
+ * Guardar un error en el análisis
+ */
+export const saveAnalysisError = async (
+  id: string,
+  tokenId: string,
+  error: any
+) => {
+  try {
+    const errorMessage = error instanceof GeminiError 
+      ? error.message 
+      : (error instanceof Error ? error.message : "Error desconocido");
+    
+    const { error: dbError } = await supabase
+      .from('magic_orders')
+      .update({
+        status: 'error',
+        phase1_response: error instanceof GeminiError ? error.phase1Response || null : null,
+        phase2_response: error instanceof GeminiError ? error.phase2Response || null : null,
+        phase3_response: error instanceof GeminiError ? error.phase3Response || null : null
+      })
+      .eq('id', id);
+    
+    if (dbError) throw dbError;
+    
+    // Actualizar el estado del análisis
+    await updateAnalysisStatus(tokenId, 'error', {
+      error_message: errorMessage,
+      progress: 0,
+      stage: 'Error en el análisis'
+    });
+    
+    logDebug("API", `Error del análisis guardado para ID: ${id}`);
+  } catch (dbError) {
+    logError("API", `Error al guardar error del análisis: ${(dbError as Error).message}`, dbError);
+    // No lanzamos el error para evitar interrumpir el flujo principal
+  }
+};
+
+/**
+ * Busca un análisis previo por token
+ */
+export const getAnalysisByToken = async (tokenId: string): Promise<any> => {
+  try {
+    // Primero buscar el estado del análisis
+    const { data: statusData, error: statusError } = await supabase
+      .from('analysis_status')
+      .select('*')
+      .eq('token_id', tokenId)
+      .single();
+    
+    if (statusError) {
+      if (statusError.code !== 'PGRST116') { // No data found error
+        throw statusError;
+      }
+      return null;
+    }
+    
+    // Si el análisis está en curso o en error, devolver solo el estado
+    if (statusData.status === 'queued' || statusData.status === 'analyzing') {
+      return {
+        status: statusData.status,
+        progress: statusData.progress,
+        stage: statusData.stage,
+        tokenId
+      };
+    }
+    
+    // Si el análisis está completo o en error, obtener el resultado completo
+    const { data: orderData, error: orderError } = await supabase
+      .from('magic_orders')
+      .select('*')
+      .eq('token_id', tokenId)
+      .single();
+    
+    if (orderError) throw orderError;
+    
+    return {
+      ...orderData,
+      status: statusData.status,
+      progress: statusData.progress,
+      stage: statusData.stage,
+      error_message: statusData.error_message
+    };
+  } catch (error) {
+    logError("API", `Error al buscar análisis por token: ${(error as Error).message}`, error);
+    return null;
+  }
+};
+
+/**
  * Analiza un mensaje en dos fases:
  * 1. Primero hace un análisis general y separación por cliente
  * 2. Luego convierte ese análisis a formato JSON estructurado
@@ -794,63 +1031,154 @@ export const analyzeThreePhases = async (
 export const analyzeCustomerMessage = async (
   message: string, 
   onProgress?: (progress: number, stage?: string) => void
-): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string, elapsedTime?: number}> => {
+): Promise<{
+  result: MessageAnalysis[], 
+  phase1Response?: string, 
+  phase2Response?: string, 
+  phase3Response?: string, 
+  elapsedTime?: number,
+  id?: string,
+  tokenId?: string
+}> => {
   try {
-    console.log("Analizando mensaje...");
+    logDebug("API", "Analizando mensaje...");
     
     // Iniciamos el tiempo de medición
     const startTime = performance.now();
     
+    // Crear el registro de análisis en la base de datos
+    const { id, tokenId } = await createMagicOrderAnalysis(message);
+    
+    // Actualizar progreso inicial
     onProgress?.(10, "Iniciando análisis...");
+    await updateAnalysisStatus(tokenId, 'analyzing', { progress: 10, stage: "Iniciando análisis..." });
+    
+    // Disparamos un evento para actualizar la insignia AI
+    const initEvent = new CustomEvent('analysisStateChange', {
+      detail: { 
+        isAnalyzing: true,
+        stage: "Iniciando análisis...",
+        tokenId
+      }
+    });
+    window.dispatchEvent(initEvent);
     
     const dbContext = await fetchDatabaseContext();
     onProgress?.(20, "Cargando datos de contexto...");
+    await updateAnalysisStatus(tokenId, 'analyzing', { progress: 20, stage: "Cargando datos de contexto..." });
     
     // Usamos el análisis en dos fases con corrección automática en fase 3 si es necesario
-    console.log("Usando el método optimizado de análisis en dos fases con corrección opcional");
+    logDebug("API", "Usando el método optimizado de análisis en dos fases con corrección opcional");
     try {
-      const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+      const updateProgressWithStatus = (progress: number, stage?: string) => {
+        onProgress?.(progress, stage);
+        updateAnalysisStatus(tokenId, 'analyzing', { progress, stage });
+      };
+      
+      const twoPhaseResult = await analyzeTwoPhases(message, dbContext, updateProgressWithStatus);
       
       // Calculamos el tiempo transcurrido
       const endTime = performance.now();
       const elapsedTime = endTime - startTime;
+      
+      // Guardar el resultado en la base de datos
+      await saveAnalysisResult(
+        id,
+        tokenId,
+        twoPhaseResult.result,
+        twoPhaseResult.phase1Response,
+        twoPhaseResult.phase2Response,
+        twoPhaseResult.phase3Response,
+        elapsedTime
+      );
       
       return {
         result: twoPhaseResult.result,
         phase1Response: twoPhaseResult.phase1Response,
         phase2Response: twoPhaseResult.phase2Response,
         phase3Response: twoPhaseResult.phase3Response,
-        elapsedTime
+        elapsedTime,
+        id,
+        tokenId
       };
     } catch (error) {
-      console.error("Error en el análisis optimizado, intentando método de reserva:", error);
+      logError("API", "Error en el análisis optimizado, intentando método de reserva:", error);
       
       // Fallback al método de tres fases completo si el optimizado falla
-      console.log("Usando método de reserva: análisis en tres fases completo");
+      logDebug("API", "Usando método de reserva: análisis en tres fases completo");
+      await updateAnalysisStatus(tokenId, 'analyzing', { progress: 30, stage: "Usando método alternativo..." });
       onProgress?.(30, "Usando método alternativo...");
       
-      const threePhaseResult = await analyzeThreePhases(message, dbContext, 
-        (progress) => onProgress?.(30 + Math.floor(progress * 0.7), "Análisis alternativo en curso..."));
+      const updateFallbackProgress = (progress: number) => {
+        const scaledProgress = 30 + Math.floor(progress * 0.7);
+        onProgress?.(scaledProgress, "Análisis alternativo en curso...");
+        updateAnalysisStatus(tokenId, 'analyzing', { 
+          progress: scaledProgress, 
+          stage: "Análisis alternativo en curso..." 
+        });
+      };
+      
+      const threePhaseResult = await analyzeThreePhases(message, dbContext, updateFallbackProgress);
       
       // Calculamos el tiempo transcurrido
       const endTime = performance.now();
       const elapsedTime = endTime - startTime;
+      
+      // Guardar el resultado en la base de datos
+      await saveAnalysisResult(
+        id,
+        tokenId,
+        threePhaseResult.result,
+        threePhaseResult.phase1Response,
+        threePhaseResult.phase2Response,
+        threePhaseResult.phase3Response,
+        elapsedTime
+      );
       
       return {
         result: threePhaseResult.result,
         phase1Response: threePhaseResult.phase1Response,
         phase2Response: threePhaseResult.phase2Response,
         phase3Response: threePhaseResult.phase3Response,
-        elapsedTime
+        elapsedTime,
+        id,
+        tokenId
       };
     }
   } catch (error) {
-    console.error("Error final en analyzeCustomerMessage:", error);
+    logError("API", "Error final en analyzeCustomerMessage:", error);
     onProgress?.(100, "Error en el análisis");
+    
+    // Si tenemos ID y tokenId, guardar el error
+    if (error instanceof GeminiError && error.analysisId && error.tokenId) {
+      await saveAnalysisError(error.analysisId, error.tokenId, error);
+      
+      // Disparamos un evento para actualizar la insignia AI
+      const errorEvent = new CustomEvent('analysisStateChange', {
+        detail: { 
+          isAnalyzing: false,
+          status: "error",
+          error: error.message,
+          tokenId: error.tokenId
+        }
+      });
+      window.dispatchEvent(errorEvent);
+    }
+    
     if (error instanceof GeminiError) {
       throw error;
     }
-    throw new GeminiError(`Error al analizar el mensaje: ${(error as Error).message}`);
+    
+    // Creamos un nuevo GeminiError para mantener la consistencia de la interfaz
+    const newError = new GeminiError(`Error al analizar el mensaje: ${(error as Error).message}`);
+    
+    // Si tenemos ID y tokenId de alguna manera, los agregamos al error
+    if (typeof error === 'object' && error !== null && 'analysisId' in error && 'tokenId' in error) {
+      newError.analysisId = (error as any).analysisId;
+      newError.tokenId = (error as any).tokenId;
+    }
+    
+    throw newError;
   }
 };
 
