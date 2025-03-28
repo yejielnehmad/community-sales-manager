@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para depuración y registro de actividad
- * v1.0.2
+ * v1.0.3
  */
 
 // Configurar si los logs están habilitados (para poder desactivarlos en producción)

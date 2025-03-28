@@ -29,39 +29,6 @@ const AIStatusBadge = ({
   // Si el estado cambia, emitimos un evento para notificar a otros componentes
   const statusRef = useRef(status);
   
-  useEffect(() => {
-    statusRef.current = status;
-    
-    // Crear un evento personalizado para notificar el cambio de estado
-    const event = new CustomEvent('aiStatusChange', {
-      detail: { status, message, detailedInfo, tokenId }
-    });
-    window.dispatchEvent(event);
-    
-    // Guardamos el estado actual en sessionStorage para mantenerlo entre navegaciones
-    if (status === "analyzing") {
-      sessionStorage.setItem('aiStatus', status);
-      sessionStorage.setItem('aiMessage', message);
-      sessionStorage.setItem('aiDetailedInfo', detailedInfo);
-      if (tokenId) {
-        sessionStorage.setItem('aiTokenId', tokenId);
-      }
-    } else if (status === "completed" || status === "error") {
-      // No eliminar los datos de la sesión inmediatamente para permitir navegar a los resultados
-      sessionStorage.setItem('aiStatus', status);
-      sessionStorage.setItem('aiMessage', message);
-      sessionStorage.setItem('aiDetailedInfo', detailedInfo);
-      if (tokenId) {
-        sessionStorage.setItem('aiTokenId', tokenId);
-      }
-    } else {
-      sessionStorage.removeItem('aiStatus');
-      sessionStorage.removeItem('aiMessage');
-      sessionStorage.removeItem('aiDetailedInfo');
-      sessionStorage.removeItem('aiTokenId');
-    }
-  }, [status, message, detailedInfo, tokenId]);
-
   // Función para suscribirse a los cambios de estado del análisis en la base de datos
   const subscribeToAnalysis = (analysisTokenId: string) => {
     if (activeSubscription) {
@@ -131,6 +98,39 @@ const AIStatusBadge = ({
       setActiveSubscription(false);
     };
   };
+  
+  useEffect(() => {
+    statusRef.current = status;
+    
+    // Crear un evento personalizado para notificar el cambio de estado
+    const event = new CustomEvent('aiStatusChange', {
+      detail: { status, message, detailedInfo, tokenId }
+    });
+    window.dispatchEvent(event);
+    
+    // Guardamos el estado actual en sessionStorage para mantenerlo entre navegaciones
+    if (status === "analyzing") {
+      sessionStorage.setItem('aiStatus', status);
+      sessionStorage.setItem('aiMessage', message);
+      sessionStorage.setItem('aiDetailedInfo', detailedInfo);
+      if (tokenId) {
+        sessionStorage.setItem('aiTokenId', tokenId);
+      }
+    } else if (status === "completed" || status === "error") {
+      // No eliminar los datos de la sesión inmediatamente para permitir navegar a los resultados
+      sessionStorage.setItem('aiStatus', status);
+      sessionStorage.setItem('aiMessage', message);
+      sessionStorage.setItem('aiDetailedInfo', detailedInfo);
+      if (tokenId) {
+        sessionStorage.setItem('aiTokenId', tokenId);
+      }
+    } else {
+      sessionStorage.removeItem('aiStatus');
+      sessionStorage.removeItem('aiMessage');
+      sessionStorage.removeItem('aiDetailedInfo');
+      sessionStorage.removeItem('aiTokenId');
+    }
+  }, [status, message, detailedInfo, tokenId]);
 
   // Suscribirse a cambios en el estado del análisis en la base de datos
   useEffect(() => {

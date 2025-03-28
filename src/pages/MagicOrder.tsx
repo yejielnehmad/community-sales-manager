@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ import { logDebug, logError } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.55
+ * v1.0.57
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -954,9 +955,284 @@ const MagicOrder = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Zona de entrada del mensaje */}
+        <Card className="rounded-xl shadow-sm overflow-hidden">
+          <CardHeader className="py-3">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Mensaje del cliente</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowGenerator(!showGenerator)}
+                  className="text-xs h-7 px-2"
+                >
+                  {showGenerator ? "Ocultar ejemplos" : "Ver ejemplos"}
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-0 pt-0">
+            {showGenerator && (
+              <div className="mb-3">
+                <MessageExampleGenerator 
+                  onSelectExample={handleSelectExample}
+                  products={products}
+                  clients={clients}
+                />
+              </div>
+            )}
+            
+            <div className="relative">
+              <Textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ejemplo: Hola, quiero pedir 2 pasteles de chocolate y 1 de vainilla. Gracias!"
+                className="min-h-32 resize-y border-muted"
+                disabled={isAnalyzing || isLoadingData}
+              />
+              
+              {message && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-2 top-2 h-7 w-7 rounded-full opacity-70 hover:opacity-100"
+                  onClick={handleClearMessage}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Limpiar mensaje</span>
+                </Button>
+              )}
+            </div>
+
+            {isAnalyzing && (
+              <div className="my-3">
+                <div className="flex justify-between items-center mb-1 text-sm">
+                  <span className="text-muted-foreground">{progressStage}</span>
+                  <span className="font-medium">{Math.round(progress)}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="py-3 flex justify-between">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePaste}
+                className="flex items-center gap-1"
+                disabled={isAnalyzing || isLoadingData}
+              >
+                <Clipboard className="h-4 w-4" />
+                Pegar
+              </Button>
+            </div>
+            
+            <Button
+              onClick={handleAnalyzeMessage}
+              disabled={isAnalyzing || isLoadingData || !message.trim()}
+              className="flex items-center gap-1"
+              size="sm"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analizando...
+                </>
+              ) : (
+                <>
+                  <Wand className="h-4 w-4" />
+                  Analizar mensaje
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+
+        {/* Área de resultados del análisis */}
+        {orders.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                Pedidos detectados ({orders.length})
+              </h2>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowOrderSummary(!showOrderSummary)}
+                  className="flex items-center gap-1"
+                >
+                  {showOrderSummary ? (
+                    <>
+                      <ChevronUp className="h-4 w-4" />
+                      Ocultar pedidos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" />
+                      Mostrar pedidos ({orders.length})
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  size="sm"
+                  onClick={handleSaveAllOrders}
+                  disabled={isSavingAllOrders || !allOrdersComplete}
+                  className="flex items-center gap-1"
+                >
+                  {isSavingAllOrders ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Guardar todos
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            <Collapsible open={showOrderSummary}>
+              <CollapsibleContent className="space-y-6">
+                {/* Contador de problemas */}
+                {incompleteOrders.length > 0 && (
+                  <Card className="rounded-xl overflow-hidden bg-amber-50 dark:bg-yellow-900/20 border-amber-200 dark:border-yellow-800">
+                    <CardContent className="p-4">
+                      <div className="flex gap-2 items-center">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                        <p className="text-amber-600 dark:text-amber-500">
+                          <strong>Atención:</strong> Hay {incompleteOrders.length} pedido{incompleteOrders.length !== 1 ? 's' : ''} con detalles por confirmar
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Organizar pedidos por cliente */}
+                {Object.entries(ordersByClient).map(([clientId, { clientName, orders: clientOrders, indices }]) => (
+                  <div key={clientId} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                      <h3 className="text-lg font-medium">{clientName}</h3>
+                      <Badge variant="outline">{clientOrders.length} pedido{clientOrders.length !== 1 ? 's' : ''}</Badge>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {clientOrders.map((order, i) => (
+                        <SimpleOrderCardNew
+                          key={`order-${indices[i]}`}
+                          order={order}
+                          onUpdateOrder={(updatedOrder) => handleUpdateOrder(indices[i], updatedOrder)}
+                          onSaveOrder={() => handleSaveOrder(indices[i], order)}
+                          onDeleteOrder={() => handleDeleteOrder(indices[i])}
+                          products={products}
+                          clients={clients}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
         
-        {/* Resto del código del componente */}
-        {/* ... keep existing code (JSX content) */}
+        {/* Diálogo modal para ver detalles del análisis */}
+        <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
+          <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Detalles del análisis</DialogTitle>
+              <DialogDescription>
+                Visualiza las diferentes fases del procesamiento del mensaje
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Tabs defaultValue="phase1" className="flex-1 flex flex-col" value={analysisDialogTab} onValueChange={setAnalysisDialogTab}>
+              <TabsList>
+                <TabsTrigger value="phase1">Fase 1: Procesamiento</TabsTrigger>
+                <TabsTrigger value="phase2">Fase 2: Extracción</TabsTrigger>
+                <TabsTrigger value="phase3">Fase 3: Verificación</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="phase1" className="flex-1 overflow-auto p-4 border rounded-md mt-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base font-medium">Procesamiento de texto</h3>
+                  </div>
+                  
+                  <div className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-md overflow-auto max-h-[60vh]">
+                    {phase1Response || "No hay datos disponibles para esta fase"}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="phase2" className="flex-1 overflow-auto p-4 border rounded-md mt-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base font-medium">Extracción de datos</h3>
+                  </div>
+                  
+                  <div className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-md overflow-auto max-h-[60vh]">
+                    {phase2Response ? JSON.stringify(JSON.parse(phase2Response), null, 2) : "No hay datos disponibles para esta fase"}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="phase3" className="flex-1 overflow-auto p-4 border rounded-md mt-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base font-medium">Verificación y mapeo</h3>
+                  </div>
+                  
+                  <div className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-md overflow-auto max-h-[60vh]">
+                    {phase3Response ? JSON.stringify(JSON.parse(phase3Response), null, 2) : "No hay datos disponibles para esta fase"}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Diálogo de alerta para confirmaciones */}
+        <AlertDialog open={alertMessage !== null} onOpenChange={(open) => !open && setAlertMessage(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {alertMessage?.message}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction>Aceptar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* Diálogo de confirmación para eliminar pedido */}
+        <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => !open && setOrderToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar pedido?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Estás por eliminar el pedido de <strong>{orderToDelete?.name}</strong>. Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={handleConfirmDeleteOrder}>
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
