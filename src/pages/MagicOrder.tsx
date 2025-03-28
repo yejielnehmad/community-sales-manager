@@ -79,7 +79,7 @@ import {
 
 /**
  * Página Mensaje Mágico
- * v1.0.68
+ * v1.0.69
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -946,3 +946,137 @@ const MagicOrder = () => {
                 variant="outline"
                 onClick={handlePaste}
                 disabled={isAnalyzing}
+              >
+                <Clipboard size={16} />
+                <span>Pegar</span>
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowGenerator(prev => !prev)}
+                  disabled={isAnalyzing}
+                >
+                  <Sparkles size={16} />
+                  <span>Ejemplos</span>
+                </Button>
+                <Button
+                  onClick={handleAnalyzeMessage}
+                  disabled={isAnalyzing || !message.trim()}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analizando...
+                    </>
+                  ) : (
+                    <>
+                      <Wand className="h-4 w-4" />
+                      Analizar mensaje
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
+
+        {/* AlertDialog para mensajes */}
+        <AlertDialog 
+          open={alertMessage !== null}
+          onOpenChange={(open) => !open && setAlertMessage(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {alertMessage?.message}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction>Aceptar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* AlertDialog para confirmar eliminación de pedido */}
+        <AlertDialog
+          open={orderToDelete !== null}
+          onOpenChange={(open) => !open && setOrderToDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Estás seguro de que deseas eliminar el pedido de {orderToDelete?.name}?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDeleteOrder}>Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Diálogo para ver detalles del análisis */}
+        <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Detalles del análisis</DialogTitle>
+              <DialogDescription>
+                Aquí puedes ver el proceso detallado del análisis del mensaje
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Tabs value={analysisDialogTab} onValueChange={setAnalysisDialogTab} className="flex-1 overflow-hidden flex flex-col">
+              <TabsList className="grid grid-cols-3">
+                <TabsTrigger value="phase1">1. Limpieza y análisis</TabsTrigger>
+                <TabsTrigger value="phase2">2. Identificación JSON</TabsTrigger>
+                <TabsTrigger value="phase3">3. Validación</TabsTrigger>
+              </TabsList>
+              
+              <div className="flex-1 overflow-auto">
+                <TabsContent value="phase1" className="mt-0 h-full overflow-auto">
+                  <div className="p-4 border rounded-md h-full">
+                    <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                      <FileText size={14} />
+                      Fase 1: Limpieza y análisis de texto
+                    </h3>
+                    <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
+                      {phase1Response || "No hay datos disponibles para esta fase"}
+                    </pre>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="phase2" className="mt-0 h-full overflow-auto">
+                  <div className="p-4 border rounded-md h-full">
+                    <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                      <Code size={14} />
+                      Fase 2: Identificación y estructura JSON
+                    </h3>
+                    <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
+                      {phase2Response || "No hay datos disponibles para esta fase"}
+                    </pre>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="phase3" className="mt-0 h-full overflow-auto">
+                  <div className="p-4 border rounded-md h-full">
+                    <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                      <Check size={14} />
+                      Fase 3: Validación y corrección de resultados
+                    </h3>
+                    <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
+                      {phase3Response || "No hay datos disponibles para esta fase"}
+                    </pre>
+                  </div>
+                </TabsContent>
+              </div>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+};
+
+export default MagicOrder;
