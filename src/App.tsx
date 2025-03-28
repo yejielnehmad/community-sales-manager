@@ -15,28 +15,33 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Clock } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const App = () => {
   const { toast } = useToast();
   const [isAnalyzingGlobally, setIsAnalyzingGlobally] = useState(false);
   const [analysisStage, setAnalysisStage] = useState("");
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   
   // Escuchar cambios en el estado del análisis en cualquier parte de la aplicación
   useEffect(() => {
     // Primero, intentamos restaurar el estado desde sessionStorage
     const savedIsAnalyzing = sessionStorage.getItem('magicOrder_isAnalyzing');
     const savedAnalysisStage = sessionStorage.getItem('magicOrder_analysisStage');
+    const savedAnalysisProgress = sessionStorage.getItem('magicOrder_analysisProgress');
     
     if (savedIsAnalyzing === 'true') {
       setIsAnalyzingGlobally(true);
       if (savedAnalysisStage) setAnalysisStage(savedAnalysisStage);
+      if (savedAnalysisProgress) setAnalysisProgress(parseInt(savedAnalysisProgress));
       
       // Notificamos del estado recuperado
       const event = new CustomEvent('analysisStateChange', {
         detail: { 
           isAnalyzing: true,
-          stage: savedAnalysisStage || "Procesando mensaje" 
+          stage: savedAnalysisStage || "Procesando mensaje",
+          progress: parseInt(savedAnalysisProgress || "0")
         }
       });
       window.dispatchEvent(event);
@@ -44,20 +49,23 @@ const App = () => {
     
     // Función para manejar el cambio de estado del análisis
     const handleAnalysisStateChange = (event: CustomEvent) => {
-      const { isAnalyzing, stage, ordersCount } = event.detail;
-      console.log("App: Evento de análisis recibido", { isAnalyzing, stage, ordersCount });
+      const { isAnalyzing, stage, ordersCount, progress } = event.detail;
+      console.log("App: Evento de análisis recibido", { isAnalyzing, stage, ordersCount, progress });
       
       // Actualizamos el estado global
       setIsAnalyzingGlobally(isAnalyzing);
       if (stage) setAnalysisStage(stage);
+      if (typeof progress === 'number') setAnalysisProgress(progress);
       
       // Guardamos el estado actual en sessionStorage para mantenerlo entre navegaciones
       if (isAnalyzing) {
         sessionStorage.setItem('magicOrder_isAnalyzing', 'true');
         if (stage) sessionStorage.setItem('magicOrder_analysisStage', stage);
+        if (typeof progress === 'number') sessionStorage.setItem('magicOrder_analysisProgress', progress.toString());
       } else {
         sessionStorage.removeItem('magicOrder_isAnalyzing');
         sessionStorage.removeItem('magicOrder_analysisStage');
+        sessionStorage.removeItem('magicOrder_analysisProgress');
       }
       
       // Cuando el análisis termina y hay órdenes detectadas
@@ -81,11 +89,13 @@ const App = () => {
         const storedIsAnalyzing = sessionStorage.getItem('magicOrder_isAnalyzing');
         if (storedIsAnalyzing === 'true' && !isAnalyzingGlobally) {
           const storedStage = sessionStorage.getItem('magicOrder_analysisStage');
+          const storedProgress = sessionStorage.getItem('magicOrder_analysisProgress');
           // Re-emitir el evento con los datos almacenados
           const event = new CustomEvent('analysisStateChange', {
             detail: { 
               isAnalyzing: true,
-              stage: storedStage || "Procesando mensaje" 
+              stage: storedStage || "Procesando mensaje",
+              progress: parseInt(storedProgress || "0")
             }
           });
           window.dispatchEvent(event);
@@ -102,6 +112,25 @@ const App = () => {
     <ThemeProvider defaultTheme="light" storageKey="app-theme">
       <TooltipProvider>
         <SidebarProvider>
+          {/* Barra de progreso global para el análisis de IA */}
+          {isAnalyzingGlobally && (
+            <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 shadow-md">
+              <div className="container mx-auto p-2">
+                <div className="flex items-center justify-between mb-1 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="font-medium">{analysisStage || "Procesando..."}</span>
+                  </div>
+                  <div className="font-medium flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {Math.round(analysisProgress)}%
+                  </div>
+                </div>
+                <Progress value={analysisProgress} className="h-2 w-full" />
+              </div>
+            </div>
+          )}
+          
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Dashboard />} />

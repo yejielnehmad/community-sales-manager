@@ -1,7 +1,32 @@
-import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT } from "@/lib/api-config";
+import { COHERE_API_KEY, COHERE_ENDPOINT, OPENROUTER_API_KEY, OPENROUTER_ENDPOINT, GOOGLE_API_KEY, GOOGLE_GEMINI_ENDPOINT, GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
 import { MessageAnalysis, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { logDebug, logError } from "@/lib/debug-utils";
+
+export type ApiProvider = "cohere" | "google-gemini";
+let currentApiProvider: ApiProvider = "cohere"; // Por defecto usamos Cohere
+
+export const setApiProvider = (provider: ApiProvider) => {
+  currentApiProvider = provider;
+  logDebug("API", `Proveedor de API establecido a: ${provider}`);
+};
+
+export const getCurrentApiProvider = (): ApiProvider => {
+  return currentApiProvider;
+};
+
+export const setGeminiModel = (model: string) => {
+  if (Object.values(GOOGLE_GEMINI_MODELS).includes(model as any)) {
+    currentGeminiModel = model;
+    logDebug("API", `Modelo de Google Gemini establecido a: ${model}`);
+  } else {
+    logError("API", `Modelo de Google Gemini no válido: ${model}`);
+  }
+};
+
+export const getCurrentGeminiModel = (): string => {
+  return currentGeminiModel;
+};
 
 export class GeminiError extends Error {
   status?: number;
@@ -223,7 +248,7 @@ export const getUseTwoPhasesAnalysis = () => {
 /**
  * Función para realizar peticiones a la API de Cohere
  */
-export const callGeminiAPI = async (prompt: string): Promise<string> => {
+export const callCohereAPI = async (prompt: string): Promise<string> => {
   if (!COHERE_API_KEY) {
     logError("API", "API Key de Cohere no configurada");
     throw new GeminiError("API Key de Cohere no configurada");
@@ -233,7 +258,7 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     // Usar endpoint desde la configuración
     const endpoint = COHERE_ENDPOINT || "https://api.cohere.ai/v1/chat";
     
-    logDebug("API", `Enviando petición a Cohere API v1.0.28: ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Enviando petición a Cohere API: ${prompt.substring(0, 100)}...`);
     logDebug("API", `Usando endpoint: ${endpoint}`);
     
     // Solo mostramos la parte inicial de la API key si tiene suficiente longitud
@@ -313,6 +338,122 @@ export const callGeminiAPI = async (prompt: string): Promise<string> => {
     }
     logError("API", `Error inesperado al llamar a Cohere API:`, error);
     throw new GeminiError(`Error al conectar con Cohere API: ${(error as Error).message}`);
+  }
+};
+
+/**
+ * Función para realizar peticiones a la API de Google Gemini
+ */
+export const callGoogleGeminiAPI = async (prompt: string): Promise<string> => {
+  if (!GOOGLE_API_KEY) {
+    logError("API", "API Key de Google Gemini no configurada");
+    throw new GeminiError("API Key de Google Gemini no configurada");
+  }
+
+  try {
+    // Construir el endpoint completo con el modelo seleccionado
+    const endpoint = `${GOOGLE_GEMINI_ENDPOINT}/${currentGeminiModel}:generateContent?key=${GOOGLE_API_KEY}`;
+    
+    logDebug("API", `Enviando petición a Google Gemini API: ${prompt.substring(0, 100)}...`);
+    logDebug("API", `Usando modelo: ${currentGeminiModel}`);
+    
+    // Solo mostramos la parte inicial de la API key si tiene suficiente longitud
+    if (GOOGLE_API_KEY && GOOGLE_API_KEY.length > 10) {
+      logDebug("API", `API Key (primeros 10 caracteres): ${GOOGLE_API_KEY.substring(0, 10)}...`);
+    } else {
+      logDebug("API", "API Key presente pero es demasiado corta para mostrar");
+    }
+    
+    const response = await fetch(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 4096
+          }
+        }),
+      }
+    );
+
+    const responseText = await response.text();
+    logDebug("API", `Respuesta raw de Google Gemini: ${responseText.substring(0, 200)}...`);
+    
+    if (!response.ok) {
+      logError("API", `Error en respuesta HTTP: ${response.status} ${response.statusText}`, responseText);
+      throw new GeminiError(`Error HTTP: ${response.status} ${response.statusText}`, {
+        status: response.status,
+        statusText: response.statusText,
+        apiResponse: responseText,
+        rawJsonResponse: responseText
+      });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      logError("API", `Error al parsear respuesta de Google Gemini:`, parseError);
+      throw new GeminiError(`Error al parsear respuesta: ${(parseError as Error).message}`, {
+        apiResponse: parseError,
+        rawJsonResponse: responseText
+      });
+    }
+
+    logDebug("API", `Respuesta de Google Gemini (resumida): ${JSON.stringify(data).substring(0, 200)}...`);
+
+    if (data.error) {
+      logError("API", `Error devuelto por la API de Google Gemini:`, data.error);
+      throw new GeminiError(`Error de la API de Google Gemini: ${data.error.message || "Error desconocido"}`, {
+        apiResponse: data.error,
+        rawJsonResponse: responseText
+      });
+    }
+
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0].text) {
+      logError("API", `Respuesta completa con formato incorrecto:`, data);
+      throw new GeminiError("Formato de respuesta inesperado de la API de Google Gemini", {
+        apiResponse: data,
+        rawJsonResponse: responseText
+      });
+    }
+
+    const resultText = data.candidates[0].content.parts[0].text;
+    logDebug("API", `Texto de respuesta: ${resultText.substring(0, 200)}...`);
+    
+    return resultText;
+  } catch (error) {
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    logError("API", `Error inesperado al llamar a Google Gemini API:`, error);
+    throw new GeminiError(`Error al conectar con Google Gemini API: ${(error as Error).message}`);
+  }
+};
+
+/**
+ * Función general para realizar peticiones a la API según el proveedor configurado
+ */
+export const callGeminiAPI = async (prompt: string): Promise<string> => {
+  // Determinar qué API usar según la configuración actual
+  if (currentApiProvider === "google-gemini") {
+    return callGoogleGeminiAPI(prompt);
+  } else {
+    // Por defecto o si es "cohere", usar Cohere
+    return callCohereAPI(prompt);
   }
 };
 
@@ -650,9 +791,12 @@ export const analyzeThreePhases = async (
 export const analyzeCustomerMessage = async (
   message: string, 
   onProgress?: (progress: number, stage?: string) => void
-): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string}> => {
+): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string, elapsedTime?: number}> => {
   try {
     console.log("Analizando mensaje...");
+    
+    // Iniciamos el tiempo de medición
+    const startTime = performance.now();
     
     onProgress?.(10, "Iniciando análisis...");
     
@@ -663,11 +807,17 @@ export const analyzeCustomerMessage = async (
     console.log("Usando el método optimizado de análisis en dos fases con corrección opcional");
     try {
       const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+      
+      // Calculamos el tiempo transcurrido
+      const endTime = performance.now();
+      const elapsedTime = endTime - startTime;
+      
       return {
         result: twoPhaseResult.result,
         phase1Response: twoPhaseResult.phase1Response,
         phase2Response: twoPhaseResult.phase2Response,
-        phase3Response: twoPhaseResult.phase3Response
+        phase3Response: twoPhaseResult.phase3Response,
+        elapsedTime
       };
     } catch (error) {
       console.error("Error en el análisis optimizado, intentando método de reserva:", error);
@@ -678,11 +828,17 @@ export const analyzeCustomerMessage = async (
       
       const threePhaseResult = await analyzeThreePhases(message, dbContext, 
         (progress) => onProgress?.(30 + Math.floor(progress * 0.7), "Análisis alternativo en curso..."));
+      
+      // Calculamos el tiempo transcurrido
+      const endTime = performance.now();
+      const elapsedTime = endTime - startTime;
+      
       return {
         result: threePhaseResult.result,
         phase1Response: threePhaseResult.phase1Response,
         phase2Response: threePhaseResult.phase2Response,
-        phase3Response: threePhaseResult.phase3Response
+        phase3Response: threePhaseResult.phase3Response,
+        elapsedTime
       };
     }
   } catch (error) {

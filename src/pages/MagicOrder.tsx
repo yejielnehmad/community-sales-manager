@@ -23,10 +23,20 @@ import {
   HelpCircle,
   InfoIcon,
   FileText,
-  Code
+  Code,
+  Timer,
+  Clock
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
-import { analyzeCustomerMessage, GeminiError } from "@/services/geminiService";
+import { 
+  analyzeCustomerMessage, 
+  GeminiError,
+  setApiProvider,
+  getCurrentApiProvider,
+  setGeminiModel,
+  getCurrentGeminiModel,
+  ApiProvider
+} from "@/services/geminiService";
 import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
 import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
@@ -57,10 +67,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /**
  * Página Mensaje Mágico
- * v1.0.43
+ * v1.0.47
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -121,6 +139,31 @@ const MagicOrder = () => {
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
+  
+  // Nuevo estado para el API Provider y modelo
+  const [apiProvider, setApiProviderState] = useState<ApiProvider>(() => {
+    const savedProvider = localStorage.getItem('magicOrder_apiProvider');
+    return (savedProvider as ApiProvider) || "cohere";
+  });
+  
+  const [geminiModel, setGeminiModelState] = useState<string>(() => {
+    const savedModel = localStorage.getItem('magicOrder_geminiModel');
+    return savedModel || GOOGLE_GEMINI_MODELS.GEMINI_PRO;
+  });
+  
+  // Estado para el tiempo de análisis
+  const [analysisTime, setAnalysisTime] = useState<number | null>(null);
+  
+  // Efecto para sincronizar el estado con los servicios
+  useEffect(() => {
+    setApiProvider(apiProvider);
+    localStorage.setItem('magicOrder_apiProvider', apiProvider);
+  }, [apiProvider]);
+  
+  useEffect(() => {
+    setGeminiModel(geminiModel);
+    localStorage.setItem('magicOrder_geminiModel', geminiModel);
+  }, [geminiModel]);
   
   // Guardar estado en localStorage cuando cambie
   useEffect(() => {
@@ -252,6 +295,7 @@ const MagicOrder = () => {
     setPhase3Response(null);
     setProgress(5);
     setProgressStage("Preparando análisis...");
+    setAnalysisTime(null);
     
     // Guardamos el mensaje para procesarlo
     const messageToAnalyze = message;
@@ -282,6 +326,10 @@ const MagicOrder = () => {
       
       if (result.phase3Response) {
         setPhase3Response(result.phase3Response);
+      }
+      
+      if (result.elapsedTime) {
+        setAnalysisTime(result.elapsedTime);
       }
       
       setProgress(100);
@@ -683,6 +731,13 @@ const MagicOrder = () => {
     }, {} as Record<string, { clientName: string, orders: OrderCardType[], indices: number[] }>);
   }, [orders]);
 
+  // Función para formatear el tiempo en una manera legible
+  const formatAnalysisTime = (timeInMs: number | null): string => {
+    if (timeInMs === null) return "N/A";
+    if (timeInMs < 1000) return `${Math.round(timeInMs)}ms`;
+    return `${(timeInMs / 1000).toFixed(2)}s`;
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
@@ -721,6 +776,60 @@ const MagicOrder = () => {
             )}
           </div>
         </div>
+
+        {/* Selector de API y modelo */}
+        <Card className="rounded-xl shadow-sm overflow-hidden">
+          <CardHeader className="py-3">
+            <CardTitle className="text-base">Configuración de la IA</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Proveedor de IA</label>
+                <Select 
+                  value={apiProvider} 
+                  onValueChange={(value) => setApiProviderState(value as ApiProvider)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar proveedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cohere">Cohere (Command R+)</SelectItem>
+                    <SelectItem value="google-gemini">Google Gemini</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {apiProvider === "google-gemini" && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Modelo de Gemini</label>
+                  <Select 
+                    value={geminiModel} 
+                    onValueChange={(value) => setGeminiModelState(value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Seleccionar modelo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO}>Gemini Pro</SelectItem>
+                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO_VISION}>Gemini Pro Vision</SelectItem>
+                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_FLASH}>Gemini 1.5 Flash</SelectItem>
+                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO_LATEST}>Gemini 1.5 Pro (Latest)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            
+            {/* Tiempo de análisis */}
+            {analysisTime !== null && (
+              <div className="mt-3 text-sm flex items-center gap-1 text-muted-foreground">
+                <Clock size={14} className="mr-1" />
+                <span>Tiempo de análisis: <span className="font-medium">{formatAnalysisTime(analysisTime)}</span></span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {analyzeError && (
           <Card className="bg-red-50 border-red-200">
