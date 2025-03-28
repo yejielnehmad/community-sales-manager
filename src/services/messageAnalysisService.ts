@@ -1,4 +1,3 @@
-
 /**
  * Servicio para análisis de mensajes
  * v1.0.0
@@ -19,6 +18,51 @@ import {
 } from "./prompts/analysisPrompts";
 import { extractJsonFromResponse, tryParseJson } from "./utils/jsonUtils";
 import { BaseAPIError } from "./apiProviders/baseAPIProvider";
+
+// Exportamos las constantes y funciones para gestión de prompts
+export const DEFAULT_ANALYSIS_PROMPT = `Analiza el siguiente mensaje y extrae información sobre pedidos.
+El mensaje puede contener uno o varios pedidos de diferentes clientes.
+
+Contexto de productos disponibles:
+{productsContext}
+
+Contexto de clientes registrados:
+{clientsContext}
+
+Mensaje a analizar:
+{messageText}
+
+Proporciona un análisis estructurado identificando clientes, productos, cantidades y cualquier otra información relevante.`;
+
+// Variable para almacenar el prompt personalizado
+let customAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+
+// Funciones para gestión de prompts
+export const getCurrentAnalysisPrompt = (): string => {
+  return customAnalysisPrompt;
+};
+
+export const setCustomAnalysisPrompt = (prompt: string): void => {
+  if (!prompt || prompt.trim() === '') {
+    throw new Error("El prompt no puede estar vacío");
+  }
+  
+  // Verificamos que el prompt contenga los marcadores necesarios
+  const requiredPlaceholders = ['{productsContext}', '{clientsContext}', '{messageText}'];
+  const missingPlaceholders = requiredPlaceholders.filter(placeholder => !prompt.includes(placeholder));
+  
+  if (missingPlaceholders.length > 0) {
+    throw new Error(`El prompt debe contener los siguientes marcadores: ${missingPlaceholders.join(', ')}`);
+  }
+  
+  customAnalysisPrompt = prompt;
+  logDebug("Analysis", "Prompt personalizado establecido");
+};
+
+export const resetAnalysisPrompt = (): void => {
+  customAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+  logDebug("Analysis", "Prompt restablecido a valores predeterminados");
+};
 
 /**
  * Error específico del análisis de mensajes
