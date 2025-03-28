@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,7 @@ import {
 
 /**
  * Página Mensaje Mágico
- * v1.0.69
+ * v1.0.70
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -455,11 +456,11 @@ const MagicOrder = () => {
     } finally {
       setIsAnalyzing(false);
       
-      // Notificamos que el análisis ha terminado
+      // Notificamos que el análisis ha terminado - Corrigiendo la referencia a analysisError
       const completionEvent = new CustomEvent('analysisStateChange', {
         detail: { 
           isAnalyzing: false,
-          error: analyzeError
+          error: analyzeError ? analyzeError : null
         }
       });
       window.dispatchEvent(completionEvent);

@@ -69,6 +69,9 @@ export const OrdersList = () => {
   // Registrar el estado de los pedidos cuando cambie y guardar en sessionStorage
   useEffect(() => {
     if (orders.length > 0) {
+      // Log para debug
+      logDebug('OrdersList', `Se han detectado ${orders.length} pedidos para mostrar`);
+      
       // Registro para propósitos de depuración
       logStateOperation('load', 'ordersContext', true, { 
         ordersCount: orders.length, 
@@ -95,6 +98,9 @@ export const OrdersList = () => {
   
   // Ordenar y agrupar pedidos por cliente
   const ordersByClient = useMemo(() => {
+    // Log para debug
+    logDebug('OrdersList', `Procesando ${orders.length} pedidos para visualización`);
+    
     // Filtrar pedidos por término de búsqueda
     const filteredOrders = searchTerm
       ? orders.filter(order => {
