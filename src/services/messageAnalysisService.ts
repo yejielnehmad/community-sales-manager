@@ -1,12 +1,12 @@
 
 /**
  * Servicio para análisis de mensajes utilizando IA
- * v1.0.4
+ * v1.0.5
  */
 import { MessageAnalysis } from "@/types";
 import { logDebug, logError } from "@/lib/debug-utils";
 import { callAPI } from "./apiProviders";
-import { extractJSONFromText } from "./utils/jsonUtils";
+import { extractJsonFromResponse } from "./utils/jsonUtils";
 
 // Prompt por defecto para análisis de mensajes
 export const DEFAULT_ANALYSIS_PROMPT = `Eres un asistente experto en analizar mensajes de clientes y extraer información de pedidos en un formato estructurado JSON. Tu tarea es identificar productos, cantidades, variantes y cliente en el siguiente mensaje. Usa exactamente los nombres de productos y clientes que te proporcionaré como contexto. 
@@ -138,8 +138,9 @@ loadCustomPromptFromStorage();
 // Función principal para analizar mensajes
 export const analyzeCustomerMessage = async (
   messageText: string,
-  onProgress?: (progress: number, stage?: string) => void
-): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string}> => {
+  onProgress?: (progress: number, stage?: string) => void,
+  signal?: AbortSignal
+): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string, elapsedTime?: number}> => {
   // Fase 1: Obtener contexto y preparar prompt
   onProgress?.(20, "Preparando análisis...");
   
@@ -165,6 +166,11 @@ export const analyzeCustomerMessage = async (
       `Cliente: ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
     ).join('\n');
     
+    // Verificar si la operación fue cancelada
+    if (signal?.aborted) {
+      throw new Error("Análisis cancelado por el usuario");
+    }
+    
     // Preparar prompt completo
     const promptTemplate = getCurrentAnalysisPrompt();
     const prompt = promptTemplate
@@ -178,6 +184,11 @@ export const analyzeCustomerMessage = async (
     logDebug("AnalysisService", "Iniciando análisis de mensaje", { messageLength: messageText.length });
     const phase1Response = await callAPI(prompt);
     
+    // Verificar si la operación fue cancelada
+    if (signal?.aborted) {
+      throw new Error("Análisis cancelado por el usuario");
+    }
+    
     onProgress?.(60, "Procesando resultados...");
     
     // Fase 2: Extracción de JSON válido de la respuesta
@@ -185,7 +196,7 @@ export const analyzeCustomerMessage = async (
     let extractedJson = '';
     
     try {
-      extractedJson = extractJSONFromText(phase1Response);
+      extractedJson = extractJsonFromResponse(phase1Response);
       jsonResult = JSON.parse(extractedJson) as MessageAnalysis[];
       
       // Verificar estructura básica del JSON

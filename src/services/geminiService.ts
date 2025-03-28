@@ -1,7 +1,7 @@
 
 /**
  * Servicios de integración con AI para análisis de mensajes
- * v1.0.4
+ * v1.0.5
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -24,7 +24,27 @@ import { chatWithAssistant } from "./chatService";
 
 // Re-exportamos interfaces y tipos
 export type ApiProvider = InternalApiProvider;
-export { MessageAnalysisError as GeminiError };
+
+// Clase extendida con propiedades adicionales
+export class GeminiError extends MessageAnalysisError {
+  public status?: number;
+  public apiResponse?: any;
+  
+  constructor(message: string, options?: { 
+    rawJsonResponse?: string, 
+    phase1Response?: string,
+    status?: number,
+    apiResponse?: any
+  }) {
+    super(message, {
+      rawJsonResponse: options?.rawJsonResponse,
+      phase1Response: options?.phase1Response
+    });
+    this.name = "GeminiError";
+    this.status = options?.status;
+    this.apiResponse = options?.apiResponse;
+  }
+}
 
 // Re-exportamos funciones de configuración de API
 export { 
@@ -59,7 +79,7 @@ export const analyzeCustomerMessage = async (
     }
     
     // Realizar análisis directo sin considerar pedidos anteriores
-    const analysisResult = await analyzeMessage(message, onProgress);
+    const analysisResult = await analyzeMessage(message, onProgress, signal);
     
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;
@@ -75,6 +95,12 @@ export const analyzeCustomerMessage = async (
       abortError.name = "AbortError";
       throw abortError;
     }
+    
+    // Si el error no es de nuestro tipo, lo convertimos
+    if (!(error instanceof MessageAnalysisError)) {
+      throw new GeminiError(`Error en análisis: ${(error as Error).message}`);
+    }
+    
     throw error;
   }
 };
