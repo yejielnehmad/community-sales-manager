@@ -144,7 +144,7 @@ export const generateMessageExample = async (): Promise<string> => {
 };
 
 // Función para generar múltiples mensajes de ejemplo con diferentes clientes y productos
-export const generateMultipleExamples = async (orderCount: number = 20, precisionRate: number = 0.85): Promise<string> => {
+export const generateMultipleExamples = async (orderCount: number = 15, precisionRate: number = 0.85): Promise<string> => {
   // Generar ejemplos de mensajes con IA usando el servicio gemini
   try {
     // Configuramos el proveedor y modelo antes de usar el servicio
@@ -153,6 +153,16 @@ export const generateMultipleExamples = async (orderCount: number = 20, precisio
     setGeminiModel(geminiModel);
     
     console.log(`Generando ejemplos con ${orderCount} pedidos usando ${geminiModel} (precisión: ${precisionRate * 100}%)`);
+    
+    // Notificamos que estamos generando ejemplos mediante un evento personalizado
+    const startEvent = new CustomEvent('exampleGenerationStateChange', {
+      detail: { 
+        isGenerating: true,
+        stage: "Generando ejemplos...",
+        progress: 10
+      }
+    });
+    window.dispatchEvent(startEvent);
     
     // Usamos el servicio predeterminado de gemini para la generación
     const messages = [
@@ -175,6 +185,16 @@ export const generateMultipleExamples = async (orderCount: number = 20, precisio
       }
     ];
     
+    // Notificamos el progreso
+    const processingEvent = new CustomEvent('exampleGenerationStateChange', {
+      detail: { 
+        isGenerating: true,
+        stage: "Consultando a la IA...",
+        progress: 30
+      }
+    });
+    window.dispatchEvent(processingEvent);
+    
     // Hacemos la llamada a la API utilizando tokens máximos
     const response = await fetch(`${GOOGLE_GEMINI_ENDPOINT}/${geminiModel}:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
@@ -190,9 +210,31 @@ export const generateMultipleExamples = async (orderCount: number = 20, precisio
       }),
     });
     
+    // Notificamos que estamos procesando la respuesta
+    const processingResponseEvent = new CustomEvent('exampleGenerationStateChange', {
+      detail: { 
+        isGenerating: true,
+        stage: "Procesando respuesta...",
+        progress: 70
+      }
+    });
+    window.dispatchEvent(processingResponseEvent);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error de API:", errorText);
+      
+      // Notificamos el error
+      const errorEvent = new CustomEvent('exampleGenerationStateChange', {
+        detail: { 
+          isGenerating: false,
+          stage: "Error al generar ejemplos",
+          progress: 0,
+          error: `Error ${response.status}: ${response.statusText}`
+        }
+      });
+      window.dispatchEvent(errorEvent);
+      
       throw new Error(`Error al generar ejemplos: ${response.status} ${response.statusText}`);
     }
     
@@ -200,6 +242,18 @@ export const generateMultipleExamples = async (orderCount: number = 20, precisio
     
     if (!result.candidates || result.candidates.length === 0) {
       console.error("No se recibieron candidatos de respuesta:", result);
+      
+      // Notificamos el error
+      const errorEvent = new CustomEvent('exampleGenerationStateChange', {
+        detail: { 
+          isGenerating: false,
+          stage: "Error: sin respuesta válida",
+          progress: 0,
+          error: "No se recibieron candidatos de respuesta"
+        }
+      });
+      window.dispatchEvent(errorEvent);
+      
       throw new Error("No se recibieron candidatos de respuesta");
     }
     
@@ -207,13 +261,49 @@ export const generateMultipleExamples = async (orderCount: number = 20, precisio
     
     if (!generatedText) {
       console.error("Respuesta sin texto:", result);
+      
+      // Notificamos el error
+      const errorEvent = new CustomEvent('exampleGenerationStateChange', {
+        detail: { 
+          isGenerating: false,
+          stage: "Error: respuesta vacía",
+          progress: 0,
+          error: "No se pudo generar el ejemplo"
+        }
+      });
+      window.dispatchEvent(errorEvent);
+      
       throw new Error("No se pudo generar el ejemplo");
     }
     
     console.log("Ejemplo generado con éxito, longitud:", generatedText.length);
+    
+    // Notificamos que hemos completado la generación
+    const completedEvent = new CustomEvent('exampleGenerationStateChange', {
+      detail: { 
+        isGenerating: false,
+        stage: "¡Ejemplos generados!",
+        progress: 100,
+        exampleCount: orderCount
+      }
+    });
+    window.dispatchEvent(completedEvent);
+    
     return generatedText;
   } catch (error) {
     console.error("Error al generar ejemplos:", error);
+    
+    // Si aún no hemos notificado el error, lo hacemos ahora
+    const errorEvent = new CustomEvent('exampleGenerationStateChange', {
+      detail: { 
+        isGenerating: false,
+        stage: "Error inesperado",
+        progress: 0,
+        error: error instanceof Error ? error.message : "Error desconocido"
+      }
+    });
+    window.dispatchEvent(errorEvent);
+    
     return "Error al generar ejemplos. Por favor, intenta nuevamente.";
   }
 };

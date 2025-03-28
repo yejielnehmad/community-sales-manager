@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Sparkles, Copy, Check } from "lucide-react";
@@ -25,40 +25,55 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const [isCopied, setIsCopied] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStage, setGenerationStage] = useState<string>("");
+
+  // Escuchamos el evento de generación para actualizar el estado
+  useEffect(() => {
+    const handleExampleGenerationEvent = (event: CustomEvent) => {
+      const { isGenerating, stage, progress, error } = event.detail;
+      
+      console.log(`Evento de generación recibido: ${isGenerating ? 'Generando' : 'Completado'}, Etapa: ${stage}, Progreso: ${progress}`);
+      
+      if (progress !== undefined) {
+        setGenerationProgress(progress);
+      }
+      
+      if (stage) {
+        setGenerationStage(stage);
+      }
+      
+      if (!isGenerating && progress === 100) {
+        // Completado exitosamente
+        setTimeout(() => setIsGenerating(false), 500);
+      } else if (!isGenerating && error) {
+        // Error en la generación
+        setAlertMessage(`Error: ${error}`);
+        setIsGenerating(false);
+        setGenerationProgress(0);
+      }
+    };
+    
+    window.addEventListener('exampleGenerationStateChange', handleExampleGenerationEvent as EventListener);
+    
+    return () => {
+      window.removeEventListener('exampleGenerationStateChange', handleExampleGenerationEvent as EventListener);
+    };
+  }, []);
 
   const handleGenerateExamples = async () => {
     setIsGenerating(true);
-    setGenerationProgress(0);
+    setGenerationProgress(5);
+    setGenerationStage("Iniciando generación...");
     
     try {
-      // Configuramos un intervalo menos agresivo para la simulación del progreso
-      // que permite espacio para actualizar cuando la respuesta real llegue
-      const interval = setInterval(() => {
-        setGenerationProgress(prev => {
-          if (prev >= 75) {
-            // Aumentamos hasta 75% para evitar que se quede en 60%
-            return 75;
-          }
-          return prev + 5; // Incrementos más rápidos
-        });
-      }, 150);
-      
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
-      // Ahora configurado para generar 20 pedidos con 85% precisión
-      const generatedExample = await generateMultipleExamples(20, 0.85);
+      // Ahora configurado para generar 15 pedidos con 85% precisión
+      const generatedExample = await generateMultipleExamples(15, 0.85);
       
-      // Completamos el progreso de forma más natural
-      clearInterval(interval);
+      // La actualización de progreso ahora se maneja a través de eventos
+      // que emite la función generateMultipleExamples
       
-      // Simulamos la finalización del progreso
-      setGenerationProgress(85);
-      setTimeout(() => setGenerationProgress(95), 100);
-      setTimeout(() => {
-        setGenerationProgress(100);
-        setExample(generatedExample);
-        setTimeout(() => setIsGenerating(false), 300);
-      }, 200);
-      
+      setExample(generatedExample);
     } catch (error) {
       console.error("Error al generar ejemplo:", error);
       setAlertMessage("No se pudo generar el ejemplo. Por favor, intenta nuevamente.");
@@ -86,7 +101,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-500" />
-          Ejemplo de mensaje (20 pedidos)
+          Ejemplo de mensaje (15 pedidos)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -136,10 +151,12 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="w-full mb-4">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-muted-foreground">
-                {generationProgress < 50 ? "Preparando ejemplos (20 pedidos)..." : 
-                 generationProgress < 75 ? "Procesando datos..." : 
-                 generationProgress < 95 ? "Finalizando..." : 
-                 "¡Completado!"}
+                {generationStage || (
+                  generationProgress < 50 ? "Preparando ejemplos (15 pedidos)..." : 
+                  generationProgress < 75 ? "Procesando datos..." : 
+                  generationProgress < 95 ? "Finalizando..." : 
+                  "¡Completado!"
+                )}
               </span>
               <span className="text-sm font-medium">{Math.round(generationProgress)}%</span>
             </div>
@@ -151,7 +168,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm text-muted-foreground">
-              Haz clic en "Generar con IA" para crear un ejemplo de mensaje con 20 pedidos de clientes (85% de precisión, 15% confuso).
+              Haz clic en "Generar con IA" para crear un ejemplo de mensaje con 15 pedidos de clientes (85% de precisión, 15% confuso).
             </p>
           </div>
         )}
@@ -160,7 +177,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md animate-pulse">
             <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary/50 animate-spin" />
             <p className="text-sm text-muted-foreground">
-              Generando mensaje de ejemplo con 20 pedidos...
+              Generando mensaje de ejemplo con 15 pedidos...
             </p>
           </div>
         )}
@@ -174,7 +191,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
                 <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">
                   1
                 </span>
-                Ejemplo (20 pedidos - 85% precisión) 
+                Ejemplo (15 pedidos - 85% precisión) 
               </span>
               <Button
                 size="sm"
