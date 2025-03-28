@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -1148,9 +1147,9 @@ const MagicOrder = () => {
                               order={orders[index]}
                               clients={clients}
                               products={products}
-                              onUpdateOrder={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
+                              onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
                               onDelete={() => handleDeleteOrder(index)}
-                              onSave={() => handleSaveOrder(index, orders[index])}
+                              index={index}
                             />
                           </div>
                         ))}
@@ -1241,7 +1240,7 @@ const MagicOrder = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleConfirmDeleteOrder}>
+              <AlertDialogAction onClick={handleConfirmDeleteOrder}>
                 Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
