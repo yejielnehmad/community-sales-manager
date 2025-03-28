@@ -1,7 +1,7 @@
 
 /**
  * Utilidades para depuración y registro de actividad
- * v1.0.0
+ * v1.0.1
  */
 
 // Configurar si los logs están habilitados (para poder desactivarlos en producción)
@@ -65,4 +65,13 @@ export const formatErrorMessage = (error: any): string => {
   if (error?.error) return formatErrorMessage(error.error);
   
   return 'Ha ocurrido un error inesperado';
+};
+
+/**
+ * Registra eventos de rendimiento
+ */
+export const logPerformance = (operation: string, timeElapsed: number): void => {
+  if (!DEBUG_ENABLED) return;
+  
+  console.log(`⏱️ RENDIMIENTO [${operation}]: ${timeElapsed.toFixed(2)}ms`);
 };

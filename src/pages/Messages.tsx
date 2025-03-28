@@ -5,10 +5,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
-import { MessageAnalysis, MessageProduct, MessageVariant } from "@/types";
+import { MessageAnalysis } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeCustomerMessage } from "@/services/geminiService";
+import { MessagesClient } from "@/components/messages/MessagesClient";
+import { MessagesProducts } from "@/components/messages/MessagesProducts";
+import { MessagesSummary } from "@/components/messages/MessagesSummary";
+import { MessagesDebug } from "@/components/messages/MessagesDebug";
 
+/**
+ * Página para procesar mensajes de clientes
+ * v1.0.0
+ */
 const Messages = () => {
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -30,7 +38,7 @@ const Messages = () => {
     setIsAnalyzing(true);
     
     try {
-      // Llamada real a la API de Cohere a través de nuestro servicio
+      // Llamada real a la API a través de nuestro servicio
       const analysisResponse = await analyzeCustomerMessage(message);
       setAnalysisResult(analysisResponse.result);
       setPhase1Response(analysisResponse.phase1Response || null);
@@ -113,133 +121,28 @@ const Messages = () => {
                 )}
               </TabsList>
               
-              <TabsContent value="client" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Cliente Identificado</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="font-medium">Nombre:</div>
-                      <div>{analysisResult[0].client?.name || "No identificado"}</div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <TabsContent value="client">
+                <MessagesClient client={analysisResult[0].client} />
               </TabsContent>
               
-              <TabsContent value="products" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Productos Identificados</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {analysisResult[0].items?.map((item, index) => (
-                        <div key={index} className="p-3 border rounded-md">
-                          <div className="font-medium">{item.product.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Cantidad: {item.quantity} {item.variant ? item.variant.name : ""}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              <TabsContent value="products">
+                <MessagesProducts items={analysisResult[0].items || []} />
               </TabsContent>
               
-              <TabsContent value="summary" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumen del Pedido</CardTitle>
-                    <CardDescription>
-                      Confirma la información antes de crear el pedido
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <div className="font-medium">Cliente:</div>
-                        <div>{analysisResult[0].client?.name || "No identificado"}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">Productos:</div>
-                        <ul className="list-disc pl-5 mt-2 space-y-1">
-                          {analysisResult[0].items?.map((item, index) => (
-                            <li key={index}>
-                              {item.quantity} {item.variant ? item.variant.name : ""} de {item.product.name}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-end">
-                    <Button onClick={createOrder}>
-                      Crear Pedido
-                    </Button>
-                  </CardFooter>
-                </Card>
+              <TabsContent value="summary">
+                <MessagesSummary 
+                  client={analysisResult[0].client} 
+                  items={analysisResult[0].items || []} 
+                  onCreateOrder={createOrder}
+                />
               </TabsContent>
               
               {(phase1Response || phase2Response) && (
-                <TabsContent value="debug" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Fases de Análisis</CardTitle>
-                      <CardDescription>
-                        Detalles del proceso de análisis en dos fases
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        {phase1Response && (
-                          <div>
-                            <div className="font-medium mb-2">Fase 1: Análisis de mensaje</div>
-                            <div className="bg-gray-100 p-3 rounded-md overflow-auto max-h-60 whitespace-pre-wrap text-sm">
-                              {phase1Response}
-                            </div>
-                            <Button
-                              variant="outline" 
-                              size="sm"
-                              className="mt-2"
-                              onClick={() => {
-                                navigator.clipboard.writeText(phase1Response);
-                                toast({
-                                  title: "Copiado",
-                                  description: "Texto de la fase 1 copiado al portapapeles",
-                                });
-                              }}
-                            >
-                              Copiar
-                            </Button>
-                          </div>
-                        )}
-                        
-                        {phase2Response && (
-                          <div>
-                            <div className="font-medium mb-2">Fase 2: Estructuración JSON</div>
-                            <div className="bg-gray-100 p-3 rounded-md overflow-auto max-h-60 whitespace-pre-wrap text-sm">
-                              {phase2Response}
-                            </div>
-                            <Button
-                              variant="outline" 
-                              size="sm"
-                              className="mt-2"
-                              onClick={() => {
-                                navigator.clipboard.writeText(phase2Response);
-                                toast({
-                                  title: "Copiado",
-                                  description: "Texto de la fase 2 copiado al portapapeles",
-                                });
-                              }}
-                            >
-                              Copiar
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                <TabsContent value="debug">
+                  <MessagesDebug 
+                    phase1Response={phase1Response} 
+                    phase2Response={phase2Response} 
+                  />
                 </TabsContent>
               )}
             </Tabs>
