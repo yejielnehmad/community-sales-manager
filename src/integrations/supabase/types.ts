@@ -33,51 +33,6 @@ export type Database = {
         }
         Relationships: []
       }
-      magic_orders: {
-        Row: {
-          analysis_time: number | null
-          api_provider: string | null
-          created_at: string
-          id: string
-          message: string
-          model: string | null
-          phase1_response: string | null
-          phase2_response: string | null
-          phase3_response: string | null
-          result: Json | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          analysis_time?: number | null
-          api_provider?: string | null
-          created_at?: string
-          id?: string
-          message: string
-          model?: string | null
-          phase1_response?: string | null
-          phase2_response?: string | null
-          phase3_response?: string | null
-          result?: Json | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          analysis_time?: number | null
-          api_provider?: string | null
-          created_at?: string
-          id?: string
-          message?: string
-          model?: string | null
-          phase1_response?: string | null
-          phase2_response?: string | null
-          phase3_response?: string | null
-          result?: Json | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       order_items: {
         Row: {
           created_at: string | null
