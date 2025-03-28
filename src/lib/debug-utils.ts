@@ -1,17 +1,38 @@
 
 /**
  * Utilidades para depuración y registro de actividad
- * v1.0.2
+ * v1.0.3
  */
 
 // Configurar si los logs están habilitados (para poder desactivarlos en producción)
 const DEBUG_ENABLED = true;
 
+// Configuración para categorías de log específicas
+const CATEGORY_CONFIG = {
+  'API': true,           // Logs relacionados con APIs
+  'GEMINI-API': true,    // Logs específicos de Google Gemini API
+  'Analysis': true,      // Logs de análisis de mensajes
+  'Database': true,      // Logs de operaciones de base de datos
+  'State': true,         // Logs de gestión de estado
+  'Performance': true,   // Logs de rendimiento
+  'UI': false            // Logs de UI (desactivados por defecto para reducir ruido)
+};
+
+/**
+ * Comprueba si una categoría específica está habilitada para logging
+ */
+const isCategoryEnabled = (category: string): boolean => {
+  if (category in CATEGORY_CONFIG) {
+    return CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
+  }
+  return true; // Por defecto, todas las categorías están habilitadas
+};
+
 /**
  * Registra un mensaje de depuración en la consola
  */
 export const logDebug = (area: string, message: string, data?: any) => {
-  if (!DEBUG_ENABLED) return;
+  if (!DEBUG_ENABLED || !isCategoryEnabled(area)) return;
   
   console.log(`[${area}] ${message}`, data ? data : '');
 };
@@ -71,7 +92,7 @@ export const formatErrorMessage = (error: any): string => {
  * Registra eventos de rendimiento
  */
 export const logPerformance = (operation: string, timeElapsed: number): void => {
-  if (!DEBUG_ENABLED) return;
+  if (!DEBUG_ENABLED || !isCategoryEnabled('Performance')) return;
   
   console.log(`⏱️ RENDIMIENTO [${operation}]: ${timeElapsed.toFixed(2)}ms`);
 };
@@ -98,8 +119,47 @@ export const logCardGeneration = (cardId: string, status: 'started' | 'completed
  * Registra eventos de almacenamiento y recuperación de estado
  */
 export const logStateOperation = (operation: 'save' | 'load', storageKey: string, success: boolean, details?: any): void => {
-  if (!DEBUG_ENABLED) return;
+  if (!DEBUG_ENABLED || !isCategoryEnabled('State')) return;
   
   const icon = success ? '💾' : '⚠️';
   console.log(`${icon} ESTADO [${operation.toUpperCase()}] ${storageKey}: ${success ? 'ÉXITO' : 'FALLIDO'}`, details ? details : '');
+};
+
+/**
+ * Utilidad para medir el tiempo de ejecución de una función
+ * @param fn Función a medir
+ * @param operationName Nombre de la operación para el registro
+ * @returns El resultado de la función
+ */
+export const measurePerformance = async <T>(fn: () => Promise<T>, operationName: string): Promise<T> => {
+  const startTime = performance.now();
+  try {
+    const result = await fn();
+    const endTime = performance.now();
+    logPerformance(operationName, endTime - startTime);
+    return result;
+  } catch (error) {
+    const endTime = performance.now();
+    logPerformance(`${operationName} (ERROR)`, endTime - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Registra el inicio y fin de una operación
+ */
+export const logOperationStart = (operation: string, details?: any): number => {
+  if (!DEBUG_ENABLED) return 0;
+  
+  const startTime = performance.now();
+  console.log(`▶️ INICIO [${operation}]`, details ? details : '');
+  return startTime;
+};
+
+export const logOperationEnd = (operation: string, startTime: number, details?: any): void => {
+  if (!DEBUG_ENABLED) return;
+  
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+  console.log(`⏹️ FIN [${operation}] - ${duration.toFixed(2)}ms`, details ? details : '');
 };

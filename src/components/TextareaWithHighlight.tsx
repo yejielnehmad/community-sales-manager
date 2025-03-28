@@ -30,6 +30,7 @@ export const TextareaWithHighlight = ({
   ...props
 }: TextareaWithHighlightProps) => {
   const [unknownWords, setUnknownWords] = useState<HighlightedWord[]>([]);
+  const [shouldAnalyze, setShouldAnalyze] = useState(false);
   const stringValue = value as string || '';
   
   const clientNames = useMemo(() => {
@@ -49,68 +50,89 @@ export const TextareaWithHighlight = ({
     return names;
   }, [products]);
   
+  // Este efecto solo se ejecuta cuando el usuario ha terminado de escribir
+  // o cuando se carga el componente, pero no durante la escritura en tiempo real
   useEffect(() => {
-    // Solo ejecutar la detección de palabras desconocidas si highlightUnknownWords es true
-    if (!highlightUnknownWords || !stringValue || !clients.length || !products.length) {
-      setUnknownWords([]);
-      return;
-    }
+    if (!shouldAnalyze) return;
     
-    // Ignorar palabras comunes y números
-    const stopWords = new Set([
-      'y', 'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'a', 'al', 
-      'en', 'para', 'por', 'con', 'tambien', 'también', 'más', 'mas', 'menos', 'gracias',
-      'kg', 'kilo', 'kilos', 'g', 'gramo', 'gramos', 'litro', 'litros', 'l', 'ml',
-      'por', 'favor', 'xfa', 'porfa', 'quiero', 'necesito', 'me', 'te', 'se', 'mi',
-      'me', 'manda', 'mandame', 'enviame', 'uno', 'dos', 'tres', 'cuatro', 'cinco',
-      'seis', 'siete', 'ocho', 'nueve', 'diez', 'docena', 'media', 'medio'
-    ]);
-    
-    // Dividir el texto en palabras, ignorando signos de puntuación y números
-    const words = stringValue
-      .toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\_`~()]/g, '')
-      .split(/\s+/)
-      .filter(word => 
-        !stopWords.has(word) && 
-        !/^\d+$/.test(word) &&
-        word.length > 2
-      );
-    
-    const unknownWordsFound: HighlightedWord[] = [];
-    
-    // Procesar solo las primeras palabras (posibles nombres de clientes)
-    const firstWords = words.slice(0, 3);
-    const otherWords = words.slice(3);
-    
-    // Comprobar nombres de clientes
-    firstWords.forEach(word => {
-      if (!clientNames.some(clientName => clientName.includes(word) || word.includes(clientName))) {
-        // Solo agregar si no es producto (para evitar falsos positivos)
-        if (!productNames.some(productName => productName.includes(word) || word.includes(productName))) {
-          unknownWordsFound.push({
-            word,
-            type: 'unknown-client'
-          });
-        }
+    const analyzeText = () => {
+      if (!highlightUnknownWords || !stringValue || !clients.length || !products.length) {
+        setUnknownWords([]);
+        return;
       }
-    });
-    
-    // Comprobar nombres de productos
-    otherWords.forEach(word => {
-      if (!productNames.some(productName => productName.includes(word) || word.includes(productName))) {
-        // Solo agregar si no es cliente (para evitar falsos positivos)
+      
+      // Ignorar palabras comunes y números
+      const stopWords = new Set([
+        'y', 'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'a', 'al', 
+        'en', 'para', 'por', 'con', 'tambien', 'también', 'más', 'mas', 'menos', 'gracias',
+        'kg', 'kilo', 'kilos', 'g', 'gramo', 'gramos', 'litro', 'litros', 'l', 'ml',
+        'por', 'favor', 'xfa', 'porfa', 'quiero', 'necesito', 'me', 'te', 'se', 'mi',
+        'me', 'manda', 'mandame', 'enviame', 'uno', 'dos', 'tres', 'cuatro', 'cinco',
+        'seis', 'siete', 'ocho', 'nueve', 'diez', 'docena', 'media', 'medio'
+      ]);
+      
+      // Dividir el texto en palabras, ignorando signos de puntuación y números
+      const words = stringValue
+        .toLowerCase()
+        .replace(/[.,\/#!$%\^&\*;:{}=\_`~()]/g, '')
+        .split(/\s+/)
+        .filter(word => 
+          !stopWords.has(word) && 
+          !/^\d+$/.test(word) &&
+          word.length > 2
+        );
+      
+      const unknownWordsFound: HighlightedWord[] = [];
+      
+      // Procesar solo las primeras palabras (posibles nombres de clientes)
+      const firstWords = words.slice(0, 3);
+      const otherWords = words.slice(3);
+      
+      // Comprobar nombres de clientes
+      firstWords.forEach(word => {
         if (!clientNames.some(clientName => clientName.includes(word) || word.includes(clientName))) {
-          unknownWordsFound.push({
-            word,
-            type: 'unknown-product'
-          });
+          // Solo agregar si no es producto (para evitar falsos positivos)
+          if (!productNames.some(productName => productName.includes(word) || word.includes(productName))) {
+            unknownWordsFound.push({
+              word,
+              type: 'unknown-client'
+            });
+          }
         }
-      }
-    });
+      });
+      
+      // Comprobar nombres de productos
+      otherWords.forEach(word => {
+        if (!productNames.some(productName => productName.includes(word) || word.includes(productName))) {
+          // Solo agregar si no es cliente (para evitar falsos positivos)
+          if (!clientNames.some(clientName => clientName.includes(word) || word.includes(clientName))) {
+            unknownWordsFound.push({
+              word,
+              type: 'unknown-product'
+            });
+          }
+        }
+      });
+      
+      setUnknownWords(unknownWordsFound);
+      setShouldAnalyze(false);
+    };
     
-    setUnknownWords(unknownWordsFound);
-  }, [stringValue, clients, products, clientNames, productNames, highlightUnknownWords]);
+    // Ejecutar el análisis solo cuando se configura shouldAnalyze como true
+    analyzeText();
+  }, [shouldAnalyze, stringValue, clients, products, clientNames, productNames, highlightUnknownWords]);
+  
+  // Este efecto configura un temporizador para ejecutar el análisis cuando el usuario
+  // deja de escribir por un momento, no en tiempo real
+  useEffect(() => {
+    if (highlightUnknownWords) {
+      const timer = setTimeout(() => {
+        setShouldAnalyze(true);
+      }, 1500); // 1.5 segundos después de que el usuario deja de escribir
+      
+      return () => clearTimeout(timer);
+    }
+  }, [stringValue, highlightUnknownWords]);
   
   // Función para resaltar palabras desconocidas
   const highlightText = () => {
@@ -143,7 +165,7 @@ export const TextareaWithHighlight = ({
         {...props}
       />
       
-      {unknownWords.length > 0 && (
+      {unknownWords.length > 0 && highlightUnknownWords && (
         <div 
           className="absolute inset-0 pointer-events-none bg-transparent"
           dangerouslySetInnerHTML={{ 

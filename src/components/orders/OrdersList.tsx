@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { logStateOperation } from '@/lib/debug-utils';
+import { logStateOperation, logDebug } from '@/lib/debug-utils';
 
 export const OrdersList = () => {
   const { state, itemState, actions } = useOrders();
@@ -66,15 +66,32 @@ export const OrdersList = () => {
     registerClientRef
   } = actions;
   
-  // Registrar el estado de los pedidos cuando cambie para propósitos de depuración
+  // Registrar el estado de los pedidos cuando cambie y guardar en sessionStorage
   useEffect(() => {
     if (orders.length > 0) {
+      // Registro para propósitos de depuración
       logStateOperation('load', 'ordersContext', true, { 
         ordersCount: orders.length, 
         clientsCount: Object.keys(clientMap).length 
       });
+      
+      // Guardar en sessionStorage para persistencia entre navegaciones
+      try {
+        const ordersData = {
+          orders,
+          clientMap,
+          timestamp: new Date().toISOString()
+        };
+        
+        sessionStorage.setItem('magicOrder_ordersData', JSON.stringify(ordersData));
+        logDebug('State', 'Datos de pedidos guardados en sessionStorage', { 
+          ordersCount: orders.length 
+        });
+      } catch (error) {
+        logDebug('State', 'Error al guardar datos de pedidos en sessionStorage', error);
+      }
     }
-  }, [orders.length, clientMap]);
+  }, [orders.length, orders, clientMap]);
   
   // Ordenar y agrupar pedidos por cliente
   const ordersByClient = useMemo(() => {
