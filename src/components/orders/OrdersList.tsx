@@ -1,5 +1,5 @@
 
-import { useMemo, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useOrders } from '@/contexts/OrdersContext';
 import { ClientOrderCardNew } from './ClientOrderCardNew';
 import { 
@@ -12,9 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { logStateOperation, logDebug } from '@/lib/debug-utils';
-import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
 
 export const OrdersList = () => {
   const { state, itemState, actions } = useOrders();
@@ -65,82 +62,12 @@ export const OrdersList = () => {
     completeClientSwipeAnimation,
     closeAllSwipes,
     registerProductRef,
-    registerClientRef,
-    handleAddAllOrders
+    registerClientRef
   } = actions;
   
-  // Limpiador de datos residuales
-  const clearResidualData = useCallback(() => {
-    // Eliminar cualquier dato residual relacionado con análisis anteriores
-    const keysToRemove = [];
-    
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_analysis') || 
-        key.includes('phase') ||
-        key.includes('rawJson')
-      )) {
-        keysToRemove.push(key);
-      }
-    }
-    
-    keysToRemove.forEach(key => {
-      sessionStorage.removeItem(key);
-    });
-    
-    if (keysToRemove.length > 0) {
-      console.log(`OrdersList: Eliminados ${keysToRemove.length} elementos residuales de análisis`);
-    }
-  }, []);
-  
-  // Limpiar datos residuales al montar el componente
-  useEffect(() => {
-    clearResidualData();
-    
-    // Escuchar eventos de reinicio de estado
-    const handleStateReset = () => {
-      clearResidualData();
-    };
-    
-    window.addEventListener('ordersStateReset', handleStateReset);
-    window.addEventListener('analysisStateReset', handleStateReset);
-    
-    return () => {
-      window.removeEventListener('ordersStateReset', handleStateReset);
-      window.removeEventListener('analysisStateReset', handleStateReset);
-    };
-  }, [clearResidualData]);
-  
-  useEffect(() => {
-    if (orders.length > 0) {
-      logDebug('OrdersList', `Se han detectado ${orders.length} pedidos para mostrar`);
-      
-      logStateOperation('load', 'ordersContext', true, { 
-        ordersCount: orders.length, 
-        clientsCount: Object.keys(clientMap).length 
-      });
-      
-      try {
-        const ordersData = {
-          orders,
-          clientMap,
-          timestamp: new Date().toISOString()
-        };
-        
-        sessionStorage.setItem('magicOrder_ordersData', JSON.stringify(ordersData));
-        logDebug('State', 'Datos de pedidos guardados en sessionStorage', { 
-          ordersCount: orders.length 
-        });
-      } catch (error) {
-        logDebug('State', 'Error al guardar datos de pedidos en sessionStorage', error);
-      }
-    }
-  }, [orders.length, orders, clientMap]);
-  
+  // Ordenar y agrupar pedidos por cliente
   const ordersByClient = useMemo(() => {
-    logDebug('OrdersList', `Procesando ${orders.length} pedidos para visualización`);
-    
+    // Filtrar pedidos por término de búsqueda
     const filteredOrders = searchTerm
       ? orders.filter(order => {
           const clientNameMatch = order.clientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -152,6 +79,7 @@ export const OrdersList = () => {
         })
       : orders;
     
+    // Agrupar por cliente
     return filteredOrders.reduce((acc, order) => {
       if (!acc[order.clientId]) {
         acc[order.clientId] = {
@@ -163,14 +91,6 @@ export const OrdersList = () => {
       return acc;
     }, {} as {[key: string]: {clientName: string, orders: typeof orders}});
   }, [orders, searchTerm]);
-  
-  const hasValidOrders = useMemo(() => {
-    return orders.length > 0 && orders.some(order => 
-      order.status !== 'pending' && 
-      order.clientId && 
-      !order.items.some(item => !item.product_id)
-    );
-  }, [orders]);
   
   return (
     <div>
@@ -184,22 +104,8 @@ export const OrdersList = () => {
         </div>
       ) : (
         <div className="mb-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="text-sm text-muted-foreground">
-              {Object.keys(ordersByClient).length} {Object.keys(ordersByClient).length === 1 ? 'cliente' : 'clientes'} con pedidos
-            </div>
-            
-            {hasValidOrders && (
-              <Button 
-                onClick={handleAddAllOrders}
-                disabled={isSaving}
-                size="sm"
-                className="flex items-center gap-1"
-              >
-                <PlusCircle className="h-4 w-4" />
-                Agregar todos los pedidos
-              </Button>
-            )}
+          <div className="text-sm text-muted-foreground mb-2">
+            {Object.keys(ordersByClient).length} {Object.keys(ordersByClient).length === 1 ? 'cliente' : 'clientes'} con pedidos
           </div>
           
           {Object.entries(ordersByClient).map(([clientId, { clientName, orders }]) => (
@@ -234,6 +140,7 @@ export const OrdersList = () => {
         </div>
       )}
       
+      {/* Modal de confirmación para eliminar pedido */}
       <AlertDialog open={!!orderToDelete} onOpenChange={() => !isDeleting && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -255,6 +162,7 @@ export const OrdersList = () => {
         </AlertDialogContent>
       </AlertDialog>
       
+      {/* Modal de confirmación para eliminar cliente */}
       <AlertDialog open={!!clientToDelete} onOpenChange={() => !isDeleting && setClientToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

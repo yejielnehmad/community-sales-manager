@@ -1,33 +1,46 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { TextareaWithHighlight } from "@/components/TextareaWithHighlight";
+import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { 
   Loader2, 
+  MessageSquareText, 
   Wand, 
   Sparkles, 
   ChevronDown,
   ChevronUp,
   Clipboard,
+  Trash2,
+  X,
+  Check,
   AlertCircle,
   RefreshCcw,
+  User,
+  Package,
+  HelpCircle,
+  InfoIcon,
   FileText,
-  Clock,
-  Pause,
-  PlusCircle
+  Code,
+  Timer,
+  Clock
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { 
   analyzeCustomerMessage, 
   GeminiError,
   setApiProvider,
+  getCurrentApiProvider,
   setGeminiModel,
+  getCurrentGeminiModel,
   ApiProvider
 } from "@/services/geminiService";
+import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
-import { OrderCard as OrderCardType, MessageAnalysis } from "@/types";
+import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
 import { 
   Collapsible,
   CollapsibleContent,
@@ -45,23 +58,28 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SimpleOrderCardNew } from "@/components/SimpleOrderCardNew";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
-import { MessagesProducts } from "@/components/messages/MessagesProducts";
-import { MessagesClient } from "@/components/messages/MessagesClient";
-import { MessagesSummary } from "@/components/messages/MessagesSummary";
-import { logDebug } from '@/lib/debug-utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /**
  * Página Mensaje Mágico
- * v1.0.86
+ * v1.0.54
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -241,116 +259,6 @@ const MagicOrder = () => {
     loadContextData();
   }, [toast, clients.length, products.length]);
 
-  // Efecto para limpiar el estado cuando se carga la página
-  useEffect(() => {
-    // Limpiar completamente cualquier estado anterior al montar el componente
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_') || 
-        key.includes('analysis') || 
-        key.includes('rawJson') ||
-        key.includes('phase')
-      )) {
-        keysToRemove.push(key);
-      }
-    }
-    
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // También limpiar sessionStorage
-    const sessionKeysToRemove = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_') || 
-        key.includes('analysis') || 
-        key.includes('order')
-      )) {
-        sessionKeysToRemove.push(key);
-      }
-    }
-    
-    sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
-    
-    // Limpiar el estado interno del componente
-    setOrders([]);
-    setPhase1Response(null);
-    setPhase2Response(null);
-    setPhase3Response(null);
-    setRawJsonResponse(null);
-    setAnalysisError(null);
-    setAnalysisTime(null);
-    setShowOrderSummary(false);
-    
-    console.log("Estado completamente reiniciado al montar MagicOrder", {
-      localStorageKeysRemoved: keysToRemove.length,
-      sessionStorageKeysRemoved: sessionKeysToRemove.length
-    });
-  }, []);
-
-  // Limpieza completa de estado cuando se inicia un nuevo mensaje
-  useEffect(() => {
-    if (message.trim().length > 0) {
-      // Cuando el usuario empieza a escribir un nuevo mensaje, limpiamos todo el estado previo
-      if (orders.length > 0 || rawJsonResponse !== null || phase1Response !== null || phase2Response !== null || phase3Response !== null) {
-        // Limpiar órdenes y estados relacionados con el análisis
-        setOrders([]);
-        setRawJsonResponse(null);
-        setPhase1Response(null);
-        setPhase2Response(null);
-        setPhase3Response(null);
-        setShowOrderSummary(false);
-        setAnalysisError(null);
-        setIsAnalyzing(false);
-        setProgress(0);
-        setProgressStage("");
-        setAnalysisTime(null);
-        
-        // Limpiar localStorage para asegurar que no hay datos antiguos
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (
-            key.startsWith('magicOrder_') || 
-            key.includes('analysis') || 
-            key.includes('rawJson') ||
-            key.includes('phase')
-          )) {
-            keysToRemove.push(key);
-          }
-        }
-        
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-        
-        // También limpiar sessionStorage
-        const sessionKeysToRemove = [];
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key && (
-            key.startsWith('magicOrder_') || 
-            key.includes('analysis') || 
-            key.includes('order')
-          )) {
-            sessionKeysToRemove.push(key);
-          }
-        }
-        
-        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
-        
-        console.log("Estado limpiado completamente al iniciar un nuevo mensaje", {
-          localStorageKeysRemoved: keysToRemove.length,
-          sessionStorageKeysRemoved: sessionKeysToRemove.length
-        });
-      }
-    }
-  }, [message, orders.length]);
-
-  // Referencia para controlar la cancelación del análisis
-  const analyzeAbortControllerRef = useRef<AbortController | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  
   // Función para actualizar el progreso del análisis
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
@@ -366,29 +274,6 @@ const MagicOrder = () => {
     window.dispatchEvent(event);
   };
 
-  const handlePauseAnalysis = () => {
-    if (analyzeAbortControllerRef.current) {
-      setIsPaused(true);
-      analyzeAbortControllerRef.current.abort();
-      setProgressStage("Análisis pausado");
-      
-      toast({
-        title: "Análisis pausado",
-        description: "El análisis ha sido pausado. Puedes retomarlo o iniciar uno nuevo.",
-        variant: "default"
-      });
-      
-      // Notificamos mediante evento
-      const event = new CustomEvent('analysisStateChange', {
-        detail: { 
-          isAnalyzing: false,
-          isPaused: true
-        }
-      });
-      window.dispatchEvent(event);
-    }
-  };
-
   const handleAnalyzeMessage = async () => {
     if (!message.trim()) {
       setAlertMessage({
@@ -398,56 +283,16 @@ const MagicOrder = () => {
       return;
     }
 
-    // Si hay un análisis pausado, lo reiniciamos
-    if (isPaused) {
-      setIsPaused(false);
-    }
-
-    // Limpiar pedidos anteriores y todo el estado previo
+    // Limpiar pedidos anteriores
     setOrders([]);
+    localStorage.removeItem('magicOrder_orders');
+    
+    setIsAnalyzing(true);
+    setAnalysisError(null);
     setRawJsonResponse(null);
     setPhase1Response(null);
     setPhase2Response(null);
     setPhase3Response(null);
-    setAnalysisError(null);
-    
-    // Limpiar localStorage y sessionStorage
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_') || 
-        key.includes('analysis') || 
-        key.includes('rawJson') ||
-        key.includes('phase')
-      )) {
-        keysToRemove.push(key);
-      }
-    }
-    
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // También limpiar sessionStorage
-    const sessionKeysToRemove = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_') || 
-        key.includes('analysis') || 
-        key.includes('order')
-      )) {
-        sessionKeysToRemove.push(key);
-      }
-    }
-    
-    sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
-    
-    console.log("Estado completamente reiniciado antes del análisis", {
-      localStorageKeysRemoved: keysToRemove.length,
-      sessionStorageKeysRemoved: sessionKeysToRemove.length
-    });
-    
-    setIsAnalyzing(true);
     setProgress(5);
     setProgressStage("Preparando análisis...");
     setAnalysisTime(null);
@@ -457,9 +302,6 @@ const MagicOrder = () => {
     
     // Limpiamos el campo de mensaje para que el usuario pueda seguir trabajando
     setMessage("");
-    
-    // Creamos un nuevo AbortController para este análisis
-    analyzeAbortControllerRef.current = new AbortController();
     
     // Disparamos un evento para actualizar la insignia AI
     const event = new CustomEvent('analysisStateChange', {
@@ -471,12 +313,8 @@ const MagicOrder = () => {
     window.dispatchEvent(event);
 
     try {
-      // Procesamos el mensaje en segundo plano con la señal de aborto
-      const result = await analyzeCustomerMessage(
-        messageToAnalyze, 
-        updateProgress, 
-        analyzeAbortControllerRef.current.signal
-      );
+      // Procesamos el mensaje en segundo plano
+      const result = await analyzeCustomerMessage(messageToAnalyze, updateProgress);
       
       if (result.phase1Response) {
         setPhase1Response(result.phase1Response);
@@ -497,7 +335,6 @@ const MagicOrder = () => {
       setProgress(100);
       setProgressStage("¡Análisis completado!");
       
-      // Construir los pedidos a partir del resultado del análisis
       const newOrders = result.result.map(result => {
         const processedItems = result.items.map(item => {
           let status: 'duda' | 'confirmado' = item.status as 'duda' | 'confirmado' || 'duda';
@@ -538,11 +375,6 @@ const MagicOrder = () => {
           message: "No se pudo identificar ningún pedido en el mensaje. Intenta con un formato más claro, por ejemplo: 'nombre 2 producto'"
         });
       } else {
-        logDebug('MagicOrder', `Se generaron ${newOrders.length} pedidos nuevos`);
-        
-        // Guardar los nuevos pedidos en un almacenamiento aislado para este análisis específico
-        localStorage.setItem('magicOrder_currentAnalysisOrders', JSON.stringify(newOrders));
-        
         setOrders(newOrders);
         setShowOrderSummary(true);
         
@@ -557,11 +389,6 @@ const MagicOrder = () => {
       }
       
     } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        logDebug('MagicOrder', 'Análisis pausado por el usuario');
-        return;
-      }
-      
       console.error("Error al analizar el mensaje:", error);
       
       let errorTitle = "Error de análisis";
@@ -594,19 +421,16 @@ const MagicOrder = () => {
         message: errorMessage
       });
     } finally {
-      if (!isPaused) {
-        setIsAnalyzing(false);
-        analyzeAbortControllerRef.current = null;
-      }
-      
       // Notificamos que el análisis ha terminado
-      const completionEvent = new CustomEvent('analysisStateChange', {
-        detail: { 
-          isAnalyzing: false,
-          error: analyzeError ? analyzeError : null
-        }
-      });
-      window.dispatchEvent(completionEvent);
+      window.dispatchEvent(new CustomEvent('analysisStateChange', {
+        detail: { isAnalyzing: false }
+      }));
+      
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setProgress(0);
+        setProgressStage("");
+      }, 1000);
     }
   };
 
@@ -740,67 +564,6 @@ const MagicOrder = () => {
         variant: "success"
       });
       
-      // Limpiar completamente el estado después de guardar
-      setTimeout(() => {
-        const remainingOrders = updatedOrders.filter((o, idx) => idx !== orderIndex);
-        
-        // Limpiar localStorage y sessionStorage
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (
-            key.startsWith('magicOrder_') || 
-            key.includes('analysis') || 
-            key.includes('rawJson') ||
-            key.includes('phase')
-          )) {
-            keysToRemove.push(key);
-          }
-        }
-        
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-        
-        // También limpiar sessionStorage
-        const sessionKeysToRemove = [];
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key && (
-            key.startsWith('magicOrder_') || 
-            key.includes('analysis') || 
-            key.includes('order')
-          )) {
-            sessionKeysToRemove.push(key);
-          }
-        }
-        
-        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
-        
-        if (remainingOrders.length === 0) {
-          // Si no quedan más pedidos, limpiamos completamente el estado
-          setOrders([]);
-          setPhase1Response(null);
-          setPhase2Response(null);
-          setPhase3Response(null);
-          setRawJsonResponse(null);
-          setAnalysisError(null);
-          setAnalysisTime(null);
-          
-          console.log("Estado limpiado completamente después de guardar el último pedido", {
-            localStorageKeysRemoved: keysToRemove.length,
-            sessionStorageKeysRemoved: sessionKeysToRemove.length
-          });
-        } else {
-          // Si quedan otros pedidos, actualizamos solo el array de pedidos
-          // pero guardamos este estado actualizado específicamente para este análisis
-          setOrders(remainingOrders);
-          localStorage.setItem('magicOrder_currentAnalysisOrders', JSON.stringify(remainingOrders));
-          
-          console.log("Estado parcialmente actualizado después de guardar un pedido", {
-            remainingOrders: remainingOrders.length
-          });
-        }
-      }, 1000); // Pequeño delay para que el usuario vea la confirmación antes de que desaparezca
-      
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
@@ -862,26 +625,16 @@ const MagicOrder = () => {
           message: `Se ${successCount === 1 ? 'ha' : 'han'} guardado ${successCount} pedido${successCount === 1 ? '' : 's'} correctamente${errorCount > 0 ? ` (${errorCount} con errores)` : ''}`
         });
         
-        // Limpiamos el estado después de guardar los pedidos
-        if (successCount === orders.length) {
-          // Limpiar completamente el estado
-          setOrders([]);
-          setPhase1Response(null);
-          setPhase2Response(null);
-          setPhase3Response(null);
-          setRawJsonResponse(null);
-          setAnalysisError(null);
-          setAnalysisTime(null);
-          
-          // Limpiar localStorage
-          localStorage.removeItem('magicOrder_orders');
-          localStorage.removeItem('magicOrder_phase1Response');
-          localStorage.removeItem('magicOrder_phase2Response');
-          localStorage.removeItem('magicOrder_phase3Response');
-          localStorage.removeItem('magicOrder_rawJsonResponse');
-          
-          console.log("Estado limpiado completamente después de guardar todos los pedidos");
-        }
+        setOrders([]);
+        
+        setPhase1Response(null);
+        setPhase2Response(null);
+        setPhase3Response(null);
+        
+        localStorage.removeItem('magicOrder_orders');
+        localStorage.removeItem('magicOrder_phase1Response');
+        localStorage.removeItem('magicOrder_phase2Response');
+        localStorage.removeItem('magicOrder_phase3Response');
       } else if (errorCount > 0) {
         setAlertMessage({
           title: "Error al guardar pedidos",
@@ -1139,7 +892,6 @@ const MagicOrder = () => {
               onClear={handleClearMessage}
               clients={clients}
               products={products}
-              highlightUnknownWords={false}
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
@@ -1160,182 +912,346 @@ const MagicOrder = () => {
               <Button
                 variant="outline"
                 onClick={handlePaste}
-                disabled={isAnalyzing && !isPaused}
+                disabled={isAnalyzing}
               >
-                <Clipboard size={16} />
-                <span>Pegar</span>
+                <Clipboard className="h-4 w-4 mr-2" />
+                Pegar
               </Button>
-              <div className="flex gap-2">
-                {isAnalyzing && !isPaused && (
-                  <Button
-                    variant="outline"
-                    onClick={handlePauseAnalysis}
-                    className="flex items-center gap-1"
-                  >
-                    <Pause className="h-4 w-4" />
-                    Pausar análisis
-                  </Button>
-                )}
-                <Button
-                  onClick={handleAnalyzeMessage}
-                  disabled={isAnalyzing && !isPaused}
-                >
-                  {isAnalyzing && !isPaused ? (
+              
+              <Button 
+                onClick={handleAnalyzeMessage}
+                disabled={isAnalyzing || !message.trim() || isLoadingData}
+              >
+                <div className="flex items-center gap-2">
+                  {isAnalyzing ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analizando...
-                    </>
-                  ) : isPaused ? (
-                    <>
-                      <RefreshCcw className="h-4 w-4" />
-                      Reiniciar análisis
+                      <Sparkles className="h-4 w-4 animate-pulse" />
+                      Haciendo magia...
                     </>
                   ) : (
                     <>
                       <Wand className="h-4 w-4" />
-                      Analizar mensaje
+                      Analizar Mensaje
                     </>
                   )}
-                </Button>
-              </div>
+                </div>
+              </Button>
             </div>
           </CardFooter>
         </Card>
 
-        {/* Resultados del análisis */}
         {orders.length > 0 && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Pedidos detectados</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <MessageSquareText className="h-5 w-5 text-primary" />
+                  Pedidos Detectados ({orders.length})
+                </h2>
+                
+                <div className="flex gap-3 mt-1">
+                  {incompleteOrders.length > 0 && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <AlertCircle size={12} className="mr-1" />
+                      {incompleteOrders.length} requiere{incompleteOrders.length !== 1 ? 'n' : ''} atención
+                    </Badge>
+                  )}
+                  
+                  {completeOrders.length > 0 && (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Check size={12} className="mr-1" />
+                      {completeOrders.length} confirmado{completeOrders.length !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+              </div>
               
-              {orders.filter(order => order.status !== 'saved').length > 0 && (
+              <div className="flex gap-2">
+                {orders.length > 0 && (
+                  <Button 
+                    onClick={handleSaveAllOrders}
+                    disabled={isSavingAllOrders || orders.length === 0 || !allOrdersComplete}
+                    className="flex items-center gap-1"
+                  >
+                    {isSavingAllOrders ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Guardar pedidos
+                      </>
+                    )}
+                  </Button>
+                )}
+                
                 <Button 
-                  onClick={handleSaveAllOrders}
-                  disabled={isSavingAllOrders || orders.length === 0}
+                  variant="outline" 
                   size="sm"
-                  className="flex items-center gap-1"
+                  onClick={() => setShowOrderSummary(!showOrderSummary)}
                 >
-                  {isSavingAllOrders ? (
-                    <>Guardando pedidos...</>
+                  {showOrderSummary ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                      Ocultar
+                    </>
                   ) : (
                     <>
-                      <PlusCircle className="h-4 w-4" />
-                      Guardar todos los pedidos
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                      Mostrar
                     </>
                   )}
                 </Button>
-              )}
+              </div>
             </div>
             
-            {orders.map((order, index) => (
-              <SimpleOrderCardNew
-                key={index}
-                order={order}
-                clients={clients}
-                products={products}
-                onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
-                index={index}
-                onDelete={() => handleDeleteOrder(index)}
-              />
-            ))}
+            <Separator />
+            
+            {isSavingAllOrders && progress > 0 && (
+              <div className="w-full my-2">
+                <div className="flex justify-between mb-1 text-sm">
+                  <div className="text-muted-foreground">
+                    {progressStage}
+                  </div>
+                  <div className="font-medium">
+                    {Math.round(progress)}%
+                  </div>
+                </div>
+                <Progress value={progress} className="h-2 w-full" />
+              </div>
+            )}
+            
+            <Collapsible open={showOrderSummary} onOpenChange={setShowOrderSummary}>
+              <CollapsibleContent>
+                <div className="space-y-6">
+                  {incompleteOrders.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
+                        <AlertCircle size={16} className="text-amber-600" />
+                        Pedidos que Requieren Atención ({incompleteOrders.length})
+                      </h3>
+                      
+                      {Object.entries(ordersByClient)
+                        .filter(([_, group]) => 
+                          group.orders.some(order => 
+                            !order.client.id || 
+                            order.client.matchConfidence !== 'alto' || 
+                            order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
+                          )
+                        )
+                        .map(([clientId, group]) => (
+                          <div key={clientId} className="mb-4">
+                            {group.orders
+                              .filter(order => 
+                                !order.client.id || 
+                                order.client.matchConfidence !== 'alto' || 
+                                order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
+                              )
+                              .map((order, groupIndex) => {
+                                const orderIndex = group.indices[group.orders.indexOf(order)];
+                                return (
+                                  <SimpleOrderCardNew
+                                    key={`${clientId}-${groupIndex}`}
+                                    order={order}
+                                    clients={clients}
+                                    products={products}
+                                    onUpdate={(updatedOrder) => handleUpdateOrder(orderIndex, updatedOrder)}
+                                    index={orderIndex}
+                                    onDelete={() => handleDeleteOrder(orderIndex)}
+                                  />
+                                );
+                              })
+                            }
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                  
+                  {completeOrders.length > 0 && (
+                    <div>
+                      <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
+                        <Check size={16} className="text-green-600" />
+                        Pedidos Confirmados ({completeOrders.length})
+                      </h3>
+                      
+                      {Object.entries(ordersByClient)
+                        .filter(([_, group]) => 
+                          group.orders.some(order => 
+                            order.client.id && 
+                            order.client.matchConfidence === 'alto' && 
+                            !order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
+                          )
+                        )
+                        .map(([clientId, group]) => (
+                          <div key={clientId} className="mb-4">
+                            {group.orders
+                              .filter(order => 
+                                order.client.id && 
+                                order.client.matchConfidence === 'alto' && 
+                                !order.items.some(item => item.status === 'duda' || !item.product.id || !item.quantity)
+                              )
+                              .map((order, groupIndex) => {
+                                const orderIndex = group.indices[group.orders.indexOf(order)];
+                                return (
+                                  <SimpleOrderCardNew
+                                    key={`${clientId}-${groupIndex}`}
+                                    order={order}
+                                    clients={clients}
+                                    products={products}
+                                    onUpdate={(updatedOrder) => handleUpdateOrder(orderIndex, updatedOrder)}
+                                    index={orderIndex}
+                                    onDelete={() => handleDeleteOrder(orderIndex)}
+                                  />
+                                );
+                              })
+                            }
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         )}
-
-        {/* AlertDialog para mensajes */}
-        <AlertDialog 
-          open={alertMessage !== null}
-          onOpenChange={(open) => !open && setAlertMessage(null)}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {alertMessage?.message}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction>Aceptar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* AlertDialog para confirmar eliminación de pedido */}
-        <AlertDialog
-          open={orderToDelete !== null}
-          onOpenChange={(open) => !open && setOrderToDelete(null)}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
-              <AlertDialogDescription>
-                ¿Estás seguro de que deseas eliminar el pedido de {orderToDelete?.name}?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmDeleteOrder}>Eliminar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Diálogo para ver detalles del análisis */}
-        <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Detalles del análisis</DialogTitle>
-              <DialogDescription>
-                Aquí puedes ver el proceso detallado del análisis del mensaje
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Tabs value={analysisDialogTab} onValueChange={setAnalysisDialogTab} className="flex-1 overflow-hidden flex flex-col">
-              <TabsList className="grid grid-cols-3">
-                <TabsTrigger value="phase1">1. Limpieza y análisis</TabsTrigger>
-                <TabsTrigger value="phase2">2. Identificación JSON</TabsTrigger>
-                <TabsTrigger value="phase3">3. Validación</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 overflow-auto">
-                <TabsContent value="phase1" className="mt-0 h-full overflow-auto">
-                  <div className="p-4 border rounded-md h-full">
-                    <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <FileText size={14} />
-                      Fase 1: Limpieza y análisis de texto
-                    </h3>
-                    <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
-                      {phase1Response || "No hay datos disponibles para esta fase"}
-                    </pre>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="phase2" className="mt-0 h-full overflow-auto">
-                  <div className="p-4 border rounded-md h-full">
-                    <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <FileText size={14} />
-                      Fase 2: Identificación y estructura JSON
-                    </h3>
-                    <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
-                      {phase2Response || "No hay datos disponibles para esta fase"}
-                    </pre>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="phase3" className="mt-0 h-full overflow-auto">
-                  <div className="p-4 border rounded-md h-full">
-                    <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <FileText size={14} />
-                      Fase 3: Validación y corrección de resultados
-                    </h3>
-                    <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
-                      {phase3Response || "No hay datos disponibles para esta fase"}
-                    </pre>
-                  </div>
-                </TabsContent>
-              </div>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Detalle del análisis completo
+            </DialogTitle>
+            <DialogDescription>
+              Visualiza los resultados de cada paso del análisis para entender mejor cómo se procesó el mensaje.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Tabs value={analysisDialogTab} onValueChange={setAnalysisDialogTab} className="w-full overflow-hidden flex-1 flex flex-col">
+            <TabsList className="grid grid-cols-3 mb-2">
+              <TabsTrigger value="phase1" className="flex items-center gap-1">
+                <FileText size={14} />
+                Fase 1: Análisis
+              </TabsTrigger>
+              <TabsTrigger value="phase2" className="flex items-center gap-1">
+                <Code size={14} />
+                Fase 2: JSON Inicial
+              </TabsTrigger>
+              <TabsTrigger value="phase3" className="flex items-center gap-1">
+                <Check size={14} />
+                Fase 3: JSON Corregido
+              </TabsTrigger>
+            </TabsList>
+            
+            <div className="overflow-auto flex-1">
+              <TabsContent value="phase1" className="h-full">
+                {phase1Response ? (
+                  <div className="bg-slate-50 p-4 rounded-md border border-slate-200 overflow-auto h-full">
+                    <pre className="whitespace-pre-wrap text-sm text-slate-800 break-words">{phase1Response}</pre>
+                  </div>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No hay respuesta disponible para la primera fase.
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="phase2" className="h-full">
+                {phase2Response ? (
+                  <div className="bg-slate-50 p-4 rounded-md border border-slate-200 overflow-auto h-full">
+                    <pre className="whitespace-pre-wrap text-sm font-mono text-slate-800 break-words">{phase2Response}</pre>
+                  </div>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No hay respuesta disponible para la segunda fase.
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="phase3" className="h-full">
+                {phase3Response ? (
+                  <div className="bg-slate-50 p-4 rounded-md border border-slate-200 overflow-auto h-full">
+                    <pre className="whitespace-pre-wrap text-sm font-mono text-slate-800 break-words">{phase3Response}</pre>
+                  </div>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No hay respuesta disponible para la tercera fase. Se usó un proceso optimizado de dos fases.
+                  </div>
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+          
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowAnalysisDialog(false)}>
+              Cerrar
+            </Button>
+            <Button 
+              variant="default"
+              onClick={() => {
+                let textToCopy = "";
+                if (analysisDialogTab === 'phase1') textToCopy = phase1Response || "";
+                else if (analysisDialogTab === 'phase2') textToCopy = phase2Response || "";
+                else if (analysisDialogTab === 'phase3') textToCopy = phase3Response || "";
+                
+                if (textToCopy) {
+                  navigator.clipboard.writeText(textToCopy)
+                    .then(() => toast({
+                      title: "Copiado al portapapeles",
+                      description: "El texto ha sido copiado correctamente",
+                      variant: "default"
+                    }))
+                    .catch(() => toast({
+                      title: "Error al copiar",
+                      description: "No se pudo copiar el texto al portapapeles",
+                      variant: "destructive"
+                    }));
+                }
+              }}
+            >
+              <Clipboard className="h-4 w-4 mr-2" />
+              Copiar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => !open && setOrderToDelete(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {orderToDelete && `El pedido preliminar para ${orderToDelete.name} será eliminado permanentemente. Esta acción no se puede deshacer.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteOrder}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog 
+        open={alertMessage !== null}
+        onOpenChange={(open) => !open && setAlertMessage(null)}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alertMessage?.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertMessage?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Aceptar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
