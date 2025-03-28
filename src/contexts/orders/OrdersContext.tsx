@@ -5,6 +5,7 @@ import { useOrdersState } from './hooks/useOrdersState';
 import { useItemState } from './hooks/useItemState';
 import { useOrderActions } from './hooks/useOrderActions';
 import { logStateOperation, logDebug } from '@/lib/debug-utils';
+import { purgeAllAnalysisData } from '@/services/geminiService';
 
 const OrdersContext = createContext<OrdersContextProps | undefined>(undefined);
 
@@ -50,10 +51,21 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     fetchOrders
   );
   
+  // Limpiar todos los datos de análisis al montar el componente
+  useEffect(() => {
+    // Limpiar al montar para asegurar un estado limpio
+    purgeAllAnalysisData();
+    
+    return () => {
+      // Limpiar al desmontar también para evitar contaminación
+      purgeAllAnalysisData();
+    };
+  }, []);
+  
   // Inicializar el estado de pago de los productos cuando cambian las órdenes
   useEffect(() => {
     if (state.orders.length > 0) {
-      logDebug('OrdersList', `Se han detectado ${state.orders.length} pedidos para mostrar`);
+      logDebug('OrdersContext', `Se han detectado ${state.orders.length} pedidos para mostrar`);
       
       logStateOperation('load', 'ordersContext', true, { 
         ordersCount: state.orders.length, 

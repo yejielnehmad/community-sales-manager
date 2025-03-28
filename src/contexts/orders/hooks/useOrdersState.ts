@@ -4,6 +4,7 @@ import { Order, OrdersState } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { fetchOrdersData, mapApiItemsToOrderItems } from '../services/ordersService';
 import { clearAnalysisCache } from '@/services/messageAnalysisService';
+import { purgeAllAnalysisData } from '@/services/geminiService';
 
 export const useOrdersState = () => {
   const { toast } = useToast();
@@ -24,49 +25,17 @@ export const useOrdersState = () => {
       error: null
     }));
     
-    // Limpiar completamente todo lo relacionado con órdenes y análisis
-    const storageKeys = {
-      localStorage: [],
-      sessionStorage: []
-    };
-    
-    // Recopilar claves de localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_') || 
-        key.includes('order') || 
-        key.includes('analysis') ||
-        key.includes('phase')
-      )) {
-        storageKeys.localStorage.push(key);
-      }
-    }
-    
-    // Recopilar claves de sessionStorage
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && (
-        key.startsWith('magicOrder_') || 
-        key.includes('order') || 
-        key.includes('analysis') ||
-        key.includes('phase')
-      )) {
-        storageKeys.sessionStorage.push(key);
-      }
-    }
-    
-    // Eliminar todos los datos almacenados
-    storageKeys.localStorage.forEach(key => localStorage.removeItem(key));
-    storageKeys.sessionStorage.forEach(key => sessionStorage.removeItem(key));
-    
-    // Limpiar también caché de análisis
-    clearAnalysisCache();
+    // Usar la función centralizada para purgar todos los datos
+    const { localStorageKeysRemoved, sessionStorageKeysRemoved } = purgeAllAnalysisData();
     
     console.log("Estado de órdenes y análisis completamente reiniciado", {
-      localStorageKeysRemoved: storageKeys.localStorage.length,
-      sessionStorageKeysRemoved: storageKeys.sessionStorage.length
+      localStorageKeysRemoved,
+      sessionStorageKeysRemoved
     });
+    
+    // Disparar evento de estado reiniciado
+    window.dispatchEvent(new Event('ordersStateReset'));
+    
   }, []);
   
   const setSearchTerm = (term: string) => {

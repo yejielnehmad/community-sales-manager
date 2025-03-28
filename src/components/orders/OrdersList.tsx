@@ -1,4 +1,5 @@
-import { useMemo, useEffect } from 'react';
+
+import { useMemo, useEffect, useCallback } from 'react';
 import { useOrders } from '@/contexts/OrdersContext';
 import { ClientOrderCardNew } from './ClientOrderCardNew';
 import { 
@@ -67,6 +68,49 @@ export const OrdersList = () => {
     registerClientRef,
     handleAddAllOrders
   } = actions;
+  
+  // Limpiador de datos residuales
+  const clearResidualData = useCallback(() => {
+    // Eliminar cualquier dato residual relacionado con análisis anteriores
+    const keysToRemove = [];
+    
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (
+        key.startsWith('magicOrder_analysis') || 
+        key.includes('phase') ||
+        key.includes('rawJson')
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => {
+      sessionStorage.removeItem(key);
+    });
+    
+    if (keysToRemove.length > 0) {
+      console.log(`OrdersList: Eliminados ${keysToRemove.length} elementos residuales de análisis`);
+    }
+  }, []);
+  
+  // Limpiar datos residuales al montar el componente
+  useEffect(() => {
+    clearResidualData();
+    
+    // Escuchar eventos de reinicio de estado
+    const handleStateReset = () => {
+      clearResidualData();
+    };
+    
+    window.addEventListener('ordersStateReset', handleStateReset);
+    window.addEventListener('analysisStateReset', handleStateReset);
+    
+    return () => {
+      window.removeEventListener('ordersStateReset', handleStateReset);
+      window.removeEventListener('analysisStateReset', handleStateReset);
+    };
+  }, [clearResidualData]);
   
   useEffect(() => {
     if (orders.length > 0) {
