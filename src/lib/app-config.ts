@@ -1,3 +1,3 @@
 
 // Configuración de la aplicación
-export const APP_VERSION = "1.0.71";
+export const APP_VERSION = "1.0.72";

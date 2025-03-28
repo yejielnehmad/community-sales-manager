@@ -1,6 +1,7 @@
+
 /**
  * Servicios de integración con AI para análisis de mensajes
- * v1.0.1
+ * v1.0.2
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -57,8 +58,8 @@ export const analyzeCustomerMessage = async (
       throw new Error("Análisis cancelado por el usuario");
     }
     
-    // Realizar análisis sin considerar pedidos anteriores
-    const analysisResult = await performMessageAnalysis(message, { signal, onProgress });
+    // Realizar análisis directo sin considerar pedidos anteriores
+    const analysisResult = await analyzeMessage(message, onProgress, signal);
     
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;

@@ -60,7 +60,7 @@ import { logDebug } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.71
+ * v1.0.72
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -1025,7 +1025,10 @@ const MagicOrder = () => {
               <SimpleOrderCardNew
                 key={index}
                 order={order}
-                onSave={() => handleSaveOrder(index, order)}
+                clients={clients}
+                products={products}
+                onUpdate={(updatedOrder) => handleUpdateOrder(index, updatedOrder)}
+                index={index}
                 onDelete={() => handleDeleteOrder(index)}
               />
             ))}
@@ -1102,7 +1105,7 @@ const MagicOrder = () => {
                 <TabsContent value="phase2" className="mt-0 h-full overflow-auto">
                   <div className="p-4 border rounded-md h-full">
                     <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <Code size={14} />
+                      <FileText size={14} />
                       Fase 2: Identificación y estructura JSON
                     </h3>
                     <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
@@ -1114,7 +1117,7 @@ const MagicOrder = () => {
                 <TabsContent value="phase3" className="mt-0 h-full overflow-auto">
                   <div className="p-4 border rounded-md h-full">
                     <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <Check size={14} />
+                      <FileText size={14} />
                       Fase 3: Validación y corrección de resultados
                     </h3>
                     <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded-md overflow-auto max-h-[60vh]">
