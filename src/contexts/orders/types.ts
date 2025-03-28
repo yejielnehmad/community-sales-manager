@@ -7,6 +7,7 @@ export interface OrdersContextProps {
   actions: {
     fetchOrders: (refresh?: boolean) => Promise<void>;
     setSearchTerm: (term: string) => void;
+    resetOrdersState: () => void;
     handleToggleProductPaid: (productKey: string, orderId: string, itemId: string, isPaid: boolean) => Promise<void>;
     handleToggleAllProducts: (clientId: string, isPaid: boolean) => Promise<void>;
     handleDeleteOrder: () => Promise<void>;

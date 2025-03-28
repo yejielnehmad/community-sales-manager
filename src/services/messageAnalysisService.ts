@@ -1,7 +1,7 @@
 
 /**
  * Servicio para análisis de mensajes utilizando IA
- * v1.0.5
+ * v1.0.6
  */
 import { MessageAnalysis } from "@/types";
 import { logDebug, logError } from "@/lib/debug-utils";
@@ -182,6 +182,9 @@ export const analyzeCustomerMessage = async (
     
     // Fase 1: Análisis inicial del mensaje
     logDebug("AnalysisService", "Iniciando análisis de mensaje", { messageLength: messageText.length });
+    
+    // Limpiar cualquier caché que pudiera existir para este mensaje
+    sessionStorage.removeItem('magicOrder_analysis_cache');
     const phase1Response = await callAPI(prompt);
     
     // Verificar si la operación fue cancelada

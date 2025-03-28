@@ -9,7 +9,7 @@ import { logStateOperation, logDebug } from '@/lib/debug-utils';
 const OrdersContext = createContext<OrdersContextProps | undefined>(undefined);
 
 export const OrdersProvider = ({ children }: { children: ReactNode }) => {
-  const { state, setState, setSearchTerm, fetchOrders } = useOrdersState();
+  const { state, setState, setSearchTerm, fetchOrders, resetOrdersState } = useOrdersState();
   
   const { 
     itemState, 
@@ -102,6 +102,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     actions: {
       fetchOrders,
       setSearchTerm,
+      resetOrdersState,
       handleToggleProductPaid,
       handleToggleAllProducts,
       handleDeleteOrder,

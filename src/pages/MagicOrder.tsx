@@ -61,7 +61,7 @@ import { logDebug } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.78
+ * v1.0.84
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -627,6 +627,29 @@ const MagicOrder = () => {
         variant: "success"
       });
       
+      // Limpiar el estado relacionado con este pedido guardado
+      setTimeout(() => {
+        const remainingOrders = updatedOrders.filter((o, idx) => idx !== orderIndex);
+        if (remainingOrders.length === 0) {
+          // Si no quedan más pedidos, limpiamos completamente el estado
+          setOrders([]);
+          setPhase1Response(null);
+          setPhase2Response(null);
+          setPhase3Response(null);
+          
+          // Limpiar localStorage para asegurar que no hay datos antiguos
+          localStorage.removeItem('magicOrder_orders');
+          localStorage.removeItem('magicOrder_phase1Response');
+          localStorage.removeItem('magicOrder_phase2Response');
+          localStorage.removeItem('magicOrder_phase3Response');
+          
+          console.log("Estado limpiado completamente después de guardar el último pedido");
+        } else {
+          // Si quedan otros pedidos, actualizamos solo el array de pedidos
+          setOrders(remainingOrders);
+        }
+      }, 1000); // Pequeño delay para que el usuario vea la confirmación antes de que desaparezca
+      
       return true;
     } catch (error: any) {
       console.error("Error al guardar el pedido:", error);
@@ -690,16 +713,23 @@ const MagicOrder = () => {
         
         // Limpiamos el estado después de guardar los pedidos
         if (successCount === orders.length) {
+          // Limpiar completamente el estado
           setOrders([]);
-          
           setPhase1Response(null);
           setPhase2Response(null);
           setPhase3Response(null);
+          setRawJsonResponse(null);
+          setAnalysisError(null);
+          setAnalysisTime(null);
           
+          // Limpiar localStorage
           localStorage.removeItem('magicOrder_orders');
           localStorage.removeItem('magicOrder_phase1Response');
           localStorage.removeItem('magicOrder_phase2Response');
           localStorage.removeItem('magicOrder_phase3Response');
+          localStorage.removeItem('magicOrder_rawJsonResponse');
+          
+          console.log("Estado limpiado completamente después de guardar todos los pedidos");
         }
       } else if (errorCount > 0) {
         setAlertMessage({

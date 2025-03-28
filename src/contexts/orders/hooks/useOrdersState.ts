@@ -16,6 +16,17 @@ export const useOrdersState = () => {
     searchTerm: ''
   });
   
+  const resetOrdersState = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      orders: [],
+      error: null
+    }));
+    
+    // Limpiar cualquier dato en sessionStorage relacionado con órdenes
+    sessionStorage.removeItem('magicOrder_ordersData');
+  }, []);
+  
   const setSearchTerm = (term: string) => {
     setState(prev => ({ ...prev, searchTerm: term }));
   };
@@ -131,6 +142,7 @@ export const useOrdersState = () => {
     state,
     setState,
     setSearchTerm,
-    fetchOrders
+    fetchOrders,
+    resetOrdersState
   };
 };
