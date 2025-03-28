@@ -1,47 +1,32 @@
-
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { TextareaWithHighlight } from "@/components/TextareaWithHighlight";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { 
   Loader2, 
-  MessageSquareText, 
   Wand, 
   Sparkles, 
   ChevronDown,
   ChevronUp,
   Clipboard,
-  Trash2,
-  X,
-  Check,
   AlertCircle,
   RefreshCcw,
-  User,
-  Package,
-  HelpCircle,
-  InfoIcon,
   FileText,
-  Code,
-  Timer,
-  Clock
+  Clock,
+  Pause
 } from 'lucide-react';
 import { supabase } from "@/lib/supabase";
 import { 
   analyzeCustomerMessage, 
   GeminiError,
   setApiProvider,
-  getCurrentApiProvider,
   setGeminiModel,
-  getCurrentGeminiModel,
   ApiProvider
 } from "@/services/geminiService";
-import { OrderCard } from "@/components/OrderCard";
 import { MessageExampleGenerator } from "@/components/MessageExampleGenerator";
-import { OrderCard as OrderCardType, MessageAnalysis, MessageItem, MessageClient } from "@/types";
+import { OrderCard as OrderCardType, MessageAnalysis } from "@/types";
 import { 
   Collapsible,
   CollapsibleContent,
@@ -59,28 +44,23 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SimpleOrderCardNew } from "@/components/SimpleOrderCardNew";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MessagesProducts } from "@/components/messages/MessagesProducts";
+import { MessagesClient } from "@/components/messages/MessagesClient";
+import { MessagesSummary } from "@/components/messages/MessagesSummary";
+import { logDebug } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.70
+ * v1.0.71
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -292,6 +272,10 @@ const MagicOrder = () => {
     }
   }, [message]);
 
+  // Referencia para controlar la cancelación del análisis
+  const analyzeAbortControllerRef = useRef<AbortController | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  
   // Función para actualizar el progreso del análisis
   const updateProgress = (value: number, stage?: string) => {
     setProgress(value);
@@ -307,6 +291,29 @@ const MagicOrder = () => {
     window.dispatchEvent(event);
   };
 
+  const handlePauseAnalysis = () => {
+    if (analyzeAbortControllerRef.current) {
+      setIsPaused(true);
+      analyzeAbortControllerRef.current.abort();
+      setProgressStage("Análisis pausado");
+      
+      toast({
+        title: "Análisis pausado",
+        description: "El análisis ha sido pausado. Puedes retomarlo o iniciar uno nuevo.",
+        variant: "default"
+      });
+      
+      // Notificamos mediante evento
+      const event = new CustomEvent('analysisStateChange', {
+        detail: { 
+          isAnalyzing: false,
+          isPaused: true
+        }
+      });
+      window.dispatchEvent(event);
+    }
+  };
+
   const handleAnalyzeMessage = async () => {
     if (!message.trim()) {
       setAlertMessage({
@@ -314,6 +321,11 @@ const MagicOrder = () => {
         message: "Por favor, ingresa un mensaje para analizar"
       });
       return;
+    }
+
+    // Si hay un análisis pausado, lo reiniciamos
+    if (isPaused) {
+      setIsPaused(false);
     }
 
     // Limpiar pedidos anteriores
@@ -336,6 +348,9 @@ const MagicOrder = () => {
     // Limpiamos el campo de mensaje para que el usuario pueda seguir trabajando
     setMessage("");
     
+    // Creamos un nuevo AbortController para este análisis
+    analyzeAbortControllerRef.current = new AbortController();
+    
     // Disparamos un evento para actualizar la insignia AI
     const event = new CustomEvent('analysisStateChange', {
       detail: { 
@@ -346,8 +361,12 @@ const MagicOrder = () => {
     window.dispatchEvent(event);
 
     try {
-      // Procesamos el mensaje en segundo plano
-      const result = await analyzeCustomerMessage(messageToAnalyze, updateProgress);
+      // Procesamos el mensaje en segundo plano con la señal de aborto
+      const result = await analyzeCustomerMessage(
+        messageToAnalyze, 
+        updateProgress, 
+        analyzeAbortControllerRef.current.signal
+      );
       
       if (result.phase1Response) {
         setPhase1Response(result.phase1Response);
@@ -368,6 +387,7 @@ const MagicOrder = () => {
       setProgress(100);
       setProgressStage("¡Análisis completado!");
       
+      // Construir los pedidos a partir del resultado del análisis
       const newOrders = result.result.map(result => {
         const processedItems = result.items.map(item => {
           let status: 'duda' | 'confirmado' = item.status as 'duda' | 'confirmado' || 'duda';
@@ -408,6 +428,7 @@ const MagicOrder = () => {
           message: "No se pudo identificar ningún pedido en el mensaje. Intenta con un formato más claro, por ejemplo: 'nombre 2 producto'"
         });
       } else {
+        logDebug('MagicOrder', `Se generaron ${newOrders.length} pedidos nuevos`);
         setOrders(newOrders);
         setShowOrderSummary(true);
         
@@ -422,6 +443,11 @@ const MagicOrder = () => {
       }
       
     } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        logDebug('MagicOrder', 'Análisis pausado por el usuario');
+        return;
+      }
+      
       console.error("Error al analizar el mensaje:", error);
       
       let errorTitle = "Error de análisis";
@@ -454,9 +480,12 @@ const MagicOrder = () => {
         message: errorMessage
       });
     } finally {
-      setIsAnalyzing(false);
+      if (!isPaused) {
+        setIsAnalyzing(false);
+        analyzeAbortControllerRef.current = null;
+      }
       
-      // Notificamos que el análisis ha terminado - Corrigiendo la referencia a analysisError
+      // Notificamos que el análisis ha terminado
       const completionEvent = new CustomEvent('analysisStateChange', {
         detail: { 
           isAnalyzing: false,
@@ -946,28 +975,35 @@ const MagicOrder = () => {
               <Button
                 variant="outline"
                 onClick={handlePaste}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing && !isPaused}
               >
                 <Clipboard size={16} />
                 <span>Pegar</span>
               </Button>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowGenerator(prev => !prev)}
-                  disabled={isAnalyzing}
-                >
-                  <Sparkles size={16} />
-                  <span>Ejemplos</span>
-                </Button>
+                {isAnalyzing && !isPaused && (
+                  <Button
+                    variant="outline"
+                    onClick={handlePauseAnalysis}
+                    className="flex items-center gap-1"
+                  >
+                    <Pause className="h-4 w-4" />
+                    Pausar análisis
+                  </Button>
+                )}
                 <Button
                   onClick={handleAnalyzeMessage}
-                  disabled={isAnalyzing || !message.trim()}
+                  disabled={isAnalyzing && !isPaused}
                 >
-                  {isAnalyzing ? (
+                  {isAnalyzing && !isPaused ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Analizando...
+                    </>
+                  ) : isPaused ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4" />
+                      Reiniciar análisis
                     </>
                   ) : (
                     <>
@@ -980,6 +1016,21 @@ const MagicOrder = () => {
             </div>
           </CardFooter>
         </Card>
+
+        {/* Resultados del análisis */}
+        {orders.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Pedidos detectados</h2>
+            {orders.map((order, index) => (
+              <SimpleOrderCardNew
+                key={index}
+                order={order}
+                onSave={() => handleSaveOrder(index, order)}
+                onDelete={() => handleDeleteOrder(index)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* AlertDialog para mensajes */}
         <AlertDialog 

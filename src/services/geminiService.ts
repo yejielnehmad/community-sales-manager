@@ -1,4 +1,3 @@
-
 /**
  * Servicios de integración con AI para análisis de mensajes
  * v1.0.1
@@ -44,7 +43,40 @@ export const getCurrentGeminiModel = getCurrentModel;
 export const callGeminiAPI = callAPI;
 
 // Re-exportamos la función de análisis de mensajes
-export const analyzeCustomerMessage = analyzeMessage;
+export const analyzeCustomerMessage = async (
+  message: string,
+  onProgress?: (progress: number, stage?: string) => void,
+  signal?: AbortSignal
+): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string, elapsedTime?: number}> => {
+  const startTime = performance.now();
+  
+  try {
+    onProgress?.(10, "Iniciando análisis...");
+    
+    if (signal?.aborted) {
+      throw new Error("Análisis cancelado por el usuario");
+    }
+    
+    // Realizar análisis sin considerar pedidos anteriores
+    const analysisResult = await performMessageAnalysis(message, { signal, onProgress });
+    
+    const endTime = performance.now();
+    const elapsedTime = endTime - startTime;
+    
+    return {
+      ...analysisResult,
+      elapsedTime
+    };
+    
+  } catch (error) {
+    if (signal?.aborted) {
+      const abortError = new Error("Análisis cancelado por el usuario");
+      abortError.name = "AbortError";
+      throw abortError;
+    }
+    throw error;
+  }
+};
 
 // Re-exportamos la función de chat con asistente
 export { chatWithAssistant };
