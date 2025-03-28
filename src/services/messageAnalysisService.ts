@@ -1,464 +1,287 @@
 
 /**
- * Servicio para análisis de mensajes
- * v1.0.1
+ * Servicio para análisis de mensajes utilizando IA
+ * v1.0.4
  */
 import { MessageAnalysis } from "@/types";
-import { 
-  callAPI, 
-  getCurrentAPIProvider, 
-  getCurrentModel
-} from "./apiProviders";
-import { supabase } from "@/lib/supabase";
 import { logDebug, logError } from "@/lib/debug-utils";
-import { 
-  STEP_ONE_PROMPT, 
-  STEP_TWO_PROMPT, 
-  STEP_THREE_PROMPT,
-  getUseTwoPhasesAnalysis 
-} from "./prompts/analysisPrompts";
-import { extractJsonFromResponse, tryParseJson } from "./utils/jsonUtils";
-import { BaseAPIError } from "./apiProviders/baseAPIProvider";
+import { callAPI } from "./apiProviders";
+import { extractJSONFromText } from "./utils/jsonUtils";
 
-// Exportamos las constantes y funciones para gestión de prompts
-export const DEFAULT_ANALYSIS_PROMPT = `Analiza el siguiente mensaje y extrae información sobre pedidos.
-El mensaje puede contener uno o varios pedidos de diferentes clientes.
+// Prompt por defecto para análisis de mensajes
+export const DEFAULT_ANALYSIS_PROMPT = `Eres un asistente experto en analizar mensajes de clientes y extraer información de pedidos en un formato estructurado JSON. Tu tarea es identificar productos, cantidades, variantes y cliente en el siguiente mensaje. Usa exactamente los nombres de productos y clientes que te proporcionaré como contexto. 
 
-Contexto de productos disponibles:
+CONTEXTO DE PRODUCTOS:
 {productsContext}
 
-Contexto de clientes registrados:
+CONTEXTO DE CLIENTES:
 {clientsContext}
 
-Mensaje a analizar:
+MENSAJE A ANALIZAR:
 {messageText}
 
-Proporciona un análisis estructurado identificando clientes, productos, cantidades y cualquier otra información relevante.`;
+INSTRUCCIONES:
+1. Analiza cuidadosamente el mensaje.
+2. Identifica qué cliente está haciendo el pedido (usa los datos del contexto).
+3. Extrae los productos solicitados, cantidades y variantes si se mencionan.
+4. Devuelve los resultados en formato JSON según el esquema proporcionado.
+
+Para la identificación de cliente:
+- Busca coincidencias exactas o parciales con nombres en el contexto.
+- Si hay múltiples coincidencias posibles, selecciona la más probable.
+- Indica tu nivel de confianza como "alto", "medio" o "bajo".
+
+Para productos:
+- Identifica los nombres de productos del contexto mencionados en el mensaje.
+- Determina cantidades (por defecto 1 si no se especifica).
+- Identifica variantes si se mencionan.
+- Marca estado como "duda" si hay información ambigua o "confirmado" si es clara.
+- Incluye notas explicativas si es necesario.
+
+Si no hay suficiente información para crear un pedido completo, haz tu mejor esfuerzo e indica las dudas.
+
+ESQUEMA JSON REQUERIDO:
+[{
+  "client": {
+    "id": string | null,
+    "name": string,
+    "matchConfidence": "alto" | "medio" | "bajo"
+  },
+  "items": [{
+    "product": {
+      "id": string | null,
+      "name": string
+    },
+    "variant": {
+      "id": string | null,
+      "name": string
+    } | null,
+    "quantity": number,
+    "status": "confirmado" | "duda",
+    "notes": string
+  }]
+}]
+
+IMPORTANTE:
+- Devuelve SOLO el JSON válido sin ningún otro texto o explicación.
+- Utiliza null cuando no puedas identificar un ID.
+- Crea un objeto de pedido para cada cliente detectado en el mensaje.
+- No inventes productos o clientes que no estén en el contexto.
+- Si un producto tiene variantes y no se especifica, marca como "duda" e indica las variantes disponibles.
+- El JSON debe ser válido y seguir estrictamente el esquema proporcionado.
+`;
 
 // Variable para almacenar el prompt personalizado
-let customAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
+let customAnalysisPrompt: string | null = null;
 
-// Funciones para gestión de prompts
-export const getCurrentAnalysisPrompt = (): string => {
-  return customAnalysisPrompt;
-};
-
-export const setCustomAnalysisPrompt = (prompt: string): void => {
-  if (!prompt || prompt.trim() === '') {
-    throw new Error("El prompt no puede estar vacío");
-  }
+// Clase para errores específicos de análisis de mensajes
+export class MessageAnalysisError extends Error {
+  public rawJsonResponse?: string;
+  public phase1Response?: string;
   
-  // Verificamos que el prompt contenga los marcadores necesarios
-  const requiredPlaceholders = ['{productsContext}', '{clientsContext}', '{messageText}'];
-  const missingPlaceholders = requiredPlaceholders.filter(placeholder => !prompt.includes(placeholder));
-  
-  if (missingPlaceholders.length > 0) {
-    throw new Error(`El prompt debe contener los siguientes marcadores: ${missingPlaceholders.join(', ')}`);
-  }
-  
-  customAnalysisPrompt = prompt;
-  logDebug("Analysis", "Prompt personalizado establecido");
-};
-
-export const resetAnalysisPrompt = (): void => {
-  customAnalysisPrompt = DEFAULT_ANALYSIS_PROMPT;
-  logDebug("Analysis", "Prompt restablecido a valores predeterminados");
-};
-
-/**
- * Error específico del análisis de mensajes
- */
-export class MessageAnalysisError extends BaseAPIError {
-  constructor(message: string, details?: { 
-    status?: number, 
-    statusText?: string, 
-    apiResponse?: any,
-    rawJsonResponse?: string,
-    phase1Response?: string,
-    phase2Response?: string,
-    phase3Response?: string
-  }) {
-    super(message, details);
+  constructor(message: string, options?: { rawJsonResponse?: string, phase1Response?: string }) {
+    super(message);
     this.name = "MessageAnalysisError";
+    this.rawJsonResponse = options?.rawJsonResponse;
+    this.phase1Response = options?.phase1Response;
   }
 }
 
-/**
- * Obtiene el contexto de la base de datos para el análisis
- */
-export const fetchDatabaseContext = async () => {
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name, price, description');
-  
-  if (productsError) {
-    logError("Database", "Error al obtener productos:", productsError);
-    throw new Error(`Error al obtener productos: ${productsError.message}`);
-  }
-
-  const { data: variants, error: variantsError } = await supabase
-    .from('product_variants')
-    .select('id, product_id, name, price');
-  
-  if (variantsError) {
-    logError("Database", "Error al obtener variantes:", variantsError);
-    throw new Error(`Error al obtener variantes: ${variantsError.message}`);
-  }
-
-  const productsWithVariants = products.map(product => {
-    const productVariants = variants.filter(v => v.product_id === product.id);
-    return {
-      ...product,
-      variants: productVariants
-    };
-  });
-
-  const { data: clients, error: clientsError } = await supabase
-    .from('clients')
-    .select('id, name, phone');
-  
-  if (clientsError) {
-    logError("Database", "Error al obtener clientes:", clientsError);
-    throw new Error(`Error al obtener clientes: ${clientsError.message}`);
-  }
-
-  return {
-    products: productsWithVariants,
-    clients
-  };
+// Obtener el prompt actual (default o personalizado)
+export const getCurrentAnalysisPrompt = (): string => {
+  return customAnalysisPrompt || DEFAULT_ANALYSIS_PROMPT;
 };
 
-/**
- * Analiza un mensaje en dos fases:
- * 1. Primero hace un análisis general y separación por cliente
- * 2. Luego convierte ese análisis a formato JSON estructurado
- * Si el JSON tiene errores, se utiliza una tercera fase para corregirlo
- */
-export const analyzeTwoPhases = async (
-  message: string,
-  dbContext: any,
-  onProgress?: (progress: number, stage?: string) => void
-): Promise<{result: MessageAnalysis[], phase1Response: string, phase2Response: string, phase3Response?: string}> => {
+// Establecer un prompt personalizado
+export const setCustomAnalysisPrompt = (prompt: string): void => {
+  if (!prompt || prompt.trim().length === 0) {
+    throw new Error("El prompt no puede estar vacío");
+  }
+  
+  // Verificar que el prompt incluye las variables necesarias
+  const requiredVariables = ['{productsContext}', '{clientsContext}', '{messageText}'];
+  const missingVariables = requiredVariables.filter(variable => !prompt.includes(variable));
+  
+  if (missingVariables.length > 0) {
+    throw new Error(`El prompt debe incluir las variables: ${missingVariables.join(', ')}`);
+  }
+  
+  customAnalysisPrompt = prompt;
+  localStorage.setItem('customAnalysisPrompt', prompt);
+  
+  logDebug("AnalysisService", "Prompt personalizado establecido");
+};
+
+// Resetear al prompt por defecto
+export const resetAnalysisPrompt = (): void => {
+  customAnalysisPrompt = null;
+  localStorage.removeItem('customAnalysisPrompt');
+  logDebug("AnalysisService", "Prompt restablecido al valor predeterminado");
+};
+
+// Cargar prompt personalizado desde localStorage al iniciar
+export const loadCustomPromptFromStorage = (): void => {
   try {
-    logDebug("Analysis", "Analizando mensaje en dos fases (optimizado)...");
-    onProgress?.(10, "Preparando análisis...");
-    
-    // Preparamos los contextos para los prompts
-    const productsContext = dbContext.products.map(p => {
-      const variantsText = p.variants && p.variants.length 
-        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
-        : 'Sin variantes';
-      
-      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
-    }).join('\n');
-    
-    const clientsContext = dbContext.clients.map(c => 
-      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
-    ).join('\n');
-    
-    // FASE 1: Análisis inicial y separación por cliente
-    logDebug("Analysis", "Fase 1: Iniciando análisis preliminar...");
-    onProgress?.(30, "Fase 1: Analizando mensaje...");
-    
-    const phase1Prompt = STEP_ONE_PROMPT
-      .replace('{productsContext}', productsContext)
-      .replace('{clientsContext}', clientsContext)
-      .replace('{messageText}', message);
-    
-    const phase1Response = await callAPI(phase1Prompt);
-    logDebug("Analysis", "Fase 1 completada, análisis inicial obtenido");
-    onProgress?.(60, "Fase 2: Estructurando en JSON...");
-    
-    // FASE 2: Convertir el análisis a JSON estructurado
-    logDebug("Analysis", "Fase 2: Estructurando respuesta en formato JSON...");
-    
-    const phase2Prompt = STEP_TWO_PROMPT
-      .replace('{analysisText}', phase1Response)
-      .replace('{productsContext}', productsContext)
-      .replace('{clientsContext}', clientsContext);
-    
-    const phase2Response = await callAPI(phase2Prompt);
-    onProgress?.(80, "Procesando resultado...");
-    
-    // Extraer el JSON de la respuesta
-    let jsonText = extractJsonFromResponse(phase2Response);
-    
-    // Intentamos parsear el JSON directamente
-    const parseResult = tryParseJson<MessageAnalysis[]>(jsonText);
-    
-    if (parseResult.success && parseResult.data) {
-      const parsedResult = parseResult.data;
-      logDebug("Analysis", `Análisis en dos fases completado exitosamente. Pedidos identificados: ${parsedResult.length}`);
-      
-      onProgress?.(100, "Análisis completado");
-      
-      if (!Array.isArray(parsedResult)) {
-        throw new Error("El formato de los datos analizados no es válido (no es un array)");
-      }
-      
-      const processedResult = parsedResult.filter(result => {
-        if (!result.client || typeof result.client !== 'object') {
-          return false;
-        }
-        
-        if (!Array.isArray(result.items)) {
-          result.items = [];
-        }
-        
-        // Filtrar resultados sin items (pedidos vacíos)
-        return result.items.length > 0;
-      });
-      
-      return {
-        result: processedResult,
-        phase1Response,
-        phase2Response: jsonText
-      };
-    } else {
-      // Si hay un error en el JSON, usamos la fase 3 para corregirlo
-      logDebug("Analysis", `Error en el JSON de la fase 2, usando fase 3 para corregir: ${parseResult.error?.message}`);
-      onProgress?.(85, "Fase 3: Corrigiendo JSON...");
-      
-      // FASE 3: Validar y corregir el JSON
-      const phase3Prompt = STEP_THREE_PROMPT
-        .replace('{jsonText}', jsonText);
-      
-      const phase3Response = await callAPI(phase3Prompt);
-      onProgress?.(95, "Finalizando...");
-      
-      // Extraer el JSON validado y corregido
-      let validatedJsonText = extractJsonFromResponse(phase3Response);
-      
-      // Intentamos parsear el JSON corregido
-      const finalParseResult = tryParseJson<MessageAnalysis[]>(validatedJsonText);
-      
-      if (finalParseResult.success && finalParseResult.data) {
-        const parsedResult = finalParseResult.data;
-        logDebug("Analysis", `Análisis con corrección en fase 3 completado. Pedidos identificados: ${parsedResult.length}`);
-        
-        onProgress?.(100, "Análisis completado");
-        
-        if (!Array.isArray(parsedResult)) {
-          throw new Error("El formato de los datos analizados no es válido (no es un array)");
-        }
-        
-        const processedResult = parsedResult.filter(result => {
-          if (!result.client || typeof result.client !== 'object') {
-            return false;
-          }
-          
-          if (!Array.isArray(result.items)) {
-            result.items = [];
-          }
-          
-          // Filtrar resultados sin items (pedidos vacíos)
-          return result.items.length > 0;
-        });
-        
-        return {
-          result: processedResult,
-          phase1Response,
-          phase2Response: jsonText,
-          phase3Response: validatedJsonText
-        };
-      } else {
-        logError("Analysis", "Error persistente en el análisis JSON:", finalParseResult.error);
-        throw new MessageAnalysisError(`Error al procesar la respuesta JSON: ${finalParseResult.error?.message}`, {
-          apiResponse: finalParseResult.error,
-          rawJsonResponse: validatedJsonText,
-          phase1Response,
-          phase2Response: jsonText,
-          phase3Response: validatedJsonText
-        });
-      }
+    const storedPrompt = localStorage.getItem('customAnalysisPrompt');
+    if (storedPrompt) {
+      customAnalysisPrompt = storedPrompt;
+      logDebug("AnalysisService", "Prompt personalizado cargado desde localStorage");
     }
   } catch (error) {
-    logError("Analysis", "Error en el análisis de dos fases:", error);
-    if (error instanceof MessageAnalysisError) {
-      throw error;
-    }
-    throw new MessageAnalysisError(`Error en el análisis de dos fases: ${(error as Error).message}`);
+    logError("AnalysisService", "Error al cargar prompt desde localStorage", error);
   }
 };
 
-/**
- * Analiza un mensaje en tres fases completas
- */
-export const analyzeThreePhases = async (
-  message: string,
-  dbContext: any,
-  onProgress?: (progress: number) => void
-): Promise<{result: MessageAnalysis[], phase1Response: string, phase2Response: string, phase3Response: string}> => {
-  try {
-    logDebug("Analysis", "Analizando mensaje en tres fases...");
-    onProgress?.(10);
-    
-    // Preparamos los contextos para los prompts
-    const productsContext = dbContext.products.map(p => {
-      const variantsText = p.variants && p.variants.length 
-        ? `Variantes: ${p.variants.map(v => `${v.name} (ID: ${v.id})`).join(', ')}` 
-        : 'Sin variantes';
-      
-      return `- ${p.name} (ID: ${p.id}), Precio: ${p.price}. ${variantsText}`;
-    }).join('\n');
-    
-    const clientsContext = dbContext.clients.map(c => 
-      `- ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
-    ).join('\n');
-    
-    // FASE 1: Análisis inicial y separación por cliente
-    logDebug("Analysis", "Fase 1: Iniciando análisis preliminar...");
-    onProgress?.(25);
-    
-    const phase1Prompt = STEP_ONE_PROMPT
-      .replace('{productsContext}', productsContext)
-      .replace('{clientsContext}', clientsContext)
-      .replace('{messageText}', message);
-    
-    const phase1Response = await callAPI(phase1Prompt);
-    logDebug("Analysis", "Fase 1 completada, análisis inicial obtenido");
-    onProgress?.(50);
-    
-    // FASE 2: Convertir el análisis a JSON estructurado
-    logDebug("Analysis", "Fase 2: Estructurando respuesta en formato JSON...");
-    
-    const phase2Prompt = STEP_TWO_PROMPT
-      .replace('{analysisText}', phase1Response)
-      .replace('{productsContext}', productsContext)
-      .replace('{clientsContext}', clientsContext);
-    
-    const phase2Response = await callAPI(phase2Prompt);
-    onProgress?.(75);
-    
-    // FASE 3: Validar y corregir el JSON
-    logDebug("Analysis", "Fase 3: Validando y corrigiendo el JSON...");
-    
-    // Extraemos el JSON de la respuesta de la fase 2
-    let jsonText = extractJsonFromResponse(phase2Response);
-    
-    const phase3Prompt = STEP_THREE_PROMPT
-      .replace('{jsonText}', jsonText);
-    
-    const phase3Response = await callAPI(phase3Prompt);
-    onProgress?.(90);
-    
-    // Extraer el JSON validado y corregido
-    let validatedJsonText = extractJsonFromResponse(phase3Response);
-    
-    // Intentamos parsear el JSON final
-    const parseResult = tryParseJson<MessageAnalysis[]>(validatedJsonText);
-    
-    if (parseResult.success && parseResult.data) {
-      const parsedResult = parseResult.data;
-      logDebug("Analysis", `Análisis en tres fases completado. Pedidos identificados: ${parsedResult.length}`);
-      
-      onProgress?.(100);
-      
-      if (!Array.isArray(parsedResult)) {
-        throw new Error("El formato de los datos analizados no es válido (no es un array)");
-      }
-      
-      const processedResult = parsedResult.filter(result => {
-        if (!result.client || typeof result.client !== 'object') {
-          return false;
-        }
-        
-        if (!Array.isArray(result.items)) {
-          result.items = [];
-        }
-        
-        // Filtrar resultados sin items (pedidos vacíos)
-        return result.items.length > 0;
-      });
-      
-      return {
-        result: processedResult,
-        phase1Response,
-        phase2Response: jsonText,
-        phase3Response: validatedJsonText
-      };
-    } else {
-      logError("Analysis", "Error al analizar JSON:", parseResult.error);
-      logError("Analysis", "Texto JSON recibido:", validatedJsonText);
-      
-      throw new MessageAnalysisError(`Error al procesar la respuesta JSON: ${parseResult.error?.message}`, {
-        apiResponse: parseResult.error,
-        rawJsonResponse: validatedJsonText,
-        phase1Response,
-        phase2Response
-      });
-    }
-  } catch (error) {
-    logError("Analysis", "Error en el análisis de tres fases:", error);
-    if (error instanceof MessageAnalysisError) {
-      throw error;
-    }
-    throw new MessageAnalysisError(`Error en el análisis de tres fases: ${(error as Error).message}`);
-  }
-};
+// Inicialización - cargar prompt personalizado si existe
+loadCustomPromptFromStorage();
 
-/**
- * Función principal para analizar mensajes
- */
+// Función principal para analizar mensajes
 export const analyzeCustomerMessage = async (
-  message: string, 
+  messageText: string,
   onProgress?: (progress: number, stage?: string) => void
-): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string, elapsedTime?: number}> => {
+): Promise<{result: MessageAnalysis[], phase1Response?: string, phase2Response?: string, phase3Response?: string}> => {
+  // Fase 1: Obtener contexto y preparar prompt
+  onProgress?.(20, "Preparando análisis...");
+  
   try {
-    logDebug("Analysis", "Analizando mensaje...");
+    // Obtener contexto de productos y clientes desde localStorage
+    const productsData = localStorage.getItem('magicOrder_products');
+    const clientsData = localStorage.getItem('magicOrder_clients');
     
-    // Iniciamos el tiempo de medición
-    const startTime = performance.now();
+    const products = productsData ? JSON.parse(productsData) : [];
+    const clients = clientsData ? JSON.parse(clientsData) : [];
     
-    onProgress?.(10, "Iniciando análisis...");
+    // Formatear productos para el contexto
+    const productsContext = products.map((p: any) => {
+      const variantsText = p.variants && p.variants.length > 0
+        ? `Variantes: ${p.variants.map((v: any) => `${v.name} (ID: ${v.id})`).join(', ')}`
+        : 'Sin variantes';
+      
+      return `Producto: ${p.name} (ID: ${p.id}). ${variantsText}`;
+    }).join('\n');
     
-    const dbContext = await fetchDatabaseContext();
-    onProgress?.(20, "Cargando datos de contexto...");
+    // Formatear clientes para el contexto
+    const clientsContext = clients.map((c: any) => 
+      `Cliente: ${c.name} (ID: ${c.id})${c.phone ? `, Teléfono: ${c.phone}` : ''}`
+    ).join('\n');
     
-    // Usamos el análisis en dos fases con corrección automática en fase 3 si es necesario
-    logDebug("Analysis", "Usando el método optimizado de análisis en dos fases con corrección opcional");
+    // Preparar prompt completo
+    const promptTemplate = getCurrentAnalysisPrompt();
+    const prompt = promptTemplate
+      .replace('{productsContext}', productsContext || 'No hay productos registrados')
+      .replace('{clientsContext}', clientsContext || 'No hay clientes registrados')
+      .replace('{messageText}', messageText);
+    
+    onProgress?.(30, "Analizando mensaje...");
+    
+    // Fase 1: Análisis inicial del mensaje
+    logDebug("AnalysisService", "Iniciando análisis de mensaje", { messageLength: messageText.length });
+    const phase1Response = await callAPI(prompt);
+    
+    onProgress?.(60, "Procesando resultados...");
+    
+    // Fase 2: Extracción de JSON válido de la respuesta
+    let jsonResult: MessageAnalysis[] = [];
+    let extractedJson = '';
+    
     try {
-      const twoPhaseResult = await analyzeTwoPhases(message, dbContext, onProgress);
+      extractedJson = extractJSONFromText(phase1Response);
+      jsonResult = JSON.parse(extractedJson) as MessageAnalysis[];
       
-      // Calculamos el tiempo transcurrido
-      const endTime = performance.now();
-      const elapsedTime = endTime - startTime;
+      // Verificar estructura básica del JSON
+      if (!Array.isArray(jsonResult)) {
+        throw new Error("El resultado no es un array");
+      }
       
-      return {
-        result: twoPhaseResult.result,
-        phase1Response: twoPhaseResult.phase1Response,
-        phase2Response: twoPhaseResult.phase2Response,
-        phase3Response: twoPhaseResult.phase3Response,
-        elapsedTime
-      };
+      logDebug("AnalysisService", "JSON extraído correctamente", {
+        resultCount: jsonResult.length
+      });
     } catch (error) {
-      logError("Analysis", "Error en el análisis optimizado, intentando método de reserva:", error);
-      
-      // Fallback al método de tres fases completo si el optimizado falla
-      logDebug("Analysis", "Usando método de reserva: análisis en tres fases completo");
-      onProgress?.(30, "Usando método alternativo...");
-      
-      const threePhaseResult = await analyzeThreePhases(message, dbContext, 
-        (progress) => onProgress?.(30 + Math.floor(progress * 0.7), "Análisis alternativo en curso..."));
-      
-      // Calculamos el tiempo transcurrido
-      const endTime = performance.now();
-      const elapsedTime = endTime - startTime;
-      
-      return {
-        result: threePhaseResult.result,
-        phase1Response: threePhaseResult.phase1Response,
-        phase2Response: threePhaseResult.phase2Response,
-        phase3Response: threePhaseResult.phase3Response,
-        elapsedTime
-      };
+      logError("AnalysisService", "Error al procesar JSON de respuesta", error);
+      throw new MessageAnalysisError(
+        "No se pudo procesar la respuesta de la IA. El formato JSON no es válido.", 
+        { rawJsonResponse: extractedJson, phase1Response }
+      );
     }
+    
+    // Fase 3: Validación y corrección
+    onProgress?.(80, "Validando resultados...");
+    
+    // Validación básica de resultados
+    const validatedResults = jsonResult.map((order) => {
+      // Asegurar que client existe
+      if (!order.client) {
+        order.client = {
+          id: null,
+          name: "Cliente desconocido",
+          matchConfidence: "bajo"
+        };
+      }
+      
+      // Asegurar que items es un array
+      if (!order.items || !Array.isArray(order.items)) {
+        order.items = [];
+      }
+      
+      // Validar cada item
+      order.items = order.items.map(item => {
+        // Asegurar que product existe
+        if (!item.product) {
+          item.product = {
+            id: null,
+            name: "Producto desconocido"
+          };
+        }
+        
+        // Asegurar quantity
+        if (typeof item.quantity !== 'number' || item.quantity <= 0) {
+          item.quantity = 1;
+          item.status = "duda";
+          item.notes = `${item.notes || ''} Cantidad no especificada, se asume 1.`.trim();
+        }
+        
+        // Asegurar status
+        if (!item.status || !['confirmado', 'duda'].includes(item.status)) {
+          item.status = "duda";
+        }
+        
+        // Asegurar notes
+        if (!item.notes) {
+          item.notes = "";
+        }
+        
+        return item;
+      });
+      
+      return order;
+    });
+    
+    // Generar respuesta para fase 3 (validación)
+    const phase3Response = JSON.stringify(validatedResults, null, 2);
+    
+    onProgress?.(100, "¡Análisis completado!");
+    
+    logDebug("AnalysisService", "Análisis completado con éxito", {
+      ordersCount: validatedResults.length,
+      itemsCount: validatedResults.reduce((acc, order) => acc + order.items.length, 0)
+    });
+    
+    return {
+      result: validatedResults,
+      phase1Response,
+      phase2Response: extractedJson,
+      phase3Response
+    };
   } catch (error) {
-    logError("Analysis", "Error final en analyzeCustomerMessage:", error);
-    onProgress?.(100, "Error en el análisis");
+    logError("AnalysisService", "Error en el proceso de análisis", error);
+    
     if (error instanceof MessageAnalysisError) {
       throw error;
     }
-    throw new MessageAnalysisError(`Error al analizar el mensaje: ${(error as Error).message}`);
+    
+    throw new MessageAnalysisError(
+      `Error al analizar el mensaje: ${(error as Error).message}`,
+      { phase1Response: (error as any).phase1Response }
+    );
   }
 };
