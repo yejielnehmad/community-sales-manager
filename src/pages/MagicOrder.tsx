@@ -80,7 +80,7 @@ import {
 
 /**
  * Página Mensaje Mágico
- * v1.0.55
+ * v1.0.56
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -942,3 +942,17 @@ const MagicOrder = () => {
                 Error en el análisis
               </CardTitle>
             </CardHeader>
+            <CardContent className="py-2">
+              <p className="text-red-700 text-sm">{analyzeError}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Resto del contenido */}
+        {/* ... keep existing code (resto del componente MagicOrder) */}
+      </div>
+    </AppLayout>
+  );
+};
+
+export default MagicOrder;
