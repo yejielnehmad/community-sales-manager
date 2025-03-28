@@ -17,9 +17,11 @@ import {
 
 interface MessageExampleGeneratorProps {
   onSelectExample: (text: string) => void;
+  products?: any[];
+  clients?: any[];
 }
 
-export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGeneratorProps) => {
+export const MessageExampleGenerator = ({ onSelectExample, products, clients }: MessageExampleGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [example, setExample] = useState<string>("");
   const [isCopied, setIsCopied] = useState(false);
@@ -210,3 +212,4 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     </Card>
   );
 };
+

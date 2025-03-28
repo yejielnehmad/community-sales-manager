@@ -1,4 +1,3 @@
-
 import { HelpCircle, Check, AlertCircle, ChevronDown, User, Edit, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +20,9 @@ interface SimpleOrderCardProps {
   order: OrderCardType;
   clients: any[];
   products: any[];
-  onUpdate: (updatedOrder: OrderCardType) => void;
-  index: number;
-  onDelete: () => void;
+  onUpdateOrder: (updatedOrder: OrderCardType) => void;
+  onSaveOrder: () => Promise<boolean>;
+  onDeleteOrder: () => void;
 }
 
 /**
@@ -34,9 +33,9 @@ export const SimpleOrderCardNew = ({
   order, 
   clients, 
   products, 
-  onUpdate, 
-  index,
-  onDelete
+  onUpdateOrder, 
+  onSaveOrder,
+  onDeleteOrder
 }: SimpleOrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
@@ -106,7 +105,7 @@ export const SimpleOrderCardNew = ({
           matchConfidence: 'alto' as 'alto' | 'medio' | 'bajo'
         }
       };
-      onUpdate(updatedOrder);
+      onUpdateOrder(updatedOrder);
     }
   };
   
@@ -138,7 +137,7 @@ export const SimpleOrderCardNew = ({
           ...order,
           items: updatedItems
         };
-        onUpdate(updatedOrder);
+        onUpdateOrder(updatedOrder);
         setIsLoadingVariants(prev => ({ ...prev, [itemIndex]: false }));
       }, 300); // Simulamos una pequeña carga
     }
@@ -170,7 +169,7 @@ export const SimpleOrderCardNew = ({
             ...order,
             items: updatedItems
           };
-          onUpdate(updatedOrder);
+          onUpdateOrder(updatedOrder);
         }
       } else {
         // Búsqueda de la variante en todos los productos
@@ -199,7 +198,7 @@ export const SimpleOrderCardNew = ({
                 ...order,
                 items: updatedItems
               };
-              onUpdate(updatedOrder);
+              onUpdateOrder(updatedOrder);
               break;
             }
           }
@@ -231,7 +230,7 @@ export const SimpleOrderCardNew = ({
       ...order,
       items: updatedItems
     };
-    onUpdate(updatedOrder);
+    onUpdateOrder(updatedOrder);
   };
 
   // Handler para resolver issues por notas o ambigüedades
@@ -272,7 +271,7 @@ export const SimpleOrderCardNew = ({
       ...order,
       items: updatedItems
     };
-    onUpdate(updatedOrder);
+    onUpdateOrder(updatedOrder);
   };
 
   // Función para mostrar una interfaz de edición para un ítem con dudas
@@ -344,7 +343,7 @@ export const SimpleOrderCardNew = ({
             size="sm" 
             variant="outline" 
             className="h-8 border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
-            onClick={onDelete}
+            onClick={onDeleteOrder}
           >
             Eliminar pedido
           </Button>

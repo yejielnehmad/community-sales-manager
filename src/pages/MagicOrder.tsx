@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -83,7 +82,7 @@ import { logDebug, logError } from '@/lib/debug-utils';
 
 /**
  * Página Mensaje Mágico
- * v1.0.57
+ * v1.0.58
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -1227,7 +1226,7 @@ const MagicOrder = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleConfirmDeleteOrder}>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleConfirmDeleteOrder}>
                 Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
