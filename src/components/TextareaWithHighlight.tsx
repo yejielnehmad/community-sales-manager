@@ -4,7 +4,6 @@ import { Textarea, TextareaProps } from '@/components/ui/textarea';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface HighlightedWord {
   word: string;
@@ -110,56 +109,23 @@ export const TextareaWithHighlight = ({
     setUnknownWords(unknownWordsFound);
   }, [stringValue, clients, products, clientNames, productNames]);
   
-  // Crear un array de segmentos de texto y palabras resaltadas
-  const createHighlightedSegments = () => {
+  // Función para resaltar palabras desconocidas
+  const highlightText = () => {
     if (!stringValue || unknownWords.length === 0) {
-      return [{text: stringValue, isHighlighted: false}];
+      return stringValue;
     }
     
-    const segments: {text: string, isHighlighted: boolean}[] = [];
-    let remainingText = stringValue;
+    let highlightedText = stringValue;
+    const spans: JSX.Element[] = [];
     
-    // Ordenamos las palabras por posición en el texto original
-    const sortedWords = [...unknownWords].sort((a, b) => {
-      const posA = stringValue.toLowerCase().indexOf(a.word);
-      const posB = stringValue.toLowerCase().indexOf(b.word);
-      return posA - posB;
+    // Construir una expresión regular para buscar todas las palabras desconocidas
+    const escapedWords = unknownWords.map(item => item.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+    const regex = new RegExp(`\\b(${escapedWords.join('|')})\\b`, 'gi');
+    
+    // Reemplazar las palabras desconocidas con spans rojos
+    return highlightedText.replace(regex, (match) => {
+      return `<span class="text-red-500 font-medium">${match}</span>`;
     });
-    
-    for (const item of sortedWords) {
-      const lowerCaseText = remainingText.toLowerCase();
-      const wordIndex = lowerCaseText.indexOf(item.word);
-      
-      if (wordIndex !== -1) {
-        // Agregar texto antes de la palabra resaltada
-        if (wordIndex > 0) {
-          segments.push({
-            text: remainingText.substring(0, wordIndex),
-            isHighlighted: false
-          });
-        }
-        
-        // Agregar la palabra resaltada con el texto original (preservando mayúsculas/minúsculas)
-        const originalWord = remainingText.substring(wordIndex, wordIndex + item.word.length);
-        segments.push({
-          text: originalWord,
-          isHighlighted: true
-        });
-        
-        // Actualizar el texto restante
-        remainingText = remainingText.substring(wordIndex + item.word.length);
-      }
-    }
-    
-    // Agregar el texto restante
-    if (remainingText) {
-      segments.push({
-        text: remainingText,
-        isHighlighted: false
-      });
-    }
-    
-    return segments;
   };
   
   return (
@@ -175,20 +141,12 @@ export const TextareaWithHighlight = ({
       />
       
       {unknownWords.length > 0 && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="relative w-full h-full overflow-hidden">
-            <div className="absolute inset-0 whitespace-pre-wrap break-words px-3 py-2 text-transparent">
-              {createHighlightedSegments().map((segment, i) => (
-                <span 
-                  key={i} 
-                  className={segment.isHighlighted ? "text-red-500 font-medium" : ""}
-                >
-                  {segment.text}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <div 
+          className="absolute inset-0 pointer-events-none bg-transparent"
+          dangerouslySetInnerHTML={{ 
+            __html: highlightText() 
+          }} 
+        />
       )}
       
       {clearable && stringValue && (

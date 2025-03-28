@@ -79,7 +79,7 @@ import {
 
 /**
  * Página Mensaje Mágico
- * v1.0.55
+ * v1.0.54
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
