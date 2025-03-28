@@ -459,7 +459,7 @@ const MagicOrder = () => {
       const completionEvent = new CustomEvent('analysisStateChange', {
         detail: { 
           isAnalyzing: false,
-          error: analysisError
+          error: analyzeError
         }
       });
       window.dispatchEvent(completionEvent);
@@ -946,15 +946,3 @@ const MagicOrder = () => {
                 variant="outline"
                 onClick={handlePaste}
                 disabled={isAnalyzing}
-              >
-                <Clipboard size={16} />
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
-    </AppLayout>
-  );
-};
-
-export default MagicOrder;
