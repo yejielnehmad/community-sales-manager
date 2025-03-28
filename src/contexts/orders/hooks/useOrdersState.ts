@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { Order, OrdersState } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { fetchOrdersData, mapApiItemsToOrderItems } from '../services/ordersService';
+import { clearAnalysisCache } from '@/services/messageAnalysisService';
 
 export const useOrdersState = () => {
   const { toast } = useToast();
@@ -25,6 +26,20 @@ export const useOrdersState = () => {
     
     // Limpiar cualquier dato en sessionStorage relacionado con órdenes
     sessionStorage.removeItem('magicOrder_ordersData');
+    
+    // Limpiar también datos de análisis para asegurar operaciones limpias
+    clearAnalysisCache();
+    
+    // Limpiar cualquier otro almacenamiento temporal de pedidos
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (key.startsWith('magicOrder_') || key.includes('order') || key.includes('analysis'))) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => sessionStorage.removeItem(key));
   }, []);
   
   const setSearchTerm = (term: string) => {
@@ -115,26 +130,24 @@ export const useOrdersState = () => {
         setState(prev => ({
           ...prev,
           orders: transformedOrders,
-          clientMap
+          clientMap,
+          isLoading: false,
+          isRefreshing: false
         }));
       }
     } catch (error: any) {
       console.error("Error al cargar pedidos:", error);
       setState(prev => ({
         ...prev,
-        error: error.message || "Error al cargar pedidos"
+        error: error.message || "Error al cargar pedidos",
+        isLoading: false,
+        isRefreshing: false
       }));
       toast({
         title: "Error al cargar los pedidos",
         description: error.message || "Ha ocurrido un error al cargar los pedidos. Intente nuevamente.",
         variant: "destructive"
       });
-    } finally {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        isRefreshing: false
-      }));
     }
   }, [toast]);
 

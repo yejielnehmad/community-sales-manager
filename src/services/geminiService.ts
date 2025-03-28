@@ -1,7 +1,7 @@
 
 /**
  * Servicios de integración con AI para análisis de mensajes
- * v1.0.5
+ * v1.0.6
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -18,7 +18,8 @@ import {
   DEFAULT_ANALYSIS_PROMPT,
   getCurrentAnalysisPrompt,
   setCustomAnalysisPrompt,
-  resetAnalysisPrompt
+  resetAnalysisPrompt,
+  clearAnalysisCache
 } from "./messageAnalysisService";
 import { chatWithAssistant } from "./chatService";
 
@@ -74,6 +75,9 @@ export const analyzeCustomerMessage = async (
   try {
     onProgress?.(10, "Iniciando análisis...");
     
+    // Limpiar completamente el caché de análisis antes de comenzar
+    clearAnalysisCache();
+    
     if (signal?.aborted) {
       throw new Error("Análisis cancelado por el usuario");
     }
@@ -113,5 +117,6 @@ export {
   DEFAULT_ANALYSIS_PROMPT,
   getCurrentAnalysisPrompt,
   setCustomAnalysisPrompt,
-  resetAnalysisPrompt
+  resetAnalysisPrompt,
+  clearAnalysisCache
 };

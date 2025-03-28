@@ -1,7 +1,6 @@
-
 /**
  * Servicio para análisis de mensajes utilizando IA
- * v1.0.6
+ * v1.0.7
  */
 import { MessageAnalysis } from "@/types";
 import { logDebug, logError } from "@/lib/debug-utils";
@@ -135,6 +134,31 @@ export const loadCustomPromptFromStorage = (): void => {
 // Inicialización - cargar prompt personalizado si existe
 loadCustomPromptFromStorage();
 
+// Función para limpiar completamente todos los datos de análisis en caché
+export const clearAnalysisCache = (): void => {
+  try {
+    // Limpiar caché de sessionStorage
+    sessionStorage.removeItem('magicOrder_analysis_cache');
+    sessionStorage.removeItem('magicOrder_lastAnalysis');
+    sessionStorage.removeItem('magicOrder_analysisResult');
+    
+    // Limpiar cualquier otro almacenamiento temporal relacionado con análisis
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (key.startsWith('magicOrder_analysis') || key.includes('messageAnalysis'))) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    
+    logDebug("AnalysisService", "Caché de análisis limpiada completamente");
+  } catch (error) {
+    logError("AnalysisService", "Error al limpiar caché de análisis", error);
+  }
+};
+
 // Función principal para analizar mensajes
 export const analyzeCustomerMessage = async (
   messageText: string,
@@ -145,6 +169,9 @@ export const analyzeCustomerMessage = async (
   onProgress?.(20, "Preparando análisis...");
   
   try {
+    // Limpiar completamente cualquier caché que pudiera existir para análisis anteriores
+    clearAnalysisCache();
+    
     // Obtener contexto de productos y clientes desde localStorage
     const productsData = localStorage.getItem('magicOrder_products');
     const clientsData = localStorage.getItem('magicOrder_clients');
@@ -183,8 +210,6 @@ export const analyzeCustomerMessage = async (
     // Fase 1: Análisis inicial del mensaje
     logDebug("AnalysisService", "Iniciando análisis de mensaje", { messageLength: messageText.length });
     
-    // Limpiar cualquier caché que pudiera existir para este mensaje
-    sessionStorage.removeItem('magicOrder_analysis_cache');
     const phase1Response = await callAPI(prompt);
     
     // Verificar si la operación fue cancelada
