@@ -73,8 +73,11 @@ const AIStatusBadge = ({
     };
   }, []);
 
+  // Aplicamos las clases según el estado actual
+  const badgeClasses = "cursor-help" + (status === "analyzing" ? " bg-blue-500 hover:bg-blue-600" : " bg-yellow-400 hover:bg-yellow-500 text-black");
+
   return (
-    <Badge variant={status === "analyzing" ? "analyzing" : "default"} className="cursor-help">
+    <Badge variant={status === "analyzing" ? "analyzing" : "custom"} className={badgeClasses}>
       {message}
     </Badge>
   );

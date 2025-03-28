@@ -18,6 +18,8 @@ const badgeVariants = cva(
         outline: "text-foreground",
         analyzing: 
           "border-transparent bg-blue-500 text-white hover:bg-blue-600",
+        custom:
+          "border-transparent", // Usamos una variante custom para poder aplicar clases personalizadas
       },
     },
     defaultVariants: {
