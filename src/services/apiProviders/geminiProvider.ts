@@ -1,7 +1,7 @@
 
 /**
  * Implementación del proveedor para Google Gemini
- * v1.0.3
+ * v1.0.4
  */
 import { BaseAPIProvider, BaseAPIError } from "./baseAPIProvider";
 import { GOOGLE_GEMINI_ENDPOINT, GOOGLE_API_KEY, GEMINI_MAX_INPUT_TOKENS, GEMINI_MAX_OUTPUT_TOKENS } from "@/lib/api-config";
@@ -42,6 +42,13 @@ export class GeminiProvider extends BaseAPIProvider {
         return this.tempCache.get(cacheKey) || "";
       }
       
+      // Verificar que tenemos una API key
+      if (!GOOGLE_API_KEY || GOOGLE_API_KEY.trim() === '') {
+        throw new BaseAPIError("No se ha configurado la clave de API de Google Gemini. Por favor, establece la variable GOOGLE_API_KEY.", {
+          tipo: "error_configuracion"
+        });
+      }
+      
       const url = `${GOOGLE_GEMINI_ENDPOINT}/${this.model}:generateContent?key=${GOOGLE_API_KEY}`;
       
       // Formato correcto para la API de Gemini 2.0
@@ -66,13 +73,23 @@ export class GeminiProvider extends BaseAPIProvider {
         modelName: this.model,
       });
       
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestBody)
-      });
+      // Hacer la solicitud a la API
+      let response;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } catch (networkError: any) {
+        // Error de red (sin conexión, timeout, etc.)
+        throw new BaseAPIError(
+          `Error de conexión con la API de Google Gemini: ${networkError.message || 'Error de red desconocido'}. Comprueba tu conexión a Internet e inténtalo de nuevo.`, 
+          { networkError, tipo: "error_conexion" }
+        );
+      }
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -88,33 +105,70 @@ export class GeminiProvider extends BaseAPIProvider {
         
         // Mensajes de error más específicos basados en el código de error
         if (status === 400) {
-          errorMessage = `Error 400: Solicitud incorrecta. Posible problema con el formato o longitud del mensaje.`;
+          let detalleError = "Solicitud incorrecta.";
+          
+          // Verificar si es un problema de token
+          if (errorData.error && errorData.error.message && 
+             (errorData.error.message.includes("too long") || 
+              errorData.error.message.includes("token") || 
+              errorData.error.message.includes("size"))) {
+            detalleError = "El mensaje es demasiado largo para ser procesado. Intenta con un mensaje más corto.";
+          } else {
+            detalleError = "Posible problema con el formato o contenido del mensaje.";
+          }
+          
+          errorMessage = `Error 400: ${detalleError}`;
         } else if (status === 401) {
-          errorMessage = `Error 401: Clave de API no válida o expirada.`;
+          errorMessage = `Error 401: Clave de API no válida o expirada. Por favor, verifica la configuración.`;
+        } else if (status === 403) {
+          errorMessage = `Error 403: No tienes permiso para usar esta API o has excedido la cuota. Verifica los permisos de tu proyecto en Google AI Studio.`;
         } else if (status === 429) {
-          errorMessage = `Error 429: Límite de solicitudes excedido. Por favor, intenta más tarde.`;
+          errorMessage = `Error 429: Límite de solicitudes excedido. Por favor, intenta más tarde o verifica los límites de tu plan.`;
         } else if (status === 500) {
-          errorMessage = `Error 500: Error interno del servidor de Google Gemini. Por favor, intenta más tarde.`;
+          errorMessage = `Error 500: Error interno del servidor de Google Gemini. Este es un problema temporal, por favor intenta más tarde.`;
+        } else if (status === 503) {
+          errorMessage = `Error 503: Servicio de Google Gemini no disponible temporalmente. Por favor intenta más tarde.`;
         }
         
-        throw new BaseAPIError(errorMessage, { status, statusText, apiResponse: errorData });
+        throw new BaseAPIError(errorMessage, { 
+          status, 
+          statusText, 
+          apiResponse: errorData,
+          tipo: `error_${status}`
+        });
       }
       
       const data = await response.json();
       
       if (!data.candidates || data.candidates.length === 0) {
-        throw new BaseAPIError("No se pudo generar contenido", { apiResponse: data });
+        throw new BaseAPIError("No se pudo generar contenido. La API no devolvió candidatos.", { 
+          apiResponse: data, 
+          tipo: "error_sin_candidatos" 
+        });
       }
       
       // Verificar si hay bloqueo de contenido
       if (data.candidates[0].finishReason === "SAFETY") {
-        throw new BaseAPIError("El contenido ha sido bloqueado por políticas de seguridad", { apiResponse: data });
+        throw new BaseAPIError(
+          "El contenido ha sido bloqueado por políticas de seguridad de Google Gemini. Por favor, verifica que tu solicitud no contenga contenido inapropiado.", 
+          { apiResponse: data, tipo: "error_seguridad" }
+        );
+      }
+      
+      // Verificar si hay errores por límite de tokens
+      if (data.candidates[0].finishReason === "MAX_TOKENS") {
+        logDebug("GEMINI-API", "La respuesta alcanzó el límite máximo de tokens", { 
+          maxTokens: GEMINI_MAX_OUTPUT_TOKENS 
+        });
       }
       
       // Extraer el texto de la respuesta
       const content = data.candidates[0].content;
       if (!content || !content.parts || content.parts.length === 0) {
-        throw new BaseAPIError("Formato de respuesta inesperado", { apiResponse: data });
+        throw new BaseAPIError(
+          "Formato de respuesta inesperado de la API de Google Gemini. No se encontró contenido en la respuesta.", 
+          { apiResponse: data, tipo: "error_formato" }
+        );
       }
       
       const result = content.parts[0].text || "";

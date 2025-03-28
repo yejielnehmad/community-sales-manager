@@ -1,7 +1,7 @@
 
 /**
  * Clase base para proveedores de API
- * v1.0.0
+ * v1.0.1
  */
 import { logDebug, logError } from "@/lib/debug-utils";
 
@@ -13,6 +13,8 @@ export class BaseAPIError extends Error {
   phase1Response?: string;
   phase2Response?: string;
   phase3Response?: string;
+  tipo?: string;
+  networkError?: any;
   
   constructor(message: string, details?: { 
     status?: number, 
@@ -21,7 +23,9 @@ export class BaseAPIError extends Error {
     rawJsonResponse?: string,
     phase1Response?: string,
     phase2Response?: string,
-    phase3Response?: string
+    phase3Response?: string,
+    tipo?: string,
+    networkError?: any
   }) {
     super(message);
     this.name = "APIError";
@@ -32,6 +36,8 @@ export class BaseAPIError extends Error {
     this.phase1Response = details?.phase1Response;
     this.phase2Response = details?.phase2Response;
     this.phase3Response = details?.phase3Response;
+    this.tipo = details?.tipo;
+    this.networkError = details?.networkError;
   }
 }
 
