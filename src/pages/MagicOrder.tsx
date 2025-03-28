@@ -78,7 +78,7 @@ import {
 
 /**
  * Página Mensaje Mágico
- * v1.0.47
+ * v1.0.51
  */
 const MagicOrder = () => {
   // Recuperar estado del localStorage al cargar la página
@@ -140,18 +140,13 @@ const MagicOrder = () => {
   const [analysisDialogTab, setAnalysisDialogTab] = useState('phase1');
   const { toast } = useToast();
   
-  // Nuevo estado para el API Provider y modelo
-  const [apiProvider, setApiProviderState] = useState<ApiProvider>(() => {
-    const savedProvider = localStorage.getItem('magicOrder_apiProvider');
-    return (savedProvider as ApiProvider) || "cohere";
-  });
+  // Solo mantenemos Google Gemini como proveedor
+  const [apiProvider, setApiProviderState] = useState<ApiProvider>("google-gemini");
   
-  const [geminiModel, setGeminiModelState] = useState<string>(() => {
-    const savedModel = localStorage.getItem('magicOrder_geminiModel');
-    return savedModel || GOOGLE_GEMINI_MODELS.GEMINI_PRO;
-  });
+  // Solo mantenemos el modelo Gemini 2.0 Flash
+  const [geminiModel, setGeminiModelState] = useState<string>(GOOGLE_GEMINI_MODELS.GEMINI_FLASH_2);
   
-  // Estado para el tiempo de análisis
+  // Estado para el tiempo de análisis - ahora siempre visible
   const [analysisTime, setAnalysisTime] = useState<number | null>(null);
   
   // Efecto para sincronizar el estado con los servicios
@@ -287,6 +282,10 @@ const MagicOrder = () => {
       return;
     }
 
+    // Limpiar pedidos anteriores
+    setOrders([]);
+    localStorage.removeItem('magicOrder_orders');
+    
     setIsAnalyzing(true);
     setAnalysisError(null);
     setRawJsonResponse(null);
@@ -375,7 +374,7 @@ const MagicOrder = () => {
           message: "No se pudo identificar ningún pedido en el mensaje. Intenta con un formato más claro, por ejemplo: 'nombre 2 producto'"
         });
       } else {
-        setOrders(prevOrders => [...prevOrders, ...newOrders]);
+        setOrders(newOrders);
         setShowOrderSummary(true);
         
         // Notificamos mediante evento para que se muestre incluso si el usuario no está en esta página
@@ -777,7 +776,7 @@ const MagicOrder = () => {
           </div>
         </div>
 
-        {/* Selector de API y modelo */}
+        {/* Información del tiempo de análisis - ahora siempre visible */}
         <Card className="rounded-xl shadow-sm overflow-hidden">
           <CardHeader className="py-3">
             <CardTitle className="text-base">Configuración de la IA</CardTitle>
@@ -786,49 +785,25 @@ const MagicOrder = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Proveedor de IA</label>
-                <Select 
-                  value={apiProvider} 
-                  onValueChange={(value) => setApiProviderState(value as ApiProvider)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar proveedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cohere">Cohere (Command R+)</SelectItem>
-                    <SelectItem value="google-gemini">Google Gemini</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="rounded px-3 py-2 border bg-muted/50">
+                  Google Gemini 
+                </div>
               </div>
               
-              {apiProvider === "google-gemini" && (
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Modelo de Gemini</label>
-                  <Select 
-                    value={geminiModel} 
-                    onValueChange={(value) => setGeminiModelState(value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar modelo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO}>Gemini Pro</SelectItem>
-                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO_VISION}>Gemini Pro Vision</SelectItem>
-                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_FLASH}>Gemini 1.5 Flash</SelectItem>
-                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_FLASH_2}>Gemini 1.5 Flash 2.0</SelectItem>
-                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO_LATEST}>Gemini 1.5 Pro (Latest)</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Modelo</label>
+                <div className="rounded px-3 py-2 border bg-muted/50 flex items-center gap-2">
+                  <Sparkles size={14} className="text-amber-500" />
+                  Gemini 2.0 Flash
                 </div>
-              )}
+              </div>
             </div>
             
-            {/* Tiempo de análisis */}
-            {analysisTime !== null && (
-              <div className="mt-3 text-sm flex items-center gap-1 text-muted-foreground">
-                <Clock size={14} className="mr-1" />
-                <span>Tiempo de análisis: <span className="font-medium">{formatAnalysisTime(analysisTime)}</span></span>
-              </div>
-            )}
+            {/* Tiempo de análisis - siempre visible */}
+            <div className="mt-3 text-sm flex items-center gap-1 text-muted-foreground">
+              <Clock size={14} className="mr-1" />
+              <span>Tiempo de análisis: <span className="font-medium">{formatAnalysisTime(analysisTime || 0)}</span></span>
+            </div>
           </CardContent>
         </Card>
 

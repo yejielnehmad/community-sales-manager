@@ -15,31 +15,38 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { GOOGLE_GEMINI_MODELS } from "@/lib/api-config";
+import { setApiProvider, setGeminiModel } from "@/services/geminiService";
 
 const App = () => {
   const { toast } = useToast();
   const [isAnalyzingGlobally, setIsAnalyzingGlobally] = useState(false);
   const [analysisStage, setAnalysisStage] = useState("");
-  const [analysisProgress, setAnalysisProgress] = useState(0);
+  
+  // Configuramos la API de Gemini globalmente al inicio
+  useEffect(() => {
+    // Establecemos Google Gemini como proveedor predeterminado para toda la aplicación
+    setApiProvider("google-gemini");
+    setGeminiModel(GOOGLE_GEMINI_MODELS.GEMINI_FLASH_2);
+    
+    console.log("API configurada para toda la aplicación: Google Gemini 2.0 Flash");
+  }, []);
   
   // Escuchar cambios en el estado del análisis en cualquier parte de la aplicación
   useEffect(() => {
     // Primero, intentamos restaurar el estado desde sessionStorage
     const savedIsAnalyzing = sessionStorage.getItem('magicOrder_isAnalyzing');
     const savedAnalysisStage = sessionStorage.getItem('magicOrder_analysisStage');
-    const savedAnalysisProgress = sessionStorage.getItem('magicOrder_analysisProgress');
     
     if (savedIsAnalyzing === 'true') {
       setIsAnalyzingGlobally(true);
       if (savedAnalysisStage) setAnalysisStage(savedAnalysisStage);
-      if (savedAnalysisProgress) setAnalysisProgress(parseInt(savedAnalysisProgress));
       
       // Notificamos del estado recuperado
       const event = new CustomEvent('analysisStateChange', {
         detail: { 
           isAnalyzing: true,
-          stage: savedAnalysisStage || "Procesando mensaje",
-          progress: parseInt(savedAnalysisProgress || "0")
+          stage: savedAnalysisStage || "Procesando mensaje"
         }
       });
       window.dispatchEvent(event);
@@ -47,23 +54,20 @@ const App = () => {
     
     // Función para manejar el cambio de estado del análisis
     const handleAnalysisStateChange = (event: CustomEvent) => {
-      const { isAnalyzing, stage, ordersCount, progress } = event.detail;
-      console.log("App: Evento de análisis recibido", { isAnalyzing, stage, ordersCount, progress });
+      const { isAnalyzing, stage, ordersCount } = event.detail;
+      console.log("App: Evento de análisis recibido", { isAnalyzing, stage, ordersCount });
       
       // Actualizamos el estado global
       setIsAnalyzingGlobally(isAnalyzing);
       if (stage) setAnalysisStage(stage);
-      if (typeof progress === 'number') setAnalysisProgress(progress);
       
       // Guardamos el estado actual en sessionStorage para mantenerlo entre navegaciones
       if (isAnalyzing) {
         sessionStorage.setItem('magicOrder_isAnalyzing', 'true');
         if (stage) sessionStorage.setItem('magicOrder_analysisStage', stage);
-        if (typeof progress === 'number') sessionStorage.setItem('magicOrder_analysisProgress', progress.toString());
       } else {
         sessionStorage.removeItem('magicOrder_isAnalyzing');
         sessionStorage.removeItem('magicOrder_analysisStage');
-        sessionStorage.removeItem('magicOrder_analysisProgress');
       }
       
       // Cuando el análisis termina y hay órdenes detectadas
@@ -87,13 +91,11 @@ const App = () => {
         const storedIsAnalyzing = sessionStorage.getItem('magicOrder_isAnalyzing');
         if (storedIsAnalyzing === 'true' && !isAnalyzingGlobally) {
           const storedStage = sessionStorage.getItem('magicOrder_analysisStage');
-          const storedProgress = sessionStorage.getItem('magicOrder_analysisProgress');
           // Re-emitir el evento con los datos almacenados
           const event = new CustomEvent('analysisStateChange', {
             detail: { 
               isAnalyzing: true,
-              stage: storedStage || "Procesando mensaje",
-              progress: parseInt(storedProgress || "0")
+              stage: storedStage || "Procesando mensaje"
             }
           });
           window.dispatchEvent(event);

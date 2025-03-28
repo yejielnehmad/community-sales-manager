@@ -13,11 +13,7 @@ export const GOOGLE_GEMINI_ENDPOINT: string = "https://generativelanguage.google
 
 // Modelos de Google Gemini disponibles
 export const GOOGLE_GEMINI_MODELS = {
-  GEMINI_PRO: "gemini-pro",
-  GEMINI_PRO_VISION: "gemini-pro-vision",
-  GEMINI_FLASH: "gemini-1.5-flash",
-  GEMINI_FLASH_2: "gemini-2.0-flash",
-  GEMINI_PRO_LATEST: "gemini-1.5-pro-latest"
+  GEMINI_FLASH_2: "gemini-2.0-flash"
 };
 
 // Fecha de la última actualización de la API

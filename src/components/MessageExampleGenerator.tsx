@@ -44,7 +44,8 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       }, 150);
       
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
-      const generatedExample = await generateMultipleExamples();
+      // Ahora configurado para generar 30 pedidos con 85% precisión
+      const generatedExample = await generateMultipleExamples(30, 0.85);
       
       // Completamos el progreso de forma más natural
       clearInterval(interval);
@@ -85,7 +86,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-500" />
-          Ejemplo de mensaje
+          Ejemplo de mensaje (30 pedidos)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -135,7 +136,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="w-full mb-4">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-muted-foreground">
-                {generationProgress < 50 ? "Preparando ejemplos..." : 
+                {generationProgress < 50 ? "Preparando ejemplos (30 pedidos)..." : 
                  generationProgress < 75 ? "Procesando datos..." : 
                  generationProgress < 95 ? "Finalizando..." : 
                  "¡Completado!"}
@@ -150,7 +151,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md">
             <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm text-muted-foreground">
-              Haz clic en "Generar con IA" para crear un ejemplo de mensaje de cliente basado en clientes reales.
+              Haz clic en "Generar con IA" para crear un ejemplo de mensaje con 30 pedidos de clientes (85% de precisión, 15% confuso).
             </p>
           </div>
         )}
@@ -159,7 +160,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
           <div className="text-center p-6 border border-dashed rounded-md animate-pulse">
             <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary/50 animate-spin" />
             <p className="text-sm text-muted-foreground">
-              Generando mensaje de ejemplo...
+              Generando mensaje de ejemplo con 30 pedidos...
             </p>
           </div>
         )}
@@ -173,7 +174,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
                 <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">
                   1
                 </span>
-                Ejemplo 
+                Ejemplo (30 pedidos - 85% precisión) 
               </span>
               <Button
                 size="sm"
