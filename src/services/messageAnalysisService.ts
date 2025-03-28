@@ -1,6 +1,7 @@
+
 /**
  * Servicio para análisis de mensajes
- * v1.0.0
+ * v1.0.1
  */
 import { MessageAnalysis } from "@/types";
 import { 
@@ -204,7 +205,8 @@ export const analyzeTwoPhases = async (
           result.items = [];
         }
         
-        return true;
+        // Filtrar resultados sin items (pedidos vacíos)
+        return result.items.length > 0;
       });
       
       return {
@@ -249,7 +251,8 @@ export const analyzeTwoPhases = async (
             result.items = [];
           }
           
-          return true;
+          // Filtrar resultados sin items (pedidos vacíos)
+          return result.items.length > 0;
         });
         
         return {
@@ -364,7 +367,8 @@ export const analyzeThreePhases = async (
           result.items = [];
         }
         
-        return true;
+        // Filtrar resultados sin items (pedidos vacíos)
+        return result.items.length > 0;
       });
       
       return {
