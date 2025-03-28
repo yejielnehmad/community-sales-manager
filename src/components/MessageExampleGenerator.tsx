@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, Copy, Check } from "lucide-react";
+import { Loader2, Sparkles, Copy, Check, Timer, Clock } from "lucide-react";
 import { generateMultipleExamples } from "@/services/aiLabsService";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,57 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState<string>("");
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
+  
+  // Referencia para el intervalo del cronómetro
+  const timerIntervalRef = useRef<number | null>(null);
+  // Referencia para el tiempo de inicio
+  const startTimeRef = useRef<number | null>(null);
+  
+  // Función para formatear el tiempo en formato mm:ss
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  // Iniciamos el cronómetro
+  const startTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+    
+    setElapsedTime(0);
+    startTimeRef.current = Date.now();
+    
+    timerIntervalRef.current = window.setInterval(() => {
+      const now = Date.now();
+      const startTime = startTimeRef.current || now;
+      const elapsed = Math.floor((now - startTime) / 1000);
+      setElapsedTime(elapsed);
+      
+      // Calculamos el tiempo estimado restante basándonos en el progreso
+      if (generationProgress > 10 && generationProgress < 95) {
+        const percentComplete = generationProgress / 100;
+        if (percentComplete > 0) {
+          const totalEstimatedTime = elapsed / percentComplete;
+          const remaining = totalEstimatedTime - elapsed;
+          setEstimatedTimeRemaining(Math.max(0, Math.round(remaining)));
+        }
+      } else if (generationProgress >= 95) {
+        setEstimatedTimeRemaining(0);
+      }
+    }, 1000);
+  };
+  
+  // Detenemos el cronómetro
+  const stopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
 
   // Escuchamos el evento de generación para actualizar el estado
   useEffect(() => {
@@ -44,9 +96,11 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       
       if (!isGenerating && progress === 100) {
         // Completado exitosamente
+        stopTimer();
         setTimeout(() => setIsGenerating(false), 500);
       } else if (!isGenerating && error) {
         // Error en la generación
+        stopTimer();
         setAlertMessage(`Error: ${error}`);
         setIsGenerating(false);
         setGenerationProgress(0);
@@ -57,6 +111,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     
     return () => {
       window.removeEventListener('exampleGenerationStateChange', handleExampleGenerationEvent as EventListener);
+      stopTimer();
     };
   }, []);
 
@@ -64,6 +119,10 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
     setIsGenerating(true);
     setGenerationProgress(5);
     setGenerationStage("Iniciando generación...");
+    setExample("");
+    
+    // Iniciamos el cronómetro
+    startTimer();
     
     try {
       // Generamos un mensaje de ejemplo basado en los clientes y productos reales
@@ -79,6 +138,7 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
       setAlertMessage("No se pudo generar el ejemplo. Por favor, intenta nuevamente.");
       setIsGenerating(false);
       setGenerationProgress(0);
+      stopTimer();
     }
   };
 
@@ -150,14 +210,28 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
         {isGenerating && (
           <div className="w-full mb-4">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-muted-foreground">
-                {generationStage || (
-                  generationProgress < 50 ? "Preparando ejemplos (15 pedidos)..." : 
-                  generationProgress < 75 ? "Procesando datos..." : 
-                  generationProgress < 95 ? "Finalizando..." : 
-                  "¡Completado!"
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {generationStage || (
+                    generationProgress < 50 ? "Preparando ejemplos (15 pedidos)..." : 
+                    generationProgress < 75 ? "Procesando datos..." : 
+                    generationProgress < 95 ? "Finalizando..." : 
+                    "¡Completado!"
+                  )}
+                </span>
+                
+                <Badge variant="custom" className="bg-amber-500 text-white flex items-center gap-1">
+                  <Timer className="h-3 w-3" />
+                  <span>{formatTime(elapsedTime)}</span>
+                </Badge>
+                
+                {estimatedTimeRemaining !== null && (
+                  <Badge variant="custom" className="bg-blue-500 text-white flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Restante: ~{formatTime(estimatedTimeRemaining)}</span>
+                  </Badge>
                 )}
-              </span>
+              </div>
               <span className="text-sm font-medium">{Math.round(generationProgress)}%</span>
             </div>
             <Progress value={generationProgress} className="h-2" />
@@ -178,6 +252,10 @@ export const MessageExampleGenerator = ({ onSelectExample }: MessageExampleGener
             <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary/50 animate-spin" />
             <p className="text-sm text-muted-foreground">
               Generando mensaje de ejemplo con 15 pedidos...
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Tiempo transcurrido: {formatTime(elapsedTime)}
+              {estimatedTimeRemaining !== null && ` • Tiempo restante estimado: ~${formatTime(estimatedTimeRemaining)}`}
             </p>
           </div>
         )}

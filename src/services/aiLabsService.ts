@@ -171,17 +171,23 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
         content: `Eres un asistente que ayuda a los desarrolladores a generar ejemplos de mensajes de clientes para probar un sistema de procesamiento de pedidos. 
         Debes generar mensajes que parezcan reales con las siguientes características:
         
-        1. Incluye aproximadamente ${orderCount} pedidos diferentes.
+        1. Incluye exactamente ${orderCount} pedidos diferentes.
         2. Alrededor del ${precisionRate * 100}% de los pedidos deben estar claramente especificados (nombre del cliente y productos con cantidades), mientras que el ${(1 - precisionRate) * 100}% deben ser ambiguos o confusos (faltar datos, expresiones poco claras, errores).
         3. Los pedidos deben ser variados, pueden repetirse algunos clientes.
         4. Incluye variaciones en la forma de expresar cantidades (números, texto).
         5. El mensaje debe simularse como si fuera un mensaje de WhatsApp o chat normal.
         
-        Solo genera el texto del mensaje, sin ninguna explicación adicional ni formato.`
+        Solo genera el texto del mensaje, sin ninguna explicación adicional ni formato.
+        
+        IMPORTANTE: Debes responder únicamente con el mensaje de texto simulado, sin ningún otro contenido.
+        No incluyas explicaciones, marcado ni estructura formal como lista numerada o con viñetas. 
+        El resultado debe ser un mensaje de chat simple como lo escribiría un cliente real.`
       },
       {
         role: "user",
-        content: "Genera un ejemplo de mensaje de WhatsApp con pedidos de clientes."
+        content: `Genera un ejemplo de mensaje de WhatsApp con exactamente ${orderCount} pedidos de clientes diferentes. 
+        Asegúrate de que el formato sea similar a un mensaje real de WhatsApp (sin estructura formal, sin numeración).
+        Usa nombres comunes de clientes (Juan, María, Pedro, etc.) y productos típicos (pañales, agua, leche, pan, etc.)`
       }
     ];
     
@@ -204,8 +210,10 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
       body: JSON.stringify({
         contents: messages,
         generationConfig: {
-          temperature: 0.7, // Reducimos un poco la temperatura para más precisión
+          temperature: 0.65, // Reducimos la temperatura para más consistencia
           maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS, // Utilizamos el máximo de tokens disponible
+          topP: 0.9,
+          topK: 40,
         },
       }),
     });
@@ -239,6 +247,7 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
     }
     
     const result = await response.json();
+    console.log("Respuesta completa de la API:", JSON.stringify(result, null, 2));
     
     if (!result.candidates || result.candidates.length === 0) {
       console.error("No se recibieron candidatos de respuesta:", result);
@@ -261,6 +270,40 @@ export const generateMultipleExamples = async (orderCount: number = 15, precisio
     
     if (!generatedText) {
       console.error("Respuesta sin texto:", result);
+      
+      // Intentamos extraer cualquier texto disponible en la respuesta
+      let alternativeText = "";
+      try {
+        if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+          const parts = result.candidates[0].content.parts;
+          if (parts && Array.isArray(parts)) {
+            for (const part of parts) {
+              if (part && typeof part === 'object' && part.text) {
+                alternativeText += part.text + " ";
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error al extraer texto alternativo:", e);
+      }
+      
+      if (alternativeText.trim()) {
+        console.log("Se encontró texto alternativo:", alternativeText);
+        
+        // Notificamos que hemos completado la generación con texto alternativo
+        const completedEvent = new CustomEvent('exampleGenerationStateChange', {
+          detail: { 
+            isGenerating: false,
+            stage: "¡Ejemplos generados (formato alternativo)!",
+            progress: 100,
+            exampleCount: orderCount
+          }
+        });
+        window.dispatchEvent(completedEvent);
+        
+        return alternativeText.trim();
+      }
       
       // Notificamos el error
       const errorEvent = new CustomEvent('exampleGenerationStateChange', {
