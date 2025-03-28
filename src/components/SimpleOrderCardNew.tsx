@@ -11,11 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OrderCard as OrderCardType, MessageItem } from '@/types';
-import { useState, useEffect } from 'react';
+import { OrderCard as OrderCardType, MessageItem, MessageClient } from '@/types';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { APP_VERSION } from '@/lib/app-config';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SimpleOrderCardProps {
   order: OrderCardType;
@@ -28,7 +28,7 @@ interface SimpleOrderCardProps {
 
 /**
  * Componente de tarjeta de pedido simplificada basada en el diseño proporcionado
- * v1.0.46
+ * v1.0.56
  */
 export const SimpleOrderCardNew = ({ 
   order, 
@@ -42,10 +42,21 @@ export const SimpleOrderCardNew = ({
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [customQuantity, setCustomQuantity] = useState<number | null>(null);
   const [isLoadingVariants, setIsLoadingVariants] = useState<{[key: number]: boolean}>({});
+  const cardRef = useRef<HTMLDivElement>(null);
   
-  // Verificamos si hay información faltante - MODIFICADO para corregir la validación
-  // Un pedido está incompleto si: no tiene cliente, la confianza del cliente no es alta,
-  // o hay algún ítem que no tiene producto, cantidad, o está marcado como 'duda' y no tiene variante cuando requiere una
+  // Efecto para hacer scroll a la tarjeta cuando se abre
+  useEffect(() => {
+    if (isOpen && cardRef.current) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [isOpen]);
+  
+  // Verificamos si hay información faltante
   const hasMissingInfo = !order.client.id || 
     order.client.matchConfidence !== 'alto' || 
     order.items.some(item => {
@@ -354,10 +365,13 @@ export const SimpleOrderCardNew = ({
   };
   
   return (
-    <Card className={cn(
-      "overflow-hidden transition-all duration-200 mb-2 border rounded-md",
-      hasMissingInfo ? "border-amber-300 shadow-sm" : "border-green-300 shadow-sm"
-    )}>
+    <Card 
+      ref={cardRef}
+      className={cn(
+        "overflow-hidden transition-all duration-200 mb-2 border rounded-md scroll-mt-4",
+        hasMissingInfo ? "border-amber-300 shadow-sm" : "border-green-300 shadow-sm"
+      )}
+    >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="grid grid-cols-12 border-b">
           {/* Columna del cliente */}
@@ -407,154 +421,156 @@ export const SimpleOrderCardNew = ({
         </div>
         
         <CollapsibleContent>
-          <div className="p-3 space-y-3">
-            {order.items.map((item, itemIndex) => {
-              // Lógica para determinar el estado del ítem
-              const productInfo = item.product.id ? products.find(p => p.id === item.product.id) : null;
-              const hasVariants = productInfo?.variants && productInfo.variants.length > 0;
-              const hasVariantIssue = hasVariants && !item.variant?.id;
-              const hasQuantityIssue = !item.quantity;
-              const hasProductIssue = !item.product.id;
-              
-              // Un ítem necesita atención si no tiene producto, variante (cuando la requiere) o cantidad
-              const needsAttention = hasProductIssue || hasVariantIssue || hasQuantityIssue || item.status === 'duda';
-              
-              const isLoading = isLoadingVariants[itemIndex];
-              
-              return (
-                <div key={itemIndex} className={cn(
-                  "p-2 rounded-md text-sm",
-                  needsAttention ? "bg-amber-50" : "bg-green-50"
-                )}>
-                  <div className="flex justify-between items-center">
-                    {/* Selección de producto */}
-                    {!item.product.id ? (
-                      <div className="flex-1">
-                        <Select onValueChange={(value) => handleProductUpdate(itemIndex, value)}>
-                          <SelectTrigger className="w-[200px] h-8 border-amber-300 bg-amber-50 text-amber-800">
-                            <SelectValue placeholder="Seleccionar producto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map(product => (
-                              <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        {/* Alternativas sugeridas */}
-                        {item.alternatives && item.alternatives.length > 0 && (
-                          <div className="mt-2">
-                            <div className="flex flex-wrap gap-1">
-                              {item.alternatives.map((alt, altIndex) => (
-                                <Badge 
-                                  key={altIndex}
-                                  variant="outline" 
-                                  className="cursor-pointer hover:bg-accent transition-colors"
-                                  onClick={() => {
-                                    const selectedProduct = products.find(p => p.id === alt.id);
-                                    if (selectedProduct) {
-                                      handleProductUpdate(itemIndex, alt.id);
-                                    }
-                                  }}
-                                >
-                                  {alt.name}
-                                </Badge>
+          <ScrollArea className="max-h-96">
+            <div className="p-3 space-y-3">
+              {order.items.map((item, itemIndex) => {
+                // Lógica para determinar el estado del ítem
+                const productInfo = item.product.id ? products.find(p => p.id === item.product.id) : null;
+                const hasVariants = productInfo?.variants && productInfo.variants.length > 0;
+                const hasVariantIssue = hasVariants && !item.variant?.id;
+                const hasQuantityIssue = !item.quantity;
+                const hasProductIssue = !item.product.id;
+                
+                // Un ítem necesita atención si no tiene producto, variante (cuando la requiere) o cantidad
+                const needsAttention = hasProductIssue || hasVariantIssue || hasQuantityIssue || item.status === 'duda';
+                
+                const isLoading = isLoadingVariants[itemIndex];
+                
+                return (
+                  <div key={itemIndex} className={cn(
+                    "p-2 rounded-md text-sm",
+                    needsAttention ? "bg-amber-50" : "bg-green-50"
+                  )}>
+                    <div className="flex justify-between items-center">
+                      {/* Selección de producto */}
+                      {!item.product.id ? (
+                        <div className="flex-1">
+                          <Select onValueChange={(value) => handleProductUpdate(itemIndex, value)}>
+                            <SelectTrigger className="w-[200px] h-8 border-amber-300 bg-amber-50 text-amber-800">
+                              <SelectValue placeholder="Seleccionar producto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.map(product => (
+                                <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
                               ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {/* Alternativas sugeridas */}
+                          {item.alternatives && item.alternatives.length > 0 && (
+                            <div className="mt-2">
+                              <div className="flex flex-wrap gap-1">
+                                {item.alternatives.map((alt, altIndex) => (
+                                  <Badge 
+                                    key={altIndex}
+                                    variant="outline" 
+                                    className="cursor-pointer hover:bg-accent transition-colors"
+                                    onClick={() => {
+                                      const selectedProduct = products.find(p => p.id === alt.id);
+                                      if (selectedProduct) {
+                                        handleProductUpdate(itemIndex, alt.id);
+                                      }
+                                    }}
+                                  >
+                                    {alt.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 w-fit mt-1">
+                                <HelpCircle size={12} className="mr-1" />
+                                ¿Te refieres a alguno de estos?
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 w-fit mt-1">
-                              <HelpCircle size={12} className="mr-1" />
-                              ¿Te refieres a alguno de estos?
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="font-medium">{item.quantity || '?'}x </span>
+                          <span className="ml-1">{item.product.name}</span>
+                          {item.variant && (
+                            <span className="text-muted-foreground ml-1">
+                              ({item.variant.name})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Selección de cantidad */}
+                      {hasQuantityIssue && (
+                        <Input
+                          type="number"
+                          min="1"
+                          className="w-16 h-8 border-amber-300 bg-amber-50 text-amber-800 ml-2"
+                          placeholder="Cant."
+                          onChange={(e) => handleQuantityUpdate(itemIndex, parseInt(e.target.value) || 0)}
+                        />
+                      )}
+                      
+                      {/* Estado */}
+                      {item.product.id && (
+                        <Badge variant={needsAttention ? "outline" : "secondary"} 
+                          className={cn(
+                            needsAttention 
+                              ? "bg-amber-50 text-amber-700 border-amber-200" 
+                              : "bg-green-50 text-green-700 border-green-200"
+                          )}
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader2 size={12} className="mr-1 animate-spin" />
+                              Cargando...
+                            </>
+                          ) : needsAttention ? (
+                            <>
+                              <AlertCircle size={12} className="mr-1" />
+                              {hasVariantIssue ? "Falta variante" : hasQuantityIssue ? "Falta cantidad" : "Requiere confirmar"}
+                            </>
+                          ) : (
+                            <>
+                              <Check size={12} className="mr-1" />
+                              OK
+                            </>
+                          )}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {/* IMPORTANTE: Aquí mostramos las variantes disponibles si el producto las tiene y no hay una seleccionada */}
+                    {hasVariantIssue && productInfo?.variants && productInfo.variants.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-xs font-medium mb-1 text-amber-700">
+                          Selecciona una variante:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {productInfo.variants.map((variant) => (
+                            <Badge 
+                              key={variant.id} 
+                              variant="outline"
+                              className="cursor-pointer transition-colors text-xs hover:bg-primary/10"
+                              onClick={() => handleVariantUpdate(itemIndex, variant.id)}
+                            >
+                              {variant.name}
                             </Badge>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <span className="font-medium">{item.quantity || '?'}x </span>
-                        <span className="ml-1">{item.product.name}</span>
-                        {item.variant && (
-                          <span className="text-muted-foreground ml-1">
-                            ({item.variant.name})
-                          </span>
-                        )}
+                          ))}
+                        </div>
                       </div>
                     )}
                     
-                    {/* Selección de cantidad */}
-                    {hasQuantityIssue && (
-                      <Input
-                        type="number"
-                        min="1"
-                        className="w-16 h-8 border-amber-300 bg-amber-50 text-amber-800 ml-2"
-                        placeholder="Cant."
-                        onChange={(e) => handleQuantityUpdate(itemIndex, parseInt(e.target.value) || 0)}
-                      />
-                    )}
-                    
-                    {/* Estado */}
-                    {item.product.id && (
-                      <Badge variant={needsAttention ? "outline" : "secondary"} 
-                        className={cn(
-                          needsAttention 
-                            ? "bg-amber-50 text-amber-700 border-amber-200" 
-                            : "bg-green-50 text-green-700 border-green-200"
-                        )}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 size={12} className="mr-1 animate-spin" />
-                            Cargando...
-                          </>
-                        ) : needsAttention ? (
-                          <>
-                            <AlertCircle size={12} className="mr-1" />
-                            {hasVariantIssue ? "Falta variante" : hasQuantityIssue ? "Falta cantidad" : "Requiere confirmar"}
-                          </>
-                        ) : (
-                          <>
-                            <Check size={12} className="mr-1" />
-                            OK
-                          </>
-                        )}
-                      </Badge>
+                    {/* Mensaje de notas/error y editor de problemas */}
+                    {item.notes && item.status === 'duda' && (
+                      <>
+                        <div className="mt-2 text-xs text-amber-700 flex items-center">
+                          <AlertCircle size={12} className="mr-1" />
+                          {item.notes}
+                        </div>
+                        {renderIssueEditor(item, itemIndex)}
+                      </>
                     )}
                   </div>
-                  
-                  {/* IMPORTANTE: Aquí mostramos las variantes disponibles si el producto las tiene y no hay una seleccionada */}
-                  {hasVariantIssue && productInfo?.variants && productInfo.variants.length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-xs font-medium mb-1 text-amber-700">
-                        Selecciona una variante:
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {productInfo.variants.map((variant) => (
-                          <Badge 
-                            key={variant.id} 
-                            variant="outline"
-                            className="cursor-pointer transition-colors text-xs hover:bg-primary/10"
-                            onClick={() => handleVariantUpdate(itemIndex, variant.id)}
-                          >
-                            {variant.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Mensaje de notas/error y editor de problemas */}
-                  {item.notes && item.status === 'duda' && (
-                    <>
-                      <div className="mt-2 text-xs text-amber-700 flex items-center">
-                        <AlertCircle size={12} className="mr-1" />
-                        {item.notes}
-                      </div>
-                      {renderIssueEditor(item, itemIndex)}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
         </CollapsibleContent>
       </Collapsible>
     </Card>
