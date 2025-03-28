@@ -15,8 +15,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Clock } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 
 const App = () => {
   const { toast } = useToast();
@@ -112,25 +110,6 @@ const App = () => {
     <ThemeProvider defaultTheme="light" storageKey="app-theme">
       <TooltipProvider>
         <SidebarProvider>
-          {/* Barra de progreso global para el análisis de IA */}
-          {isAnalyzingGlobally && (
-            <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 shadow-md">
-              <div className="container mx-auto p-2">
-                <div className="flex items-center justify-between mb-1 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                    <span className="font-medium">{analysisStage || "Procesando..."}</span>
-                  </div>
-                  <div className="font-medium flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {Math.round(analysisProgress)}%
-                  </div>
-                </div>
-                <Progress value={analysisProgress} className="h-2 w-full" />
-              </div>
-            </div>
-          )}
-          
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Dashboard />} />

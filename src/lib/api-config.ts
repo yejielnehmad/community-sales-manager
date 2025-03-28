@@ -16,6 +16,7 @@ export const GOOGLE_GEMINI_MODELS = {
   GEMINI_PRO: "gemini-pro",
   GEMINI_PRO_VISION: "gemini-pro-vision",
   GEMINI_FLASH: "gemini-1.5-flash",
+  GEMINI_FLASH_2: "gemini-1.5-flash-02",
   GEMINI_PRO_LATEST: "gemini-1.5-pro-latest"
 };
 

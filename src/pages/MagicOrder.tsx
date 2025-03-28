@@ -814,6 +814,7 @@ const MagicOrder = () => {
                       <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO}>Gemini Pro</SelectItem>
                       <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO_VISION}>Gemini Pro Vision</SelectItem>
                       <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_FLASH}>Gemini 1.5 Flash</SelectItem>
+                      <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_FLASH_2}>Gemini 1.5 Flash 2.0</SelectItem>
                       <SelectItem value={GOOGLE_GEMINI_MODELS.GEMINI_PRO_LATEST}>Gemini 1.5 Pro (Latest)</SelectItem>
                     </SelectContent>
                   </Select>
